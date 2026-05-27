@@ -1,0 +1,499 @@
+package com.callbreak.room
+
+import com.callbreak.api.ws.ServerMessage
+import com.callbreak.domain.models.CallbreakState
+import com.callbreak.domain.models.CurrentTrick
+import com.callbreak.domain.models.GamePhase
+import com.callbreak.domain.models.PlayerId
+import com.callbreak.domain.models.PlayingCard
+import com.callbreak.domain.models.Player
+import com.callbreak.domain.models.Suit
+import com.callbreak.domain.models.TrickCard
+import com.callbreak.domain.models.createDeck
+import com.callbreak.domain.rules.evaluateTrickWinner
+import com.callbreak.domain.rules.validateMove
+import com.callbreak.domain.rules.resolveRound
+import com.callbreak.domain.rules.calculateBotBid
+import com.callbreak.domain.rules.selectBotCard
+import com.callbreak.config.appJson
+import io.ktor.websocket.DefaultWebSocketSession
+import io.ktor.websocket.send
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.encodeToString
+
+/**
+ * Manages a single active Callbreak game room.
+ *
+ * Thread-safety: all state mutations are gated behind [mutex].
+ * WebSocket sessions are stored in [sessions] (playerId → session).
+ */
+class GameRoom(initialState: CallbreakState) {
+
+    private val mutex = Mutex()
+    private var state: CallbreakState = initialState
+
+    /** Connected WebSocket sessions, keyed by playerId. */
+    private val sessions = mutableMapOf<PlayerId, DefaultWebSocketSession>()
+
+    /** Active session tokens generated at room create/join, keyed by playerId. */
+    private val sessionTokens = ConcurrentHashMap<PlayerId, String>()
+
+    /** Takeover timers for players who are offline, keyed by playerId. */
+    private val offlineTimers = ConcurrentHashMap<PlayerId, Job>()
+
+    // ─── Session Management ──────────────────────────────────────────────────
+
+    suspend fun addSession(playerId: PlayerId, session: DefaultWebSocketSession) {
+        mutex.withLock { sessions[playerId] = session }
+    }
+
+    suspend fun removeSession(playerId: PlayerId) {
+        mutex.withLock {
+            sessions.remove(playerId)
+
+            // If the game is active (not LOBBY and not GAME_OVER), mark player offline
+            if (state.phase != GamePhase.LOBBY && state.phase != GamePhase.GAME_OVER) {
+                state = state.copy(
+                    players = state.players.map { p ->
+                        if (p.id == playerId) p.copy(isOnline = false) else p
+                    }
+                )
+                broadcastState()
+
+                // If it is currently this player's turn, start the 60-second timer
+                if (state.currentTurn == playerId) {
+                    startTakeoverTimer(playerId)
+                }
+            }
+        }
+    }
+
+    fun registerSessionToken(playerId: PlayerId, token: String) {
+        sessionTokens[playerId] = token
+    }
+
+    fun validateSessionToken(playerId: PlayerId, token: String): Boolean {
+        val exists = state.players.any { it.id == playerId }
+        return exists && sessionTokens[playerId] == token
+    }
+
+    fun getSessionToken(playerId: PlayerId): String? {
+        return sessionTokens[playerId]
+    }
+
+    suspend fun playerReconnected(playerId: PlayerId) = mutex.withLock {
+        offlineTimers.remove(playerId)?.cancel()
+
+        state = state.copy(
+            players = state.players.map { p ->
+                if (p.id == playerId) {
+                    var cleanName = p.name
+                    if (cleanName.endsWith(" (Bot)")) {
+                        cleanName = cleanName.removeSuffix(" (Bot)")
+                    }
+                    p.copy(
+                        isOnline = true,
+                        isBot = false, // Hot-swap player back in
+                        name = cleanName
+                    )
+                } else p
+            }
+        )
+        broadcastState()
+    }
+
+    fun getState(): CallbreakState = state
+
+    /**
+     * Adds a player to the room (used during LOBBY join, pre-game).
+     * Modifies state within the mutex and broadcasts the update to existing sessions.
+     */
+    suspend fun addPlayer(player: Player) {
+        mutex.withLock {
+            state = state.copy(players = state.players + player)
+        }
+        broadcastState()
+    }
+
+    // ─── Game Lifecycle ──────────────────────────────────────────────────────
+
+    /**
+     * Starts the game: deals cards and moves to BIDDING phase.
+     * Fills any empty seats with bots to reach 4 players.
+     */
+    suspend fun startGame(): Result<Unit> {
+        val startResult = mutex.withLock {
+            if (state.phase != GamePhase.LOBBY) {
+                return@withLock Result.failure(Exception("Game already started"))
+            }
+            val humanCount = state.players.size
+            if (humanCount == 0) {
+                return@withLock Result.failure(Exception("Need at least 1 player to start"))
+            }
+
+            // Fill empty seats with bots to reach 4 players
+            val botsNeeded = CallbreakState.PLAYERS_REQUIRED - humanCount
+            val updatedPlayers = state.players.toMutableList()
+            for (i in 1..botsNeeded) {
+                val botId = "bot_$i"
+                val bot = Player(
+                    id = botId,
+                    name = "Bot $i",
+                    isBot = true,
+                    isOnline = true
+                )
+                updatedPlayers.add(bot)
+                // Register an ephemeral session token for bots
+                registerSessionToken(botId, "bot-token-$botId")
+            }
+
+            val shuffled = createDeck().shuffled()
+            val hands = updatedPlayers.mapIndexed { index, player ->
+                player.id to shuffled.subList(
+                    index * CallbreakState.CARDS_PER_HAND,
+                    (index + 1) * CallbreakState.CARDS_PER_HAND
+                )
+            }.toMap()
+
+            val firstBidder = updatedPlayers[(state.dealerIndex + 1) % updatedPlayers.size].id
+
+            state = state.copy(
+                phase = GamePhase.BIDDING,
+                hands = hands,
+                bids = emptyMap(),
+                tricksWon = updatedPlayers.associate { it.id to 0 },
+                currentTurn = firstBidder,
+                currentTrick = CurrentTrick(),
+                players = updatedPlayers.map { it.copy(bid = null, tricksWon = 0, cumulativeScore = 0.0, cardCount = CallbreakState.CARDS_PER_HAND) }
+            )
+
+            broadcastState()
+            Result.success(Unit)
+        }
+
+        if (startResult.isSuccess) {
+            CoroutineScope(Dispatchers.Default).launch {
+                triggerBotActionsIfNeeded()
+            }
+        }
+        return startResult
+    }
+
+    /**
+     * Records a player's bid during BIDDING phase.
+     * Once all 4 players have bid, transitions to PLAYING phase.
+     */
+    suspend fun placeBid(playerId: PlayerId, bid: Int): Result<Unit> {
+        val bidResult = mutex.withLock {
+            if (state.phase != GamePhase.BIDDING) {
+                return@withLock Result.failure(Exception("Not in bidding phase"))
+            }
+            if (state.currentTurn != playerId) {
+                return@withLock Result.failure(Exception("Not $playerId's turn to bid"))
+            }
+            if (bid < 1 || bid > CallbreakState.CARDS_PER_HAND) {
+                return@withLock Result.failure(Exception("Bid must be between 1 and ${CallbreakState.CARDS_PER_HAND}"))
+            }
+
+            val newBids = state.bids + (playerId to bid)
+            val playerIndex = state.players.indexOfFirst { it.id == playerId }
+            val nextBidderIndex = (playerIndex + 1) % state.players.size
+            val nextBidder = state.players[nextBidderIndex].id
+
+            val allBid = newBids.size == state.players.size
+            val firstPlayer = state.players[(state.dealerIndex + 1) % state.players.size].id
+
+            state = state.copy(
+                bids = newBids,
+                phase = if (allBid) GamePhase.PLAYING else GamePhase.BIDDING,
+                currentTurn = if (allBid) firstPlayer else nextBidder,
+                players = state.players.map { p ->
+                    if (p.id == playerId) p.copy(bid = bid) else p
+                }
+            )
+
+            broadcastState()
+            Result.success(Unit)
+        }
+
+        if (bidResult.isSuccess) {
+            CoroutineScope(Dispatchers.Default).launch {
+                triggerBotActionsIfNeeded()
+            }
+        }
+        return bidResult
+    }
+
+    /**
+     * Validates and applies a card play. Evaluates trick winner when 4 cards played.
+     * Tallies round scores when all 13 tricks are done.
+     */
+    suspend fun playCard(playerId: PlayerId, card: PlayingCard): Result<Unit> {
+        val playResult = mutex.withLock {
+            val validation = validateMove(state, playerId, card)
+            if (validation.isFailure) return@withLock validation
+
+            val updatedHand = state.hands[playerId]!! - card
+            val newTrickCards = state.currentTrick.cards + TrickCard(playerId, card)
+            val ledSuit = state.currentTrick.ledSuit ?: card.suit
+            val newTrick = CurrentTrick(ledSuit = ledSuit, cards = newTrickCards)
+
+            // Update player card count
+            val updatedPlayers = state.players.map { p ->
+                if (p.id == playerId) p.copy(cardCount = updatedHand.size) else p
+            }
+
+            if (newTrickCards.size == CallbreakState.PLAYERS_REQUIRED) {
+                // Trick complete — evaluate winner
+                val winner = evaluateTrickWinner(newTrick)
+                    ?: return@withLock Result.failure(Exception("Could not determine trick winner"))
+
+                val newTricksWon = state.tricksWon + (winner to (state.tricksWon[winner] ?: 0) + 1)
+                val totalTricksPlayed = newTricksWon.values.sum()
+
+                val playersWithUpdatedTricks = updatedPlayers.map { p ->
+                    p.copy(tricksWon = newTricksWon[p.id] ?: 0)
+                }
+
+                if (totalTricksPlayed == CallbreakState.CARDS_PER_HAND) {
+                    // Round over — show final trick card first, but pause play (currentTurn = null)
+                    state = state.copy(
+                        hands = state.hands + (playerId to updatedHand),
+                        currentTrick = newTrick,
+                        currentTurn = null,
+                        players = updatedPlayers
+                    )
+                    broadcastState()
+
+                    val roundFinishedState = state.copy(
+                        tricksWon = newTricksWon,
+                        currentTrick = CurrentTrick(),
+                        players = playersWithUpdatedTricks
+                    )
+
+                    CoroutineScope(Dispatchers.Default).launch {
+                        delay(1000)
+                        mutex.withLock {
+                            state = resolveRound(roundFinishedState)
+                            broadcastState()
+                            if (state.phase == GamePhase.ROUND_OVER) {
+                                startIntermission()
+                            }
+                        }
+                    }
+                } else {
+                    // More tricks to play; show final trick card first, pause play
+                    state = state.copy(
+                        hands = state.hands + (playerId to updatedHand),
+                        currentTrick = newTrick,
+                        currentTurn = null,
+                        players = updatedPlayers
+                    )
+                    broadcastState()
+
+                    CoroutineScope(Dispatchers.Default).launch {
+                        delay(1000)
+                        mutex.withLock {
+                            state = state.copy(
+                                tricksWon = newTricksWon,
+                                currentTrick = CurrentTrick(),
+                                currentTurn = winner,
+                                players = playersWithUpdatedTricks
+                            )
+                            broadcastState()
+                        }
+                        triggerBotActionsIfNeeded()
+                    }
+                }
+            } else {
+                // Trick still in progress — advance turn
+                val playerIndex = state.players.indexOfFirst { it.id == playerId }
+                val nextPlayer = state.players[(playerIndex + 1) % state.players.size].id
+
+                state = state.copy(
+                    hands = state.hands + (playerId to updatedHand),
+                    currentTrick = newTrick,
+                    currentTurn = nextPlayer,
+                    players = updatedPlayers,
+                )
+                broadcastState()
+            }
+
+            Result.success(Unit)
+        }
+
+        if (playResult.isSuccess) {
+            CoroutineScope(Dispatchers.Default).launch {
+                triggerBotActionsIfNeeded()
+            }
+        }
+        return playResult
+    }
+
+    /**
+     * Starts the next round. Called after [GamePhase.ROUND_OVER] intermission.
+     */
+    suspend fun startNextRound(): Result<Unit> {
+        val roundResult = mutex.withLock {
+            if (state.phase != GamePhase.ROUND_OVER) {
+                return@withLock Result.failure(Exception("Not in ROUND_OVER phase"))
+            }
+            if (state.currentRound >= state.totalRounds) {
+                return@withLock Result.failure(Exception("Game is over after ${state.totalRounds} rounds"))
+            }
+
+            val nextDealer = (state.dealerIndex + 1) % state.players.size
+            val shuffled = createDeck().shuffled()
+            val hands = state.players.mapIndexed { index, player ->
+                player.id to shuffled.subList(
+                    index * CallbreakState.CARDS_PER_HAND,
+                    (index + 1) * CallbreakState.CARDS_PER_HAND
+                )
+            }.toMap()
+
+            val firstBidder = state.players[(nextDealer + 1) % state.players.size].id
+
+            state = state.copy(
+                phase = GamePhase.BIDDING,
+                hands = hands,
+                bids = emptyMap(),
+                tricksWon = state.players.associate { it.id to 0 },
+                currentTurn = firstBidder,
+                currentTrick = CurrentTrick(),
+                currentRound = state.currentRound + 1,
+                dealerIndex = nextDealer,
+                players = state.players.map { it.copy(bid = null, tricksWon = 0, cardCount = CallbreakState.CARDS_PER_HAND) }
+            )
+
+            broadcastState()
+            Result.success(Unit)
+        }
+
+        if (roundResult.isSuccess) {
+            CoroutineScope(Dispatchers.Default).launch {
+                triggerBotActionsIfNeeded()
+            }
+        }
+        return roundResult
+    }
+
+    // ─── Takeover Timers & Bot Triggers ──────────────────────────────────────
+
+    private fun startTakeoverTimer(playerId: PlayerId) {
+        offlineTimers[playerId]?.cancel()
+        val job = CoroutineScope(Dispatchers.Default).launch {
+            delay(60000) // 60 seconds
+            triggerTakeover(playerId)
+        }
+        offlineTimers[playerId] = job
+    }
+
+    private suspend fun triggerTakeover(playerId: PlayerId) {
+        var needsAction = false
+        mutex.withLock {
+            val p = state.players.firstOrNull { it.id == playerId }
+            if (p != null && !p.isOnline && state.currentTurn == playerId) {
+                state = state.copy(
+                    players = state.players.map { player ->
+                        if (player.id == playerId) {
+                            player.copy(
+                                isBot = true,
+                                name = if (player.name.endsWith(" (Bot)")) player.name else "${player.name} (Bot)"
+                            )
+                        } else player
+                    }
+                )
+                broadcastState()
+                needsAction = true
+            }
+        }
+        if (needsAction) {
+            triggerBotActionsIfNeeded()
+        }
+    }
+
+    suspend fun triggerBotActionsIfNeeded() {
+        var turnPlayer: Player? = null
+        var phase: GamePhase = GamePhase.LOBBY
+
+        mutex.withLock {
+            phase = state.phase
+            val turnId = state.currentTurn
+            if (turnId != null) {
+                turnPlayer = state.players.firstOrNull { it.id == turnId }
+            }
+        }
+
+        val player = turnPlayer ?: return
+        if (!player.isBot) {
+            // If human is offline and has no active takeover timer, start one
+            if (!player.isOnline) {
+                mutex.withLock {
+                    if (state.currentTurn == player.id && !offlineTimers.containsKey(player.id)) {
+                        startTakeoverTimer(player.id)
+                    }
+                }
+            }
+            return
+        }
+
+        // Player is a bot, execute bot action
+        delay(1000)
+
+        // Verify phase and turn have not shifted during delay
+        var activeTurnId: PlayerId? = null
+        var activePhase: GamePhase = GamePhase.LOBBY
+        mutex.withLock {
+            activeTurnId = state.currentTurn
+            activePhase = state.phase
+        }
+
+        if (activeTurnId != player.id || activePhase != phase) return
+
+        if (phase == GamePhase.BIDDING) {
+            val botHand = state.hands[player.id] ?: emptyList()
+            val bid = calculateBotBid(botHand)
+            placeBid(player.id, bid)
+        } else if (phase == GamePhase.PLAYING) {
+            val card = selectBotCard(state, player.id)
+            playCard(player.id, card)
+        }
+    }
+
+    /**
+     * Launches a background coroutine to wait 5 seconds and start the next round automatically.
+     */
+    private fun startIntermission() {
+        CoroutineScope(Dispatchers.Default).launch {
+            delay(5000)
+            startNextRound()
+        }
+    }
+
+    // ─── Broadcast ───────────────────────────────────────────────────────────
+
+    /**
+     * Broadcasts the current state to all connected sessions.
+     * Each player receives a tailored [GameStateDto] with only their own hand.
+     * Must be called inside [mutex].
+     */
+    private suspend fun broadcastState() {
+        val snapshot = state
+        sessions.forEach { (playerId, session) ->
+            val dto = toDto(snapshot, playerId)
+            val message = ServerMessage.StateUpdate(dto)
+            try {
+                session.send(appJson.encodeToString<ServerMessage>(message))
+            } catch (e: Exception) {
+                // Session likely disconnected; will be cleaned up on close
+            }
+        }
+    }
+}

@@ -1,0 +1,36 @@
+name: callbreak_client
+description: A real-time multiplayer Callbreak card game client.
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+  bloc: ^8.1.4
+
+  # Networking
+  http: ^1.2.1
+  web_socket_channel: ^3.0.1
+
+  # Utils
+  uuid: ^4.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/face_cards/

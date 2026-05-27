@@ -1,0 +1,15 @@
+# Gradle
+.gradle
+**/build/
+!src/**/build/
+
+# IDEs
+.idea/
+*.iml
+*.iws
+
+# Kotlin
+.kotlin/
+
+# macOS
+.DS_Store
