@@ -24,7 +24,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: '3.19.0' # Uses a recent stable version
 
       - name: Install Dependencies
         working-directory: ./callbreak-client
