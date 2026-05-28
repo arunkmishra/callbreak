@@ -17,7 +17,7 @@ fun processTrumpBid(state: CallbreakState, playerId: PlayerId, bid: Int?, suit: 
         val passed = bidState.playersPassed + playerId
         
         if (passed.size == 4) {
-            val firstBidder = state.players[(state.dealerIndex + 1) % state.players.size].id
+            val firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
             // Fallback: All 4 passed
             return Result.success(state.copy(
                 currentTrumpSuit = Suit.SPADE,
@@ -34,12 +34,12 @@ fun processTrumpBid(state: CallbreakState, playerId: PlayerId, bid: Int?, suit: 
             
             val newBids = state.bids + (winner to winningBid)
             
-            var firstBidder = state.players[(state.dealerIndex + 1) % state.players.size].id
+            var firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
             if (newBids[firstBidder] != null) {
                 // First bidder already has a bid, find the next one
                 var currentIndex = state.players.indexOfFirst { it.id == firstBidder }
                 for (i in 1..4) {
-                    currentIndex = (currentIndex + 1) % state.players.size
+                    currentIndex = (currentIndex + state.players.size - 1) % state.players.size
                     val candidate = state.players[currentIndex].id
                     if (newBids[candidate] == null) {
                         firstBidder = candidate
@@ -72,11 +72,11 @@ fun processTrumpBid(state: CallbreakState, playerId: PlayerId, bid: Int?, suit: 
             // They are the winner. End the phase.
             val newBids = state.bids + (playerId to bid)
             
-            var firstBidder = state.players[(state.dealerIndex + 1) % state.players.size].id
+            var firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
             if (newBids[firstBidder] != null) {
                 var currentIndex = state.players.indexOfFirst { it.id == firstBidder }
                 for (i in 1..4) {
-                    currentIndex = (currentIndex + 1) % state.players.size
+                    currentIndex = (currentIndex + state.players.size - 1) % state.players.size
                     val candidate = state.players[currentIndex].id
                     if (newBids[candidate] == null) {
                         firstBidder = candidate
@@ -112,7 +112,7 @@ fun processTrumpBid(state: CallbreakState, playerId: PlayerId, bid: Int?, suit: 
 private fun getNextBidder(state: CallbreakState, currentPlayerId: PlayerId, passedPlayers: List<PlayerId>): PlayerId {
     var currentIndex = state.players.indexOfFirst { it.id == currentPlayerId }
     for (i in 1..4) {
-        currentIndex = (currentIndex + 1) % state.players.size
+        currentIndex = (currentIndex + state.players.size - 1) % state.players.size
         val candidate = state.players[currentIndex].id
         if (candidate !in passedPlayers) {
             return candidate

@@ -63,6 +63,8 @@ class TechBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
+      height: double.infinity,
       decoration: BoxDecoration(
         gradient: RadialGradient(
           center: Alignment.center,

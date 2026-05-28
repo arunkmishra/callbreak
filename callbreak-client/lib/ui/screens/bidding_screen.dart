@@ -171,28 +171,73 @@ class _BiddingScreenState extends State<BiddingScreen> {
                         ),
                       ),
 
-                      // ── Custom Trump Title (if applicable) ──────────────────
-                      if (gameState.phase == GamePhase.trumpBidding) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Text(
-                            'TRUMP BIDDING',
-                            style: TextStyle(
-                              color: Color(0xFFBA68C8),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                      // ── Trump Info ──────────────────────────────────────────────
+                      Builder(
+                        builder: (context) {
+                          String prefix = 'TRUMP:';
+                          String? displaySuit;
+                          
+                          if (gameState.phase == GamePhase.trumpBidding) {
+                            if (gameState.trumpBidState.highestBid > 0) {
+                              displaySuit = gameState.trumpBidState.proposedSuit;
+                              prefix = 'HIGHEST BID: ${gameState.trumpBidState.highestBid}  |  TRUMP:';
+                            } else {
+                              displaySuit = 'Spade';
+                            }
+                          } else {
+                            displaySuit = gameState.currentTrumpSuit ?? 'Spade';
+                          }
+
+                          Widget getSuitIcon(String? suit) {
+                            final s = (suit ?? 'Spade').toUpperCase();
+                            String char = '♠';
+                            Color color = Colors.white;
+                            if (s.contains('HEART')) { char = '♥'; color = const Color(0xFFE53935); }
+                            else if (s.contains('DIAMOND')) { char = '♦'; color = const Color(0xFFE53935); }
+                            else if (s.contains('CLUB')) { char = '♣'; color = Colors.white; }
+
+                            return Text(
+                              char,
+                              style: TextStyle(fontSize: 24, height: 1.2, color: color),
+                            );
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Column(
+                              children: [
+                                if (gameState.phase == GamePhase.trumpBidding) ...[
+                                  const Text(
+                                    'TRUMP BIDDING',
+                                    style: TextStyle(
+                                      color: Color(0xFFBA68C8),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      prefix,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    getSuitIcon(displaySuit),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ),
-                        ),
-                        if (gameState.trumpBidState.highestBid > 0)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            child: Text(
-                              'Highest Bid: ${gameState.trumpBidState.highestBid} (${gameState.trumpBidState.proposedSuit})',
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
-                            ),
-                          ),
-                      ],
+                          );
+                        },
+                      ),
 
                       // ── Bidding Status ─────────────────────────────────────────
                       Padding(
@@ -510,7 +555,14 @@ class _InlineTrumpBidFormState extends State<_InlineTrumpBidForm> {
               value: _selectedSuit,
               dropdownColor: AppColors.surfaceElevated,
               items: ['Spade', 'Heart', 'Diamond', 'Club']
-                  .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white))))
+                  .map((s) {
+                    String char = '♠';
+                    Color color = Colors.white;
+                    if (s == 'Heart') { char = '♥'; color = const Color(0xFFE53935); }
+                    else if (s == 'Diamond') { char = '♦'; color = const Color(0xFFE53935); }
+                    else if (s == 'Club') { char = '♣'; color = Colors.white; }
+                    return DropdownMenuItem(value: s, child: Text(char, style: TextStyle(color: color, fontSize: 18)));
+                  })
                   .toList(),
               onChanged: (v) {
                 if (v != null) setState(() => _selectedSuit = v);

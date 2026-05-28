@@ -196,13 +196,13 @@ class GameRoom(initialState: CallbreakState) {
             val newBids = state.bids + (playerId to bid)
             
             val allBid = newBids.size == state.players.size
-            val firstPlayer = state.players[(state.dealerIndex + 1) % state.players.size].id
+            val firstPlayer = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
 
             var nextTurn: String? = null
             if (!allBid) {
                 var playerIndex = state.players.indexOfFirst { it.id == playerId }
                 for (i in 1..4) {
-                    playerIndex = (playerIndex + 1) % state.players.size
+                    playerIndex = (playerIndex + state.players.size - 1) % state.players.size
                     val candidate = state.players[playerIndex].id
                     if (newBids[candidate] == null) {
                         nextTurn = candidate
@@ -341,7 +341,7 @@ class GameRoom(initialState: CallbreakState) {
             } else {
                 // Trick still in progress — advance turn
                 val playerIndex = state.players.indexOfFirst { it.id == playerId }
-                val nextPlayer = state.players[(playerIndex + 1) % state.players.size].id
+                val nextPlayer = state.players[(playerIndex + state.players.size - 1) % state.players.size].id
 
                 state = state.copy(
                     hands = state.hands + (playerId to updatedHand),
@@ -375,7 +375,7 @@ class GameRoom(initialState: CallbreakState) {
                 return@withLock Result.failure(Exception("Game is over after ${state.totalRounds} rounds"))
             }
 
-            val nextDealer = (state.dealerIndex + 1) % state.players.size
+            val nextDealer = (state.dealerIndex + state.players.size - 1) % state.players.size
             val shuffled = createDeck().shuffled()
             val nextDealerState = state.copy(
                 currentRound = state.currentRound + 1,

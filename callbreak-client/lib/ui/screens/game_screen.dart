@@ -40,17 +40,10 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    // Force landscape mode for the game table
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
   }
 
   @override
   void dispose() {
-    // Restore all orientations when leaving game
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
   }
 
@@ -665,13 +658,22 @@ class _ScorePanel extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: const Color(0xFFBA68C8)),
                   ),
-                  child: Text(
-                    'Trump: ${gameState.currentTrumpSuit ?? "Spade"}',
-                    style: const TextStyle(
-                      color: Color(0xFFBA68C8),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
+                  child: Builder(
+                    builder: (context) {
+                      final s = (gameState.currentTrumpSuit ?? 'Spade').toUpperCase();
+                      String char = '♠';
+                      if (s.contains('HEART')) char = '♥';
+                      else if (s.contains('DIAMOND')) char = '♦';
+                      else if (s.contains('CLUB')) char = '♣';
+                      return Text(
+                        'Trump: $char',
+                        style: const TextStyle(
+                          color: Color(0xFFBA68C8),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      );
+                    }
                   ),
                 ),
             ],

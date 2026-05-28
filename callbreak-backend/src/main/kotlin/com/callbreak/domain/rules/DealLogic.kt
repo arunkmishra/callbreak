@@ -16,7 +16,7 @@ fun startDealPhase1(state: CallbreakState, shuffledDeck: List<PlayingCard>): Cal
         player.id to shuffledDeck.subList(index * 5, (index + 1) * 5)
     }.toMap()
 
-    val firstBidder = state.players[(state.dealerIndex + 1) % state.players.size].id
+    val firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
 
     return state.copy(
         phase = GamePhase.TRUMP_BIDDING,
@@ -57,7 +57,7 @@ fun startClassicDeal(state: CallbreakState, shuffledDeck: List<PlayingCard>): Ca
         player.id to shuffledDeck.subList(index * 13, (index + 1) * 13)
     }.toMap()
 
-    val firstBidder = state.players[(state.dealerIndex + 1) % state.players.size].id
+    val firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
 
     return state.copy(
         phase = GamePhase.REGULAR_BIDDING,

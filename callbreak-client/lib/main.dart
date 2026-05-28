@@ -9,8 +9,16 @@ import 'data/repositories/api_repository.dart';
 import 'data/repositories/socket_repository.dart';
 import 'ui/screens/home_screen.dart';
 
+import 'package:flutter/services.dart';
+
 void main() {
-  runApp(const CallbreakApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]).then((_) {
+    runApp(const CallbreakApp());
+  });
 }
 
 class CallbreakApp extends StatelessWidget {

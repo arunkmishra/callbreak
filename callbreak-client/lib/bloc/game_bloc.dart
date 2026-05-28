@@ -158,7 +158,16 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> {
     print('🚨 ServerErrorReceived: ${event.reason}');
     // Preserve the current game state but surface the error.
     // The UI shows a snackbar/toast rather than replacing the screen.
+    final currentState = state;
     emit(GameError(event.reason));
+    
+    if (currentState is GameActive) {
+      emit(currentState.copyWith(awaitingServer: false));
+    } else if (currentState is GameBidding) {
+      emit(currentState);
+    } else if (currentState is GameLobby) {
+      emit(currentState);
+    }
   }
 
   // ─── Game Actions ─────────────────────────────────────────────────────────
