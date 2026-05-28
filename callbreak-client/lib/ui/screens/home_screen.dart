@@ -10,6 +10,7 @@ import '../../bloc/game_state.dart';
 import '../../core/theme.dart';
 import '../widgets/settings_sheet.dart';
 import 'bidding_screen.dart';
+import 'game_screen.dart';
 import 'lobby_screen.dart';
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
@@ -103,10 +104,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               (route) => false,
             );
           }
-        } else if (state is GameBidding && _isBotGame) {
-          // Bot game started — go directly to the bidding screen.
+        } else if (state is GameBidding) {
+          // Reconnected or transitioned to bidding
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const BiddingScreen()),
+            (route) => false,
+          );
+        } else if (state is GameActive || state is GameRoundOver || state is GameOver) {
+          // Reconnected or transitioned to active gameplay
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const GameScreen()),
             (route) => false,
           );
         } else if (state is GameError) {

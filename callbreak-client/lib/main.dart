@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/game_bloc.dart';
 import 'bloc/settings_cubit.dart';
 import 'core/constants.dart';
+import 'core/session_storage.dart';
 import 'core/theme.dart';
 import 'data/repositories/api_repository.dart';
 import 'data/repositories/socket_repository.dart';
@@ -44,6 +45,7 @@ class CallbreakApp extends StatelessWidget {
             create: (context) => GameBloc(
               apiRepository: context.read<ApiRepository>(),
               socketRepository: context.read<SocketRepository>(),
+              sessionStorage: SessionStorage(),
             ),
           ),
         ],

@@ -10,6 +10,7 @@ import '../../bloc/game_state.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import 'bidding_screen.dart';
+import 'game_screen.dart';
 
 /// Screen 2: Lobby — waiting for players, shows room code.
 class LobbyScreen extends StatelessWidget {
@@ -22,6 +23,10 @@ class LobbyScreen extends StatelessWidget {
         if (state is GameBidding) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const BiddingScreen()),
+          );
+        } else if (state is GameActive || state is GameRoundOver || state is GameOver) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const GameScreen()),
           );
         }
       },

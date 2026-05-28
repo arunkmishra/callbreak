@@ -33,26 +33,49 @@ class GameError extends GameBlocState {
 // ─── Connected States ────────────────────────────────────────────────────────
 
 /// Successfully connected; waiting in the lobby for other players.
-/// Holds the player ID for this session.
 class GameLobby extends GameBlocState {
   final GameState gameState;
   final String myPlayerId;
+  final bool isReconnecting;
 
-  const GameLobby({required this.gameState, required this.myPlayerId});
+  const GameLobby({
+    required this.gameState,
+    required this.myPlayerId,
+    this.isReconnecting = false,
+  });
+
+  GameLobby copyWith({GameState? gameState, String? myPlayerId, bool? isReconnecting}) =>
+      GameLobby(
+        gameState: gameState ?? this.gameState,
+        myPlayerId: myPlayerId ?? this.myPlayerId,
+        isReconnecting: isReconnecting ?? this.isReconnecting,
+      );
 
   @override
-  List<Object?> get props => [gameState, myPlayerId];
+  List<Object?> get props => [gameState, myPlayerId, isReconnecting];
 }
 
-/// All players have bid; active trick-taking gameplay.
+/// Bidding phase (trump bidding or regular bidding).
 class GameBidding extends GameBlocState {
   final GameState gameState;
   final String myPlayerId;
+  final bool isReconnecting;
 
-  const GameBidding({required this.gameState, required this.myPlayerId});
+  const GameBidding({
+    required this.gameState,
+    required this.myPlayerId,
+    this.isReconnecting = false,
+  });
+
+  GameBidding copyWith({GameState? gameState, String? myPlayerId, bool? isReconnecting}) =>
+      GameBidding(
+        gameState: gameState ?? this.gameState,
+        myPlayerId: myPlayerId ?? this.myPlayerId,
+        isReconnecting: isReconnecting ?? this.isReconnecting,
+      );
 
   @override
-  List<Object?> get props => [gameState, myPlayerId];
+  List<Object?> get props => [gameState, myPlayerId, isReconnecting];
 }
 
 /// Active trick-taking gameplay phase.
@@ -60,31 +83,64 @@ class GameActive extends GameBlocState {
   final GameState gameState;
   final String myPlayerId;
 
-  /// Whether the local player has just played a card and is awaiting confirmation.
+  /// Whether the local player just played a card and is awaiting confirmation.
   final bool awaitingServer;
+  final bool isReconnecting;
 
   const GameActive({
     required this.gameState,
     required this.myPlayerId,
     this.awaitingServer = false,
+    this.isReconnecting = false,
   });
 
+  GameActive copyWith({
+    GameState? gameState,
+    String? myPlayerId,
+    bool? awaitingServer,
+    bool? isReconnecting,
+  }) =>
+      GameActive(
+        gameState: gameState ?? this.gameState,
+        myPlayerId: myPlayerId ?? this.myPlayerId,
+        awaitingServer: awaitingServer ?? this.awaitingServer,
+        isReconnecting: isReconnecting ?? this.isReconnecting,
+      );
+
   @override
-  List<Object?> get props => [gameState, myPlayerId, awaitingServer];
+  List<Object?> get props => [gameState, myPlayerId, awaitingServer, isReconnecting];
 }
 
-/// Round is over; showing scores. Host can start the next round.
+/// Round is over; showing scores.
 class GameRoundOver extends GameBlocState {
   final GameState gameState;
   final String myPlayerId;
   final bool isGameOver;
+  final bool isReconnecting;
 
   const GameRoundOver({
     required this.gameState,
     required this.myPlayerId,
     required this.isGameOver,
+    this.isReconnecting = false,
   });
 
+  GameRoundOver copyWith({
+    GameState? gameState,
+    String? myPlayerId,
+    bool? isGameOver,
+    bool? isReconnecting,
+  }) =>
+      GameRoundOver(
+        gameState: gameState ?? this.gameState,
+        myPlayerId: myPlayerId ?? this.myPlayerId,
+        isGameOver: isGameOver ?? this.isGameOver,
+        isReconnecting: isReconnecting ?? this.isReconnecting,
+      );
+
   @override
-  List<Object?> get props => [gameState, myPlayerId, isGameOver];
+  List<Object?> get props => [gameState, myPlayerId, isGameOver, isReconnecting];
 }
+
+/// Alias so screens can check `state is GameOver`.
+typedef GameOver = GameRoundOver;

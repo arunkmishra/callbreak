@@ -304,6 +304,15 @@ class _GameScreenState extends State<GameScreen> {
                 lightColor: getTableColor(true),
               ),
 
+              // ── Reconnecting banner ────────────────────────────────────
+              if (state.isReconnecting)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: _ReconnectingBanner(),
+                ),
+
               // ── Top Opponent ───────────────────────────────────────────
               if (topOpponent != null)
                 Align(
@@ -742,3 +751,43 @@ extension ListMapIndexed<T> on Iterable<T> {
     }
   }
 }
+
+/// Amber banner shown at top of screen while reconnecting.
+class _ReconnectingBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade800.withValues(alpha: 0.92),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 10),
+            Text(
+              'Reconnecting…',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

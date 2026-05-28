@@ -47,6 +47,21 @@ class ConnectToRoom extends GameEvent {
   List<Object?> get props => [roomId, playerId, sessionToken];
 }
 
+/// Fired when the app comes back to the foreground.
+class AppResumed extends GameEvent {
+  const AppResumed();
+}
+
+/// Fired when the reconnect engine changes status.
+class ReconnectStatusChanged extends GameEvent {
+  final bool isReconnecting;
+  final bool hasFailed;
+  const ReconnectStatusChanged({this.isReconnecting = false, this.hasFailed = false});
+
+  @override
+  List<Object?> get props => [isReconnecting, hasFailed];
+}
+
 /// Triggered every time the server broadcasts a STATE_UPDATE.
 class ServerStateUpdated extends GameEvent {
   final dynamic gameState; // GameState — using dynamic to avoid circular import

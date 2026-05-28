@@ -136,6 +136,9 @@ class _BiddingScreenState extends State<BiddingScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16.0),
                   child: Column(
                     children: [
+                      // ── Reconnecting banner ────────────────────────────────────
+                      if (state.isReconnecting)
+                        _BiddingReconnectingBanner(),
                       // ── Header ─────────────────────────────────────────────────
                       Padding(
                         padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 16),
@@ -602,3 +605,33 @@ class _InlineTrumpBidFormState extends State<_InlineTrumpBidForm> {
   }
 }
 
+/// Amber banner shown at the top of bidding screen while reconnecting.
+class _BiddingReconnectingBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+      color: Colors.amber.shade800.withValues(alpha: 0.92),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          ),
+          SizedBox(width: 10),
+          Text(
+            'Reconnecting…',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
