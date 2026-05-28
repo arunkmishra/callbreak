@@ -134,7 +134,7 @@ class LobbyScreen extends StatelessWidget {
                         ),
                         onPressed: () {
                           final url = kIsWeb
-                              ? '${Uri.base.origin}/?room=${gameState.roomId}'
+                              ? Uri.base.replace(queryParameters: {'room': gameState.roomId}).toString()
                               : 'https://playcallbreak.com/?room=${gameState.roomId}';
                           // ignore: deprecated_member_use
                           Share.share('Join my Callbreak room! Tap here to join: $url');
