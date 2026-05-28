@@ -3,13 +3,21 @@ import 'player.dart';
 import 'playing_card.dart';
 
 /// All possible game phases, mirroring the server-side [GamePhase] enum.
-enum GamePhase { lobby, bidding, playing, roundOver, gameOver }
+enum GamePhase { lobby, dealingPhase1, trumpBidding, dealingPhase2, regularBidding, playing, roundOver, gameOver, bidding }
 
 GamePhase gamePhaseFromString(String value) {
   switch (value.toUpperCase()) {
     case 'LOBBY':
       return GamePhase.lobby;
-    case 'BIDDING':
+    case 'DEALING_PHASE_1':
+      return GamePhase.dealingPhase1;
+    case 'TRUMP_BIDDING':
+      return GamePhase.trumpBidding;
+    case 'DEALING_PHASE_2':
+      return GamePhase.dealingPhase2;
+    case 'REGULAR_BIDDING':
+      return GamePhase.regularBidding;
+    case 'BIDDING': // fallback
       return GamePhase.bidding;
     case 'PLAYING':
       return GamePhase.playing;
@@ -20,6 +28,33 @@ GamePhase gamePhaseFromString(String value) {
     default:
       return GamePhase.lobby;
   }
+}
+
+class TrumpBidState extends Equatable {
+  final int highestBid;
+  final String? highestBidderId;
+  final String? proposedSuit;
+  final List<String> playersPassed;
+
+  const TrumpBidState({
+    this.highestBid = 0,
+    this.highestBidderId,
+    this.proposedSuit,
+    this.playersPassed = const [],
+  });
+
+  factory TrumpBidState.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const TrumpBidState();
+    return TrumpBidState(
+      highestBid: json['highestBid'] as int? ?? 0,
+      highestBidderId: json['highestBidderId'] as String?,
+      proposedSuit: json['proposedSuit'] as String?,
+      playersPassed: (json['playersPassed'] as List<dynamic>? ?? []).map((e) => e as String).toList(),
+    );
+  }
+
+  @override
+  List<Object?> get props => [highestBid, highestBidderId, proposedSuit, playersPassed];
 }
 
 /// A single card played to the current trick, with the player who played it.
@@ -87,6 +122,9 @@ class GameState extends Equatable {
   final int totalRounds;
   final int? minBid;
   final bool greedPenalty;
+  final bool allowCustomTrump;
+  final String? currentTrumpSuit;
+  final TrumpBidState trumpBidState;
 
   const GameState({
     required this.roomId,
@@ -100,6 +138,9 @@ class GameState extends Equatable {
     required this.totalRounds,
     this.minBid,
     this.greedPenalty = false,
+    this.allowCustomTrump = false,
+    this.currentTrumpSuit,
+    this.trumpBidState = const TrumpBidState(),
   });
 
   factory GameState.fromJson(Map<String, dynamic> json) => GameState(
@@ -121,6 +162,9 @@ class GameState extends Equatable {
         totalRounds: json['totalRounds'] as int? ?? 5,
         minBid: json['minBid'] as int?,
         greedPenalty: json['greedPenalty'] as bool? ?? false,
+        allowCustomTrump: json['allowCustomTrump'] as bool? ?? false,
+        currentTrumpSuit: json['currentTrumpSuit'] as String?,
+        trumpBidState: TrumpBidState.fromJson(json['trumpBidState'] as Map<String, dynamic>?),
       );
 
   /// Whether it is [myPlayerId]'s turn to act.
@@ -142,5 +186,8 @@ class GameState extends Equatable {
         totalRounds,
         minBid,
         greedPenalty,
+        allowCustomTrump,
+        currentTrumpSuit,
+        trumpBidState,
       ];
 }

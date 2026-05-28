@@ -10,10 +10,10 @@ import com.callbreak.domain.models.*
  * 2. For Spades (Trump): Add 1 for the Ace, add 1 for the King, add 1 for the Queen.
  * 3. For Other Suits: Add 1 for each Ace.
  */
-fun calculateBotBid(hand: List<PlayingCard>, minBid: Int? = null): Int {
+fun calculateBotBid(hand: List<PlayingCard>, minBid: Int? = null, trumpSuit: Suit = Suit.SPADE): Int {
     var bid = 1
     for (card in hand) {
-        if (card.suit == Suit.SPADE) {
+        if (card.suit == trumpSuit) {
             if (card.rank == Rank.ACE || card.rank == Rank.KING || card.rank == Rank.QUEEN) {
                 bid += 1
             }
@@ -54,11 +54,11 @@ fun selectBotCard(state: CallbreakState, botId: PlayerId): PlayingCard {
 
     // Step 2: Leading the Trick (Table is empty)
     if (trick.cards.isEmpty()) {
-        val nonSpades = legalCards.filter { it.suit != Suit.SPADE }
-        return if (nonSpades.isNotEmpty()) {
-            nonSpades.maxByOrNull { it.rank.value }!!
+        val nonTrumps = legalCards.filter { it.suit != state.currentTrumpSuit }
+        return if (nonTrumps.isNotEmpty()) {
+            nonTrumps.maxByOrNull { it.rank.value }!!
         } else {
-            legalCards.filter { it.suit == Suit.SPADE }.minByOrNull { it.rank.value }!!
+            legalCards.filter { it.suit == state.currentTrumpSuit }.minByOrNull { it.rank.value }!!
         }
     }
 
@@ -69,7 +69,7 @@ fun selectBotCard(state: CallbreakState, botId: PlayerId): PlayingCard {
     for (card in legalCards) {
         // Simulate playing this card by creating a temporary trick
         val simulatedTrick = trick.copy(cards = trick.cards + TrickCard(botId, card))
-        val winner = evaluateTrickWinner(simulatedTrick)
+        val winner = evaluateTrickWinner(simulatedTrick, state.currentTrumpSuit)
         if (winner == botId) {
             winningCards.add(card)
         } else {

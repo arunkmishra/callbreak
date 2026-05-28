@@ -22,7 +22,7 @@ fun toDto(state: CallbreakState, requestingPlayerId: PlayerId): GameStateDto =
             PlayerDto(
                 id = p.id,
                 name = p.name,
-                bid = p.bid,
+                bid = state.bids[p.id] ?: p.bid,
                 tricksWon = p.tricksWon,
                 cardCount = state.hands[p.id]?.size ?: p.cardCount,
                 cumulativeScore = p.cumulativeScore,
@@ -42,4 +42,7 @@ fun toDto(state: CallbreakState, requestingPlayerId: PlayerId): GameStateDto =
         totalRounds = state.totalRounds,
         minBid = state.minBid,
         greedPenalty = state.greedPenalty,
+        allowCustomTrump = state.allowCustomTrump,
+        currentTrumpSuit = state.currentTrumpSuit,
+        trumpBidState = state.trumpBidState,
     )

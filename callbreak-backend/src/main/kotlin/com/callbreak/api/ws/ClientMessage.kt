@@ -33,7 +33,13 @@ sealed interface ClientMessage {
     data class PlayCard(
         /** Serialized suit name, e.g. "Spade", "Heart". */
         val suit: String,
-        /** Serialized rank name, e.g. "A", "K", "7". */
         val rank: String,
+    ) : ClientMessage
+
+    @Serializable
+    @SerialName("PLACE_TRUMP_BID")
+    data class PlaceTrumpBid(
+        val bid: Int?,
+        val suit: String?
     ) : ClientMessage
 }

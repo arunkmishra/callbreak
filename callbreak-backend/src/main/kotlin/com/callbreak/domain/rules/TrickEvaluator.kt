@@ -16,14 +16,13 @@ import com.callbreak.domain.models.Suit
  * @param trick A trick containing 1–4 [TrickCard]s. Returns null if empty.
  * @return The [PlayerId] of the winning player, or null if [trick] is empty.
  */
-fun evaluateTrickWinner(trick: CurrentTrick): PlayerId? {
+fun evaluateTrickWinner(trick: CurrentTrick, trumpSuit: Suit): PlayerId? {
     if (trick.cards.isEmpty()) return null
 
     val ledSuit = trick.ledSuit ?: trick.cards.first().card.suit
-    val trump = Suit.SPADE
 
     // Separate trump cards from led-suit cards
-    val trumpCards = trick.cards.filter { it.card.suit == trump }
+    val trumpCards = trick.cards.filter { it.card.suit == trumpSuit }
     val ledSuitCards = trick.cards.filter { it.card.suit == ledSuit }
 
     return if (trumpCards.isNotEmpty()) {

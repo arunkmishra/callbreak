@@ -48,6 +48,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> {
     on<ServerErrorReceived>(_onServerError);
     on<StartGameRequested>(_onStartGame);
     on<PlaceBidAttempt>(_onPlaceBid);
+    on<PlaceTrumpBidAttempt>(_onPlaceTrumpBid);
     on<PlayCardAttempt>(_onPlayCard);
     on<NextRoundRequested>(_onNextRound);
     on<DisconnectRequested>(_onDisconnect);
@@ -66,6 +67,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> {
         totalRounds: event.totalRounds,
         minBid: event.minBid,
         greedPenalty: event.greedPenalty,
+        allowCustomTrump: event.allowCustomTrump,
       );
       _myPlayerId = result.playerId;
       add(ConnectToRoom(result.roomId, result.playerId, result.sessionToken));
@@ -125,7 +127,12 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> {
     switch (gameState.phase) {
       case GamePhase.lobby:
         emit(GameLobby(gameState: gameState, myPlayerId: playerId));
-      case GamePhase.bidding:
+      case GamePhase.dealingPhase1:
+      case GamePhase.trumpBidding:
+      case GamePhase.dealingPhase2:
+      case GamePhase.regularBidding:
+        emit(GameBidding(gameState: gameState, myPlayerId: playerId));
+      case GamePhase.bidding: // legacy fallback
         emit(GameBidding(gameState: gameState, myPlayerId: playerId));
       case GamePhase.playing:
         emit(GameActive(gameState: gameState, myPlayerId: playerId));
@@ -148,6 +155,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> {
     ServerErrorReceived event,
     Emitter<GameBlocState> emit,
   ) {
+    print('🚨 ServerErrorReceived: ${event.reason}');
     // Preserve the current game state but surface the error.
     // The UI shows a snackbar/toast rather than replacing the screen.
     emit(GameError(event.reason));
@@ -161,6 +169,10 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> {
 
   void _onPlaceBid(PlaceBidAttempt event, Emitter<GameBlocState> emit) {
     _socketRepository.sendAction('PLACE_BID', {'bid': event.bid});
+  }
+
+  void _onPlaceTrumpBid(PlaceTrumpBidAttempt event, Emitter<GameBlocState> emit) {
+    _socketRepository.sendAction('PLACE_TRUMP_BID', {'bid': event.bid, 'suit': event.suit});
   }
 
   void _onPlayCard(PlayCardAttempt event, Emitter<GameBlocState> emit) {

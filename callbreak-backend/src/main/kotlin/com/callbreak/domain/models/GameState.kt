@@ -13,11 +13,25 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class GamePhase {
     LOBBY,
-    BIDDING,
+    DEALING_PHASE_1,
+    TRUMP_BIDDING,
+    DEALING_PHASE_2,
+    REGULAR_BIDDING,
     PLAYING,
     ROUND_OVER,
     GAME_OVER
 }
+
+/**
+ * State of the trump bidding phase in Custom Mode.
+ */
+@Serializable
+data class TrumpBidState(
+    val highestBid: Int = 0,
+    val highestBidderId: PlayerId? = null,
+    val proposedSuit: Suit? = null,
+    val playersPassed: List<PlayerId> = emptyList()
+)
 
 /**
  * A single card played to the current trick, paired with who played it.
@@ -75,6 +89,10 @@ data class CallbreakState(
     val dealerIndex: Int = 0,
     val minBid: Int? = null,
     val greedPenalty: Boolean = false,
+    val allowCustomTrump: Boolean = false,
+    val currentTrumpSuit: Suit = Suit.SPADE,
+    val trumpBidState: TrumpBidState = TrumpBidState(),
+    val deck: List<PlayingCard> = emptyList(),
 ) {
     companion object {
         const val PLAYERS_REQUIRED = 4

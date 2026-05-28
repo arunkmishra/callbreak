@@ -424,6 +424,7 @@ class _GameScreenState extends State<GameScreen> {
                   isMyTurn: isMyTurn,
                   awaitingServer: state.awaitingServer,
                   currentTrick: gameState.currentTrick,
+                  trumpSuit: gameState.currentTrumpSuit ?? 'Spade',
                   onCardTap: (card) {
                     if (isMyTurn && !state.awaitingServer) {
                       context.read<GameBloc>().add(PlayCardAttempt(card));
@@ -455,6 +456,7 @@ class _FannedHand extends StatelessWidget {
   final bool isMyTurn;
   final bool awaitingServer;
   final dynamic currentTrick;
+  final String trumpSuit;
   final void Function(dynamic card) onCardTap;
 
   const _FannedHand({
@@ -462,6 +464,7 @@ class _FannedHand extends StatelessWidget {
     required this.isMyTurn,
     required this.awaitingServer,
     required this.currentTrick,
+    required this.trumpSuit,
     required this.onCardTap,
   });
 
@@ -474,7 +477,7 @@ class _FannedHand extends StatelessWidget {
     final String ledSuit = (currentTrick.ledSuit ?? trickCards.first.card.suit) as String;
 
     dynamic getWinningTrickCard() {
-      final trumpCards = trickCards.where((tc) => tc.card.suit == 'Spade').toList();
+      final trumpCards = trickCards.where((tc) => tc.card.suit == trumpSuit).toList();
       if (trumpCards.isNotEmpty) {
         var maxTrump = trumpCards[0];
         for (var i = 1; i < trumpCards.length; i++) {
@@ -503,12 +506,12 @@ class _FannedHand extends StatelessWidget {
       return true;
     } else {
       final hasBeatingSpade = cards.any((c) =>
-          c.suit == 'Spade' &&
-          (winningCard.suit != 'Spade' || c.value > winningCard.value));
+          c.suit == trumpSuit &&
+          (winningCard.suit != trumpSuit || c.value > winningCard.value));
           
       if (hasBeatingSpade) {
-        if (cardToPlay.suit != 'Spade') return false;
-        if (winningCard.suit == 'Spade' && cardToPlay.value <= winningCard.value) return false;
+        if (cardToPlay.suit != trumpSuit) return false;
+        if (winningCard.suit == trumpSuit && cardToPlay.value <= winningCard.value) return false;
         return true;
       }
       return true;
@@ -642,13 +645,36 @@ class _ScorePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(
-            'Round ${gameState.currentRound} / ${gameState.totalRounds}',
-            style: const TextStyle(
-              color: AppColors.gold,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Round ${gameState.currentRound} / ${gameState.totalRounds}',
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (gameState.allowCustomTrump)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFBA68C8).withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: const Color(0xFFBA68C8)),
+                  ),
+                  child: Text(
+                    'Trump: ${gameState.currentTrumpSuit ?? "Spade"}',
+                    style: const TextStyle(
+                      color: Color(0xFFBA68C8),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+            ],
           ),
           ...gameState.players.map((p) => Text(
                 '${p.name}: ${p.cumulativeScore.toStringAsFixed(1)}',
