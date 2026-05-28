@@ -8,7 +8,7 @@ REST API: Modify POST /api/rooms/create to accept a totalRounds: Int property in
 
 GamePhase: Add a ROUND_OVER phase (used for the 5-second scoreboard intermission).
 
-CallbreakState: Add currentRound: Int (starting at 1) and totalRounds: Int.
+CallbreakState: Add currentRound: Int (starting at 1), totalRounds: Int, minBid: Int? (optional minimum bid), and greedPenalty: Boolean (awards 0 points if tricksWon >= 2x bid).
 
 PlayerState: Ensure it tracks bid: Int?, tricksWon: Int (for the current round), and cumulativeScore: Double (across all rounds).
 
@@ -18,6 +18,7 @@ Write a new pure function fun resolveRound(state: CallbreakState): CallbreakStat
 Calculate Scores: For each player, apply standard Callbreak scoring:
 
 If tricksWon >= bid: Points gained = bid + ((tricksWon - bid) * 0.1). (e.g., Bid 3, won 4 = 3.1 points).
+*Exception*: If greedPenalty is true and tricksWon >= bid * 2, Points gained = 0.
 
 If tricksWon < bid: Points lost = -bid. (e.g., Bid 3, won 2 = -3.0 points).
 

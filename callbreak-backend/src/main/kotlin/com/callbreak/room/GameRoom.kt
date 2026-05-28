@@ -198,8 +198,9 @@ class GameRoom(initialState: CallbreakState) {
             if (state.currentTurn != playerId) {
                 return@withLock Result.failure(Exception("Not $playerId's turn to bid"))
             }
-            if (bid < 1 || bid > CallbreakState.CARDS_PER_HAND) {
-                return@withLock Result.failure(Exception("Bid must be between 1 and ${CallbreakState.CARDS_PER_HAND}"))
+            val minBidAllowed = state.minBid ?: 1
+            if (bid < minBidAllowed || bid > CallbreakState.CARDS_PER_HAND) {
+                return@withLock Result.failure(Exception("Bid must be between $minBidAllowed and ${CallbreakState.CARDS_PER_HAND}"))
             }
 
             val newBids = state.bids + (playerId to bid)
@@ -459,7 +460,7 @@ class GameRoom(initialState: CallbreakState) {
 
         if (phase == GamePhase.BIDDING) {
             val botHand = state.hands[player.id] ?: emptyList()
-            val bid = calculateBotBid(botHand)
+            val bid = calculateBotBid(botHand, state.minBid)
             placeBid(player.id, bid)
         } else if (phase == GamePhase.PLAYING) {
             val card = selectBotCard(state, player.id)

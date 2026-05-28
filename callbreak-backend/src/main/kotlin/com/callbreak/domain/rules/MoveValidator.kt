@@ -85,20 +85,12 @@ fun validateMove(
                 )
             }
         } else {
-            val hasSpades = hand.any { it.suit == trump }
-            if (hasSpades) {
-                if (card.suit != trump) {
+            val hasBeatingSpade = hand.any { it.suit == trump && (winningCard.suit != trump || it.rank.value > winningCard.rank.value) }
+            if (hasBeatingSpade) {
+                if (card.suit != trump || (winningCard.suit == trump && card.rank.value <= winningCard.rank.value)) {
                     return Result.failure(
                         IllegalMoveException(
-                            "No cards of led suit (${ledSuit.displayName}); must play a Spade (trump)."
-                        )
-                    )
-                }
-                val hasBeatingSpade = hand.any { it.suit == trump && (winningCard.suit != trump || it.rank.value > winningCard.rank.value) }
-                if (hasBeatingSpade && winningCard.suit == trump && card.rank.value <= winningCard.rank.value) {
-                    return Result.failure(
-                        IllegalMoveException(
-                            "Must play a Spade that beats the current winning Spade."
+                            "Must play a Spade that beats the current winning card."
                         )
                     )
                 }

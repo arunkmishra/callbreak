@@ -242,7 +242,7 @@ class _BiddingScreenState extends State<BiddingScreen> {
                             SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Row(
-                                children: gameState.myHand
+                                children: (List<dynamic>.from(gameState.myHand)..sort())
                                     .map((card) => Padding(
                                           padding: const EdgeInsets.only(right: 4),
                                           child: PlayingCardWidget(
@@ -282,33 +282,38 @@ class _BiddingScreenState extends State<BiddingScreen> {
                       separatorBuilder: (_, __) => const SizedBox(width: 8),
                       itemBuilder: (context, index) {
                         final bid = index + 1;
+                        final minBid = gameState.minBid ?? 1;
+                        final isAllowed = bid >= minBid;
+                        
                         return GestureDetector(
-                          onTap: () => context
+                          onTap: isAllowed ? () => context
                               .read<GameBloc>()
-                              .add(PlaceBidAttempt(bid)),
+                              .add(PlaceBidAttempt(bid)) : null,
                           child: Container(
                             width: 56,
                             height: 64,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppColors.gold, AppColors.goldDark],
+                              gradient: LinearGradient(
+                                colors: isAllowed 
+                                  ? [AppColors.gold, AppColors.goldDark]
+                                  : [Colors.grey.shade700, Colors.grey.shade900],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                               ),
                               borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
+                              boxShadow: isAllowed ? [
                                 BoxShadow(
                                   color: AppColors.gold.withValues(alpha: 0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
-                              ],
+                              ] : [],
                             ),
                             child: Center(
                               child: Text(
                                 '$bid',
-                                style: const TextStyle(
-                                  color: Colors.black87,
+                                style: TextStyle(
+                                  color: isAllowed ? Colors.black87 : Colors.white30,
                                   fontWeight: FontWeight.w900,
                                   fontSize: 24,
                                 ),

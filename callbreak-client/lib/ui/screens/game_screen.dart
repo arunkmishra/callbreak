@@ -463,15 +463,13 @@ class _FannedHand extends StatelessWidget {
       if (hasBeatingCard) return cardToPlay.value > winningCard.value;
       return true;
     } else {
-      final hasSpades = cards.any((c) => c.suit == 'Spade');
-      if (hasSpades) {
+      final hasBeatingSpade = cards.any((c) =>
+          c.suit == 'Spade' &&
+          (winningCard.suit != 'Spade' || c.value > winningCard.value));
+          
+      if (hasBeatingSpade) {
         if (cardToPlay.suit != 'Spade') return false;
-        final hasBeatingSpade = cards.any((c) =>
-            c.suit == 'Spade' &&
-            (winningCard.suit != 'Spade' || c.value > winningCard.value));
-        if (hasBeatingSpade) {
-          return winningCard.suit != 'Spade' || cardToPlay.value > winningCard.value;
-        }
+        if (winningCard.suit == 'Spade' && cardToPlay.value <= winningCard.value) return false;
         return true;
       }
       return true;
@@ -503,7 +501,7 @@ class _FannedHand extends StatelessWidget {
         // We want total <= availableWidth with some padding.
         final double availW = constraints.maxWidth - 24;
         final double step = count > 1
-            ? ((availW - cardW) / (count - 1)).clamp(10.0, 36.0)
+            ? ((availW - cardW) / (count - 1)).clamp(15.0, 54.0)
             : 0.0;
         final double totalW = (count - 1) * step + cardW;
 

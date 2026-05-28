@@ -15,10 +15,12 @@ abstract class GameEvent extends Equatable {
 class CreateRoomRequested extends GameEvent {
   final String playerName;
   final int totalRounds;
-  const CreateRoomRequested(this.playerName, {this.totalRounds = 5});
+  final int? minBid;
+  final bool greedPenalty;
+  const CreateRoomRequested(this.playerName, {this.totalRounds = 5, this.minBid, this.greedPenalty = false});
 
   @override
-  List<Object?> get props => [playerName, totalRounds];
+  List<Object?> get props => [playerName, totalRounds, minBid, greedPenalty];
 }
 
 /// User taps "Join Game" on the Home screen.

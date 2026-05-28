@@ -40,4 +40,6 @@ fun toDto(state: CallbreakState, requestingPlayerId: PlayerId): GameStateDto =
         scores = state.scores,
         currentRound = state.currentRound,
         totalRounds = state.totalRounds,
+        minBid = state.minBid,
+        greedPenalty = state.greedPenalty,
     )

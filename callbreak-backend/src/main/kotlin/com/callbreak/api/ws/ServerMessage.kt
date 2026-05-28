@@ -46,6 +46,8 @@ data class GameStateDto(
     val scores: Map<PlayerId, Double>,
     val currentRound: Int,
     val totalRounds: Int,
+    val minBid: Int?,
+    val greedPenalty: Boolean,
 )
 
 @Serializable

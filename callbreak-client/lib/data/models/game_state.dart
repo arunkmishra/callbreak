@@ -85,6 +85,8 @@ class GameState extends Equatable {
   final Map<String, double> scores;
   final int currentRound;
   final int totalRounds;
+  final int? minBid;
+  final bool greedPenalty;
 
   const GameState({
     required this.roomId,
@@ -96,6 +98,8 @@ class GameState extends Equatable {
     required this.scores,
     required this.currentRound,
     required this.totalRounds,
+    this.minBid,
+    this.greedPenalty = false,
   });
 
   factory GameState.fromJson(Map<String, dynamic> json) => GameState(
@@ -115,6 +119,8 @@ class GameState extends Equatable {
         ),
         currentRound: json['currentRound'] as int? ?? 1,
         totalRounds: json['totalRounds'] as int? ?? 5,
+        minBid: json['minBid'] as int?,
+        greedPenalty: json['greedPenalty'] as bool? ?? false,
       );
 
   /// Whether it is [myPlayerId]'s turn to act.
@@ -134,5 +140,7 @@ class GameState extends Equatable {
         scores,
         currentRound,
         totalRounds,
+        minBid,
+        greedPenalty,
       ];
 }

@@ -10,7 +10,7 @@ import com.callbreak.domain.models.*
  * 2. For Spades (Trump): Add 1 for the Ace, add 1 for the King, add 1 for the Queen.
  * 3. For Other Suits: Add 1 for each Ace.
  */
-fun calculateBotBid(hand: List<PlayingCard>): Int {
+fun calculateBotBid(hand: List<PlayingCard>, minBid: Int? = null): Int {
     var bid = 1
     for (card in hand) {
         if (card.suit == Suit.SPADE) {
@@ -23,7 +23,7 @@ fun calculateBotBid(hand: List<PlayingCard>): Int {
             }
         }
     }
-    return bid
+    return maxOf(bid, minBid ?: 1)
 }
 
 /**

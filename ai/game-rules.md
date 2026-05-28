@@ -24,9 +24,7 @@ Priority 2: Follow Suit (Forced Loss): If they have the Led Suit, but none of th
 
 Priority 3: Trump & Win: If the player has NO cards of the Led Suit, they MUST play a Spade. Crucially: If another player has already played a Spade, and this player holds a higher Spade, they MUST play it to beat them.
 
-Priority 4: Trump (Forced Loss): If they have NO cards of the Led Suit, they must play a Spade even if their Spade is lower than a Spade already on the table.
-
-Priority 5: Discard: If and ONLY if the player has NO cards of the Led Suit AND NO Spades, they may play any card of their choice.
+Priority 4: Discard: If and ONLY if the player has NO cards of the Led Suit AND NO Spades capable of beating the current winning card on the table, they may play any card of their choice.
 
 Rule 2: Determining the Winner (evaluateTrickWinner logic)
 

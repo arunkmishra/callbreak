@@ -27,7 +27,9 @@ fun Route.roomRoutes() {
             }
             val (roomId, playerId, sessionToken) = GameRoomManager.createRoom(
                 playerName = request.playerName.trim(),
-                totalRounds = request.totalRounds
+                totalRounds = request.totalRounds,
+                minBid = request.minBid,
+                greedPenalty = request.greedPenalty
             )
             call.respond(HttpStatusCode.Created, CreateRoomResponse(roomId, playerId, sessionToken))
         }

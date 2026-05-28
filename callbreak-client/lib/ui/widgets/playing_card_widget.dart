@@ -137,7 +137,12 @@ class _PlayingCardWidgetState extends State<PlayingCardWidget> {
         width: w,
         height: h,
         decoration: BoxDecoration(
+          color: AppColors.cardWhite,
           borderRadius: BorderRadius.circular(widget.isSmall ? 8 : 12),
+          border: Border.all(
+            color: widget.isPlayable ? AppColors.gold : Colors.grey.shade300,
+            width: widget.isPlayable ? 2 : 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: widget.isPlayable
@@ -150,7 +155,7 @@ class _PlayingCardWidgetState extends State<PlayingCardWidget> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(widget.isSmall ? 8 : 12),
+          borderRadius: BorderRadius.circular(widget.isSmall ? 6 : 10),
           child: Stack(
             children: [
               // Traditional face card image
@@ -160,22 +165,6 @@ class _PlayingCardWidgetState extends State<PlayingCardWidget> {
                 height: h,
                 fit: BoxFit.fill,
               ),
-
-              // Gold border overlay when the card is playable
-              if (widget.isPlayable)
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(widget.isSmall ? 8 : 12),
-                      border: Border.all(
-                        color: AppColors.gold
-                            .withValues(alpha: _hovered ? 0.9 : 0.7),
-                        width: 2.5,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

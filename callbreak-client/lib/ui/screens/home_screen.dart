@@ -921,6 +921,8 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
   final _createFormKey = GlobalKey<FormState>();
   final _joinFormKey = GlobalKey<FormState>();
   int _rounds = 5;
+  int? _minBid;
+  bool _greedPenalty = false;
   bool _isCreateMode = true;
 
   @override
@@ -1034,8 +1036,12 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
                           nameController: _nameController,
                           formKey: _createFormKey,
                           rounds: _rounds,
+                          minBid: _minBid,
+                          greedPenalty: _greedPenalty,
                           isLoading: isLoading,
                           onRoundsChanged: (v) => setState(() => _rounds = v),
+                          onMinBidChanged: (v) => setState(() => _minBid = v),
+                          onGreedPenaltyChanged: (v) => setState(() => _greedPenalty = v),
                           onSubmit: _createRoom,
                         )
                       : _JoinRoomForm(
@@ -1062,6 +1068,8 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
           CreateRoomRequested(
             _nameController.text.trim(),
             totalRounds: _rounds,
+            minBid: _minBid,
+            greedPenalty: _greedPenalty,
           ),
         );
   }
@@ -1081,8 +1089,12 @@ class _CreateRoomForm extends StatelessWidget {
   final TextEditingController nameController;
   final GlobalKey<FormState> formKey;
   final int rounds;
+  final int? minBid;
+  final bool greedPenalty;
   final bool isLoading;
   final ValueChanged<int> onRoundsChanged;
+  final ValueChanged<int?> onMinBidChanged;
+  final ValueChanged<bool> onGreedPenaltyChanged;
   final VoidCallback onSubmit;
 
   const _CreateRoomForm({
@@ -1090,8 +1102,12 @@ class _CreateRoomForm extends StatelessWidget {
     required this.nameController,
     required this.formKey,
     required this.rounds,
+    required this.minBid,
+    required this.greedPenalty,
     required this.isLoading,
     required this.onRoundsChanged,
+    required this.onMinBidChanged,
+    required this.onGreedPenaltyChanged,
     required this.onSubmit,
   });
 
@@ -1134,6 +1150,36 @@ class _CreateRoomForm extends StatelessWidget {
                 : (v) {
                     if (v != null) onRoundsChanged(v);
                   },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<int?>(
+            initialValue: minBid,
+            decoration: const InputDecoration(
+              labelText: 'Minimum Bid',
+              prefixIcon: Icon(Icons.arrow_upward_outlined, color: Color(0xFFBA68C8)),
+            ),
+            dropdownColor: AppColors.surfaceElevated,
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 16),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('None (Default)')),
+              DropdownMenuItem(value: 1, child: Text('1')),
+              DropdownMenuItem(value: 2, child: Text('2')),
+              DropdownMenuItem(value: 3, child: Text('3')),
+            ],
+            onChanged: isLoading ? null : onMinBidChanged,
+          ),
+          const SizedBox(height: 16),
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile(
+              title: const Text('Greed Penalty', style: TextStyle(color: AppColors.textPrimary)),
+              subtitle: const Text('0 points if player wins 2x their bid', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              value: greedPenalty,
+              onChanged: isLoading ? null : onGreedPenaltyChanged,
+              activeTrackColor: AppColors.gold.withValues(alpha: 0.5),
+              activeThumbColor: AppColors.gold,
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
           const SizedBox(height: 28),
           ElevatedButton.icon(

@@ -61,7 +61,12 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> {
   ) async {
     emit(const GameLoading());
     try {
-      final result = await _apiRepository.createRoom(event.playerName, totalRounds: event.totalRounds);
+      final result = await _apiRepository.createRoom(
+        event.playerName,
+        totalRounds: event.totalRounds,
+        minBid: event.minBid,
+        greedPenalty: event.greedPenalty,
+      );
       _myPlayerId = result.playerId;
       add(ConnectToRoom(result.roomId, result.playerId, result.sessionToken));
     } on ApiException catch (e) {

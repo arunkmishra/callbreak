@@ -13,6 +13,8 @@ import kotlinx.serialization.Serializable
 data class CreateRoomRequest(
     val playerName: String,
     val totalRounds: Int = 5,
+    val minBid: Int? = null,
+    val greedPenalty: Boolean = false,
 )
 
 /**

@@ -73,6 +73,8 @@ data class CallbreakState(
     val currentRound: Int = 1,
     val totalRounds: Int = 5,
     val dealerIndex: Int = 0,
+    val minBid: Int? = null,
+    val greedPenalty: Boolean = false,
 ) {
     companion object {
         const val PLAYERS_REQUIRED = 4

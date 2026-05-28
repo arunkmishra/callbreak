@@ -17,6 +17,10 @@ Primary Action 1: "Practice vs Bots" >   * Logic: Tapping this hits the API to c
 Primary Action 2: "Host Multiplayer"
 
 Logic: Creates a room and pushes to the /lobby route so the user can see the room code and wait for friends.
+The Create Room modal should include configurable options for:
+- Match Duration (totalRounds)
+- Minimum Bid (optional minBid allowed)
+- Greed Penalty (toggle to award 0 points if a player wins 2x their bid)
 
 Primary Action 3: "Join Game"
 
