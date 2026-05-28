@@ -48,6 +48,9 @@ data class GameStateDto(
     val totalRounds: Int,
     val minBid: Int?,
     val greedPenalty: Boolean,
+    val allowCustomTrump: Boolean,
+    val currentTrumpSuit: Suit?,
+    val trumpBidState: com.callbreak.domain.models.TrumpBidState?
 )
 
 @Serializable

@@ -29,7 +29,8 @@ fun Route.roomRoutes() {
                 playerName = request.playerName.trim(),
                 totalRounds = request.totalRounds,
                 minBid = request.minBid,
-                greedPenalty = request.greedPenalty
+                greedPenalty = request.greedPenalty,
+                allowCustomTrump = request.allowCustomTrump
             )
             call.respond(HttpStatusCode.Created, CreateRoomResponse(roomId, playerId, sessionToken))
         }

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
+import '../../data/models/game_state.dart';
 import '../../bloc/settings_cubit.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
@@ -84,6 +85,15 @@ class _BiddingScreenState extends State<BiddingScreen> {
             (route) => false,
           );
         }
+        if (state is GameError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: AppColors.errorRed,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       },
       builder: (context, state) {
         return BlocBuilder<SettingsCubit, SettingsState>(
@@ -121,10 +131,9 @@ class _BiddingScreenState extends State<BiddingScreen> {
             color: getTableColor(false),
             lightColor: getTableColor(true),
             child: SafeArea(
-              child: CustomScrollView(
-              slivers: [
-                SliverFillRemaining(
-                  hasScrollBody: false,
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
                   child: Column(
                     children: [
                       // ── Header ─────────────────────────────────────────────────
@@ -161,6 +170,29 @@ class _BiddingScreenState extends State<BiddingScreen> {
                           ],
                         ),
                       ),
+
+                      // ── Custom Trump Title (if applicable) ──────────────────
+                      if (gameState.phase == GamePhase.trumpBidding) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Text(
+                            'TRUMP BIDDING',
+                            style: TextStyle(
+                              color: Color(0xFFBA68C8),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        if (gameState.trumpBidState.highestBid > 0)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: Text(
+                              'Highest Bid: ${gameState.trumpBidState.highestBid} (${gameState.trumpBidState.proposedSuit})',
+                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                          ),
+                      ],
 
                       // ── Bidding Status ─────────────────────────────────────────
                       Padding(
@@ -261,11 +293,44 @@ class _BiddingScreenState extends State<BiddingScreen> {
                         ),
                       ),
                       
-                      const Spacer(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
 
                 // ── Bid Selector ───────────────────────────────────────────
-                if (isMyTurn && myPlayer.bid == null) ...[
+                if (isMyTurn && gameState.phase == GamePhase.trumpBidding) ...[
+                  // TRUMP BIDDING UI INLINE
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFBA68C8).withValues(alpha: 0.5)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Place Your Trump Bid',
+                          style: TextStyle(
+                            color: Color(0xFFBA68C8),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _InlineTrumpBidForm(
+                          currentHighest: gameState.trumpBidState.highestBid,
+                          onBid: (bid, suit) {
+                            context.read<GameBloc>().add(PlaceTrumpBidAttempt(bid, suit));
+                          },
+                          onPass: () {
+                            context.read<GameBloc>().add(const PlaceTrumpBidAttempt(null, null));
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (isMyTurn && myPlayer.bid == null && gameState.phase != GamePhase.trumpBidding) ...[
+                  // REGULAR BIDDING UI
                   const Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text(
@@ -328,6 +393,30 @@ class _BiddingScreenState extends State<BiddingScreen> {
                       },
                     ),
                   ),
+                ] else if (gameState.phase == GamePhase.trumpBidding) ...[
+                  // Waiting in trump bidding
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.hourglass_empty, color: Colors.white54),
+                        const SizedBox(width: 12),
+                        Text(
+                          isMyTurn ? 'Loading...' : 'Waiting for ${currentBidder.name}...',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ] else if (myPlayer.bid != null) ...[
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -357,13 +446,107 @@ class _BiddingScreenState extends State<BiddingScreen> {
               ],
             ),
           ),
-        ],
+        ),
       ),
     ),
-  ));
+  );
           },
         );
       },
     );
   }
 }
+
+class _InlineTrumpBidForm extends StatefulWidget {
+  final int currentHighest;
+  final void Function(int bid, String suit) onBid;
+  final VoidCallback onPass;
+
+  const _InlineTrumpBidForm({
+    required this.currentHighest,
+    required this.onBid,
+    required this.onPass,
+  });
+
+  @override
+  State<_InlineTrumpBidForm> createState() => _InlineTrumpBidFormState();
+}
+
+class _InlineTrumpBidFormState extends State<_InlineTrumpBidForm> {
+  late int _selectedBid;
+  String _selectedSuit = 'Spade';
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedBid = (widget.currentHighest >= 5) ? widget.currentHighest + 1 : 5;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final validBids = List.generate(13 - 5 + 1, (i) => 5 + i).where((b) => b > widget.currentHighest).toList();
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Bid:', style: TextStyle(color: Colors.white70)),
+            const SizedBox(width: 8),
+            DropdownButton<int>(
+              value: validBids.contains(_selectedBid) ? _selectedBid : (validBids.isNotEmpty ? validBids.first : null),
+              dropdownColor: AppColors.surfaceElevated,
+              items: validBids
+                  .map((b) => DropdownMenuItem(value: b, child: Text('$b', style: const TextStyle(color: Colors.white))))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _selectedBid = v);
+              },
+            ),
+            const SizedBox(width: 24),
+            const Text('Suit:', style: TextStyle(color: Colors.white70)),
+            const SizedBox(width: 8),
+            DropdownButton<String>(
+              value: _selectedSuit,
+              dropdownColor: AppColors.surfaceElevated,
+              items: ['Spade', 'Heart', 'Diamond', 'Club']
+                  .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white))))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) setState(() => _selectedSuit = v);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.surfaceElevated,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                minimumSize: const Size(100, 48),
+              ),
+              onPressed: widget.onPass,
+              child: const Text('PASS', style: TextStyle(color: Colors.white)),
+            ),
+            const SizedBox(width: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFBA68C8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                minimumSize: const Size(140, 48),
+              ),
+              onPressed: validBids.isNotEmpty
+                  ? () => widget.onBid(_selectedBid, _selectedSuit)
+                  : null,
+              child: const Text('CONFIRM BID', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+

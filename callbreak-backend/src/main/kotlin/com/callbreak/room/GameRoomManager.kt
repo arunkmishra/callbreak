@@ -28,12 +28,12 @@ object GameRoomManager {
      * @param playerName Display name of the host player.
      * @return Pair of (roomId, playerId).
      */
-    fun createRoom(playerName: String, totalRounds: Int = 5, minBid: Int? = null, greedPenalty: Boolean = false): Triple<String, String, String> {
+    fun createRoom(playerName: String, totalRounds: Int = 5, minBid: Int? = null, greedPenalty: Boolean = false, allowCustomTrump: Boolean = false): Triple<String, String, String> {
         val roomId = generateUniqueRoomId()
         val playerId = UUID.randomUUID().toString()
         val sessionToken = UUID.randomUUID().toString()
         val host = Player(id = playerId, name = playerName)
-        val initialState = CallbreakState(roomId = roomId, players = listOf(host), totalRounds = totalRounds, minBid = minBid, greedPenalty = greedPenalty)
+        val initialState = CallbreakState(roomId = roomId, players = listOf(host), totalRounds = totalRounds, minBid = minBid, greedPenalty = greedPenalty, allowCustomTrump = allowCustomTrump)
         val room = GameRoom(initialState)
         room.registerSessionToken(playerId, sessionToken)
         rooms[roomId] = room

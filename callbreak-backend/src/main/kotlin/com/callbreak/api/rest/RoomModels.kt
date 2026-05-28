@@ -15,6 +15,7 @@ data class CreateRoomRequest(
     val totalRounds: Int = 5,
     val minBid: Int? = null,
     val greedPenalty: Boolean = false,
+    val allowCustomTrump: Boolean = false,
 )
 
 /**

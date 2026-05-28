@@ -83,6 +83,10 @@ fun Application.configureRouting() {
                     val result = when (message) {
                         is ClientMessage.StartGame -> room.startGame()
                         is ClientMessage.PlaceBid -> room.placeBid(playerId, message.bid)
+                        is ClientMessage.PlaceTrumpBid -> {
+                            val suitEnum = message.suit?.let { s -> Suit.entries.find { it.displayName == s } }
+                            room.placeTrumpBid(playerId, message.bid, suitEnum)
+                        }
                         is ClientMessage.PlayCard -> {
                             val suit = Suit.entries.find { it.displayName == message.suit }
                             val rank = Rank.entries.find { it.displayName == message.rank }

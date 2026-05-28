@@ -12,9 +12,12 @@ import com.callbreak.domain.models.TrickCard
 import com.callbreak.domain.models.createDeck
 import com.callbreak.domain.rules.evaluateTrickWinner
 import com.callbreak.domain.rules.validateMove
-import com.callbreak.domain.rules.resolveRound
 import com.callbreak.domain.rules.calculateBotBid
 import com.callbreak.domain.rules.selectBotCard
+import com.callbreak.domain.rules.startDealPhase1
+import com.callbreak.domain.rules.startDealPhase2
+import com.callbreak.domain.rules.processTrumpBid
+import com.callbreak.domain.rules.resolveRound
 import com.callbreak.config.appJson
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.send
@@ -155,24 +158,11 @@ class GameRoom(initialState: CallbreakState) {
             }
 
             val shuffled = createDeck().shuffled()
-            val hands = updatedPlayers.mapIndexed { index, player ->
-                player.id to shuffled.subList(
-                    index * CallbreakState.CARDS_PER_HAND,
-                    (index + 1) * CallbreakState.CARDS_PER_HAND
-                )
-            }.toMap()
-
-            val firstBidder = updatedPlayers[(state.dealerIndex + 1) % updatedPlayers.size].id
-
-            state = state.copy(
-                phase = GamePhase.BIDDING,
-                hands = hands,
-                bids = emptyMap(),
-                tricksWon = updatedPlayers.associate { it.id to 0 },
-                currentTurn = firstBidder,
-                currentTrick = CurrentTrick(),
-                players = updatedPlayers.map { it.copy(bid = null, tricksWon = 0, cumulativeScore = 0.0, cardCount = CallbreakState.CARDS_PER_HAND) }
+            val stateWithBots = state.copy(
+                players = updatedPlayers.map { it.copy(cumulativeScore = 0.0) }
             )
+            
+            state = startDealPhase1(stateWithBots, shuffled)
 
             broadcastState()
             Result.success(Unit)
@@ -192,7 +182,7 @@ class GameRoom(initialState: CallbreakState) {
      */
     suspend fun placeBid(playerId: PlayerId, bid: Int): Result<Unit> {
         val bidResult = mutex.withLock {
-            if (state.phase != GamePhase.BIDDING) {
+            if (state.phase != GamePhase.REGULAR_BIDDING) {
                 return@withLock Result.failure(Exception("Not in bidding phase"))
             }
             if (state.currentTurn != playerId) {
@@ -204,17 +194,27 @@ class GameRoom(initialState: CallbreakState) {
             }
 
             val newBids = state.bids + (playerId to bid)
-            val playerIndex = state.players.indexOfFirst { it.id == playerId }
-            val nextBidderIndex = (playerIndex + 1) % state.players.size
-            val nextBidder = state.players[nextBidderIndex].id
-
+            
             val allBid = newBids.size == state.players.size
             val firstPlayer = state.players[(state.dealerIndex + 1) % state.players.size].id
 
+            var nextTurn: String? = null
+            if (!allBid) {
+                var playerIndex = state.players.indexOfFirst { it.id == playerId }
+                for (i in 1..4) {
+                    playerIndex = (playerIndex + 1) % state.players.size
+                    val candidate = state.players[playerIndex].id
+                    if (newBids[candidate] == null) {
+                        nextTurn = candidate
+                        break
+                    }
+                }
+            }
+
             state = state.copy(
                 bids = newBids,
-                phase = if (allBid) GamePhase.PLAYING else GamePhase.BIDDING,
-                currentTurn = if (allBid) firstPlayer else nextBidder,
+                phase = if (allBid) GamePhase.PLAYING else GamePhase.REGULAR_BIDDING,
+                currentTurn = if (allBid) firstPlayer else nextTurn,
                 players = state.players.map { p ->
                     if (p.id == playerId) p.copy(bid = bid) else p
                 }
@@ -230,6 +230,31 @@ class GameRoom(initialState: CallbreakState) {
             }
         }
         return bidResult
+    }
+
+    /**
+     * Processes a bid or pass during TRUMP_BIDDING phase.
+     */
+    suspend fun placeTrumpBid(playerId: PlayerId, bid: Int?, suit: Suit?): Result<Unit> {
+        val result = mutex.withLock {
+            val nextStateResult = processTrumpBid(state, playerId, bid, suit)
+            if (nextStateResult.isFailure) return@withLock nextStateResult.map { Unit }
+            
+            var nextState = nextStateResult.getOrThrow()
+            if (nextState.phase == GamePhase.DEALING_PHASE_2) {
+                nextState = startDealPhase2(nextState)
+            }
+            state = nextState
+            broadcastState()
+            Result.success(Unit)
+        }
+
+        if (result.isSuccess) {
+            CoroutineScope(Dispatchers.Default).launch {
+                triggerBotActionsIfNeeded()
+            }
+        }
+        return result
     }
 
     /**
@@ -253,7 +278,7 @@ class GameRoom(initialState: CallbreakState) {
 
             if (newTrickCards.size == CallbreakState.PLAYERS_REQUIRED) {
                 // Trick complete — evaluate winner
-                val winner = evaluateTrickWinner(newTrick)
+                val winner = evaluateTrickWinner(newTrick, state.currentTrumpSuit)
                     ?: return@withLock Result.failure(Exception("Could not determine trick winner"))
 
                 val newTricksWon = state.tricksWon + (winner to (state.tricksWon[winner] ?: 0) + 1)
@@ -352,26 +377,11 @@ class GameRoom(initialState: CallbreakState) {
 
             val nextDealer = (state.dealerIndex + 1) % state.players.size
             val shuffled = createDeck().shuffled()
-            val hands = state.players.mapIndexed { index, player ->
-                player.id to shuffled.subList(
-                    index * CallbreakState.CARDS_PER_HAND,
-                    (index + 1) * CallbreakState.CARDS_PER_HAND
-                )
-            }.toMap()
-
-            val firstBidder = state.players[(nextDealer + 1) % state.players.size].id
-
-            state = state.copy(
-                phase = GamePhase.BIDDING,
-                hands = hands,
-                bids = emptyMap(),
-                tricksWon = state.players.associate { it.id to 0 },
-                currentTurn = firstBidder,
-                currentTrick = CurrentTrick(),
+            val nextDealerState = state.copy(
                 currentRound = state.currentRound + 1,
-                dealerIndex = nextDealer,
-                players = state.players.map { it.copy(bid = null, tricksWon = 0, cardCount = CallbreakState.CARDS_PER_HAND) }
+                dealerIndex = nextDealer
             )
+            state = startDealPhase1(nextDealerState, shuffled)
 
             broadcastState()
             Result.success(Unit)
@@ -458,10 +468,13 @@ class GameRoom(initialState: CallbreakState) {
 
         if (activeTurnId != player.id || activePhase != phase) return
 
-        if (phase == GamePhase.BIDDING) {
+        if (phase == GamePhase.REGULAR_BIDDING) {
             val botHand = state.hands[player.id] ?: emptyList()
-            val bid = calculateBotBid(botHand, state.minBid)
+            val bid = calculateBotBid(botHand, state.minBid, state.currentTrumpSuit)
             placeBid(player.id, bid)
+        } else if (phase == GamePhase.TRUMP_BIDDING) {
+            // Bots simply pass during custom trump bidding for now
+            placeTrumpBid(player.id, null, null)
         } else if (phase == GamePhase.PLAYING) {
             val card = selectBotCard(state, player.id)
             playCard(player.id, card)

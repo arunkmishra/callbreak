@@ -952,6 +952,7 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
   int _rounds = 5;
   int? _minBid;
   bool _greedPenalty = false;
+  bool _allowCustomTrump = false;
   bool _isCreateMode = true;
 
   @override
@@ -1076,10 +1077,12 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
                           rounds: _rounds,
                           minBid: _minBid,
                           greedPenalty: _greedPenalty,
+                          allowCustomTrump: _allowCustomTrump,
                           isLoading: isLoading,
                           onRoundsChanged: (v) => setState(() => _rounds = v),
                           onMinBidChanged: (v) => setState(() => _minBid = v),
                           onGreedPenaltyChanged: (v) => setState(() => _greedPenalty = v),
+                          onAllowCustomTrumpChanged: (v) => setState(() => _allowCustomTrump = v),
                           onSubmit: _createRoom,
                         )
                       : _JoinRoomForm(
@@ -1108,6 +1111,7 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
             totalRounds: _rounds,
             minBid: _minBid,
             greedPenalty: _greedPenalty,
+            allowCustomTrump: _allowCustomTrump,
           ),
         );
   }
@@ -1129,10 +1133,12 @@ class _CreateRoomForm extends StatelessWidget {
   final int rounds;
   final int? minBid;
   final bool greedPenalty;
+  final bool allowCustomTrump;
   final bool isLoading;
   final ValueChanged<int> onRoundsChanged;
   final ValueChanged<int?> onMinBidChanged;
   final ValueChanged<bool> onGreedPenaltyChanged;
+  final ValueChanged<bool> onAllowCustomTrumpChanged;
   final VoidCallback onSubmit;
 
   const _CreateRoomForm({
@@ -1142,10 +1148,12 @@ class _CreateRoomForm extends StatelessWidget {
     required this.rounds,
     required this.minBid,
     required this.greedPenalty,
+    required this.allowCustomTrump,
     required this.isLoading,
     required this.onRoundsChanged,
     required this.onMinBidChanged,
     required this.onGreedPenaltyChanged,
+    required this.onAllowCustomTrumpChanged,
     required this.onSubmit,
   });
 
@@ -1216,6 +1224,19 @@ class _CreateRoomForm extends StatelessWidget {
               onChanged: isLoading ? null : onGreedPenaltyChanged,
               activeTrackColor: AppColors.gold.withValues(alpha: 0.5),
               activeThumbColor: AppColors.gold,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile(
+              title: const Text('Dynamic Trump Rules', style: TextStyle(color: AppColors.textPrimary)),
+              subtitle: const Text('Split deal & dynamic trump suit selection', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              value: allowCustomTrump,
+              onChanged: isLoading ? null : onAllowCustomTrumpChanged,
+              activeTrackColor: const Color(0xFFBA68C8).withValues(alpha: 0.5),
+              activeThumbColor: const Color(0xFFBA68C8),
               contentPadding: EdgeInsets.zero,
             ),
           ),

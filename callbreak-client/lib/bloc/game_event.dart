@@ -17,10 +17,11 @@ class CreateRoomRequested extends GameEvent {
   final int totalRounds;
   final int? minBid;
   final bool greedPenalty;
-  const CreateRoomRequested(this.playerName, {this.totalRounds = 5, this.minBid, this.greedPenalty = false});
+  final bool allowCustomTrump;
+  const CreateRoomRequested(this.playerName, {this.totalRounds = 5, this.minBid, this.greedPenalty = false, this.allowCustomTrump = false});
 
   @override
-  List<Object?> get props => [playerName, totalRounds, minBid, greedPenalty];
+  List<Object?> get props => [playerName, totalRounds, minBid, greedPenalty, allowCustomTrump];
 }
 
 /// User taps "Join Game" on the Home screen.
@@ -78,6 +79,16 @@ class PlaceBidAttempt extends GameEvent {
 
   @override
   List<Object?> get props => [bid];
+}
+
+/// Player submits a bid/pass during TRUMP_BIDDING phase.
+class PlaceTrumpBidAttempt extends GameEvent {
+  final int? bid;
+  final String? suit;
+  const PlaceTrumpBidAttempt(this.bid, this.suit);
+
+  @override
+  List<Object?> get props => [bid, suit];
 }
 
 /// Player taps a card in their hand during the PLAYING phase.

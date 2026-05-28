@@ -49,11 +49,15 @@ class SocketRepository {
             final reason = json['reason'] as String? ?? 'Unknown server error';
             _controller?.addError(ServerError(reason));
           }
-        } catch (e) {
+        } catch (e, stack) {
+          print('🚨 SocketRepository JSON Parse Error: $e\n$stack');
           _controller?.addError(e);
         }
       },
-      onError: (Object error) => _controller?.addError(error),
+      onError: (Object error) {
+        print('🚨 SocketRepository Stream Error: $error');
+        _controller?.addError(error);
+      },
       onDone: () => _controller?.close(),
     );
 

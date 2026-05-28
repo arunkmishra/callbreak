@@ -22,7 +22,9 @@ fun resolveRound(state: CallbreakState): CallbreakState {
         val bid = state.bids[player.id] ?: player.bid ?: 0
         val tricks = state.tricksWon[player.id] ?: player.tricksWon
 
-        val pointsGained = if (state.greedPenalty && tricks >= bid * 2) {
+        val pointsGained = if (state.allowCustomTrump && (bid == 2 || bid == 3) && tricks >= bid * 2) {
+            0.0 // Strict over-trick penalty
+        } else if (state.greedPenalty && tricks >= bid * 2) {
             0.0
         } else if (tricks >= bid) {
             bid.toDouble() + ((tricks - bid) * 0.1)

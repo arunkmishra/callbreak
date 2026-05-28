@@ -55,7 +55,7 @@ fun validateMove(
     if (trick.cards.isNotEmpty()) {
         val ledSuit: Suit = trick.ledSuit
             ?: trick.cards.first().card.suit // fallback (should never be null in PLAYING)
-        val trump = Suit.SPADE
+        val trump = state.currentTrumpSuit
 
         // Determine current winning card of the trick
         val trumpCards = trick.cards.filter { it.card.suit == trump }
@@ -85,12 +85,22 @@ fun validateMove(
                 )
             }
         } else {
-            val hasBeatingSpade = hand.any { it.suit == trump && (winningCard.suit != trump || it.rank.value > winningCard.rank.value) }
-            if (hasBeatingSpade) {
+            val hasTrump = hand.any { it.suit == trump }
+            val hasBeatingTrump = hand.any { it.suit == trump && (winningCard.suit != trump || it.rank.value > winningCard.rank.value) }
+            
+            if (hasBeatingTrump) {
                 if (card.suit != trump || (winningCard.suit == trump && card.rank.value <= winningCard.rank.value)) {
                     return Result.failure(
                         IllegalMoveException(
-                            "Must play a Spade that beats the current winning card."
+                            "Must play a ${trump.displayName} that beats the current winning card."
+                        )
+                    )
+                }
+            } else if (hasTrump) {
+                if (card.suit != trump) {
+                    return Result.failure(
+                        IllegalMoveException(
+                            "Must play a ${trump.displayName}."
                         )
                     )
                 }

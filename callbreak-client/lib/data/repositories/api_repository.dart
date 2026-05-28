@@ -26,11 +26,12 @@ class ApiRepository {
   ///
   /// Creates a new room and returns the room code + host player ID.
   /// Throws [ApiException] on non-2xx response or network error.
-  Future<RoomJoinResult> createRoom(String playerName, {int totalRounds = 5, int? minBid, bool greedPenalty = false}) async {
+  Future<RoomJoinResult> createRoom(String playerName, {int totalRounds = 5, int? minBid, bool greedPenalty = false, bool allowCustomTrump = false}) async {
     final body = {
       'playerName': playerName,
       'totalRounds': totalRounds,
       'greedPenalty': greedPenalty,
+      'allowCustomTrump': allowCustomTrump,
     };
     if (minBid != null) {
       body['minBid'] = minBid;
