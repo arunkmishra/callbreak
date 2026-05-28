@@ -18,10 +18,10 @@ fun processTrumpBid(state: CallbreakState, playerId: PlayerId, bid: Int?, suit: 
         
         if (passed.size == 4) {
             val firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
-            // Fallback: All 4 passed
+            // Fallback: All 4 passed — use the room's configured minBid (floor of 2)
             return Result.success(state.copy(
                 currentTrumpSuit = Suit.SPADE,
-                minBid = 2,
+                minBid = maxOf(2, state.minBid ?: 2),
                 trumpBidState = bidState.copy(playersPassed = passed),
                 phase = GamePhase.DEALING_PHASE_2, // Move to next phase
                 currentTurn = firstBidder
