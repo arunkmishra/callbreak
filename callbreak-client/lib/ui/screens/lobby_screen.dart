@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
@@ -118,6 +120,27 @@ class LobbyScreen extends StatelessWidget {
                           color: AppColors.textSecondary,
                           fontSize: 12,
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.gold.withValues(alpha: 0.1),
+                          foregroundColor: AppColors.gold,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: AppColors.gold.withValues(alpha: 0.3)),
+                          ),
+                        ),
+                        onPressed: () {
+                          final url = kIsWeb
+                              ? '${Uri.base.origin}/?room=${gameState.roomId}'
+                              : 'https://playcallbreak.com/?room=${gameState.roomId}';
+                          // ignore: deprecated_member_use
+                          Share.share('Join my Callbreak room! Tap here to join: $url');
+                        },
+                        icon: const Icon(Icons.share_outlined, size: 18),
+                        label: const Text('Share Link'),
                       ),
                     ],
                   ),
