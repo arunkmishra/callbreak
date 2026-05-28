@@ -8,6 +8,7 @@ import '../../bloc/settings_cubit.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../widgets/playing_card_widget.dart';
+import '../widgets/tech_background.dart';
 import 'game_screen.dart';
 import 'home_screen.dart';
 
@@ -115,9 +116,12 @@ class _BiddingScreenState extends State<BiddingScreen> {
                 orElse: () => gameState.players.first);
 
         return Scaffold(
-          backgroundColor: getTableColor(false),
-          body: SafeArea(
-            child: CustomScrollView(
+          backgroundColor: Colors.transparent,
+          body: TechBackground(
+            color: getTableColor(false),
+            lightColor: getTableColor(true),
+            child: SafeArea(
+              child: CustomScrollView(
               slivers: [
                 SliverFillRemaining(
                   hasScrollBody: false,
@@ -356,7 +360,7 @@ class _BiddingScreenState extends State<BiddingScreen> {
         ],
       ),
     ),
-  );
+  ));
           },
         );
       },

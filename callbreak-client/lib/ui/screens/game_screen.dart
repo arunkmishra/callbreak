@@ -1,6 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
@@ -9,6 +13,7 @@ import '../../bloc/settings_cubit.dart';
 import '../../core/theme.dart';
 import '../widgets/opponent_widget.dart';
 import '../widgets/playing_card_widget.dart';
+import '../widgets/tech_background.dart';
 import '../widgets/trick_zone_widget.dart';
 import '../../data/models/player.dart';
 import 'bidding_screen.dart';
@@ -109,44 +114,55 @@ class _GameScreenState extends State<GameScreen> {
         return b.cumulativeScore.compareTo(a.cumulativeScore);
       });
 
+    final screenshotKey = GlobalKey();
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: Text(
-          state.isGameOver ? '🏆 Game Over!' : 'Round ${gameState.currentRound} Over!',
-          style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...sortedPlayers.mapIndexed((idx, p) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
+        contentPadding: EdgeInsets.zero,
+        content: RepaintBoundary(
+          key: screenshotKey,
+          child: Container(
+            color: AppColors.surface,
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  state.isGameOver ? '🏆 Game Over!' : 'Round ${gameState.currentRound} Over!',
+                  style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 20),
+                ),
+                const SizedBox(height: 16),
+                ...sortedPlayers.mapIndexed((idx, p) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _RankBadge(rank: p.rank ?? (idx + 1)),
-                          const SizedBox(width: 8),
+                          Row(
+                            children: [
+                              _RankBadge(rank: p.rank ?? (idx + 1)),
+                              const SizedBox(width: 8),
+                              Text(
+                                p.name,
+                                style: const TextStyle(color: AppColors.textPrimary),
+                              ),
+                            ],
+                          ),
                           Text(
-                            p.name,
-                            style: const TextStyle(color: AppColors.textPrimary),
+                            p.cumulativeScore.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: AppColors.gold,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
-                      Text(
-                        p.cumulativeScore.toStringAsFixed(1),
-                        style: const TextStyle(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-          ],
+                    )),
+              ],
+            ),
+          ),
         ),
         actions: [
           if (!state.isGameOver)
@@ -159,7 +175,34 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             )
-          else
+          else ...[
+            TextButton.icon(
+              icon: const Icon(Icons.share, color: AppColors.gold),
+              onPressed: () async {
+                try {
+                  final boundary = screenshotKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+                  if (boundary == null) return;
+                  final image = await boundary.toImage(pixelRatio: 2.0);
+                  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+                  if (byteData == null) return;
+                  final pngBytes = byteData.buffer.asUint8List();
+                  
+                  final xFile = XFile.fromData(
+                    pngBytes,
+                    mimeType: 'image/png',
+                    name: 'callbreak_result.png',
+                  );
+                  // ignore: deprecated_member_use
+                  await Share.shareXFiles(
+                    [xFile],
+                    text: 'I just finished a game of Callbreak! Check out the results!',
+                  );
+                } catch (e) {
+                  debugPrint('Failed to share screenshot: $e');
+                }
+              },
+              label: const Text('Share Result', style: TextStyle(color: AppColors.gold)),
+            ),
             ElevatedButton.icon(
               icon: const Icon(Icons.home_rounded),
               onPressed: () {
@@ -170,6 +213,7 @@ class _GameScreenState extends State<GameScreen> {
               },
               label: const Text('Back to Home'),
             ),
+          ]
         ],
       ),
     ).then((_) {
@@ -262,14 +306,9 @@ class _GameScreenState extends State<GameScreen> {
             fit: StackFit.expand,
             children: [
               // ── Table background texture ───────────────────────────────
-              Container(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment.center,
-                    radius: 1.2,
-                    colors: [getTableColor(true), getTableColor(false)],
-                  ),
-                ),
+              TechBackground(
+                color: getTableColor(false),
+                lightColor: getTableColor(true),
               ),
 
               // ── Top Opponent ───────────────────────────────────────────

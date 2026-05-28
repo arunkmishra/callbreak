@@ -53,6 +53,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkDeepLink();
+    });
+  }
+
+  void _checkDeepLink() {
+    String? roomCode;
+    
+    // 1. Try Uri.base (highly reliable for Flutter Web)
+    try {
+      if (Uri.base.queryParameters.containsKey('room')) {
+        roomCode = Uri.base.queryParameters['room'];
+      }
+    } catch (_) {}
+    
+    // 2. Fallback to defaultRouteName (for Mobile Deep Links)
+    if (roomCode == null || roomCode.isEmpty) {
+      final routeName = WidgetsBinding.instance.platformDispatcher.defaultRouteName;
+      final uri = Uri.tryParse(routeName);
+      if (uri != null && uri.queryParameters.containsKey('room')) {
+        roomCode = uri.queryParameters['room'];
+      }
+    }
+
+    if (roomCode != null && roomCode.isNotEmpty) {
+      _openMultiplayerSheet(context, initialRoomCode: roomCode);
+    }
   }
 
   @override
@@ -366,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _openMultiplayerSheet(BuildContext context) {
+  void _openMultiplayerSheet(BuildContext context, {String? initialRoomCode}) {
     setState(() => _isBotGame = false);
     showModalBottomSheet(
       context: context,
@@ -374,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Colors.transparent,
       builder: (_) => BlocProvider.value(
         value: context.read<GameBloc>(),
-        child: const _MultiplayerSheet(),
+        child: _MultiplayerSheet(initialRoomCode: initialRoomCode),
       ),
     );
   }
@@ -909,7 +937,8 @@ class _BotGameSheetState extends State<_BotGameSheet> {
 // ─── Multiplayer Sheet ────────────────────────────────────────────────────────
 
 class _MultiplayerSheet extends StatefulWidget {
-  const _MultiplayerSheet();
+  final String? initialRoomCode;
+  const _MultiplayerSheet({this.initialRoomCode});
 
   @override
   State<_MultiplayerSheet> createState() => _MultiplayerSheetState();
@@ -924,6 +953,15 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
   int? _minBid;
   bool _greedPenalty = false;
   bool _isCreateMode = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialRoomCode != null && widget.initialRoomCode!.isNotEmpty) {
+      _isCreateMode = false;
+      _roomCodeController.text = widget.initialRoomCode!;
+    }
+  }
 
   @override
   void dispose() {

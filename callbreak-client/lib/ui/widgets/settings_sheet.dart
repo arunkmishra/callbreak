@@ -73,19 +73,22 @@ class SettingsSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Sound Toggle
-                    SwitchListTile(
-                      title: const Text('Sound Effects', style: TextStyle(color: AppColors.textPrimary)),
-                      subtitle: const Text('Card sliding & flipping sounds', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                      secondary: Icon(
-                        state.soundEnabled ? Icons.volume_up_outlined : Icons.volume_off_outlined,
-                        color: state.soundEnabled ? AppColors.gold : AppColors.textSecondary,
+                    Material(
+                      color: Colors.transparent,
+                      child: SwitchListTile(
+                        title: const Text('Sound Effects', style: TextStyle(color: AppColors.textPrimary)),
+                        subtitle: const Text('Card sliding & flipping sounds', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        secondary: Icon(
+                          state.soundEnabled ? Icons.volume_up_outlined : Icons.volume_off_outlined,
+                          color: state.soundEnabled ? AppColors.gold : AppColors.textSecondary,
+                        ),
+                        value: state.soundEnabled,
+                        activeThumbColor: AppColors.gold,
+                        onChanged: (val) {
+                          context.read<SettingsCubit>().toggleSound();
+                        },
+                        contentPadding: EdgeInsets.zero,
                       ),
-                      value: state.soundEnabled,
-                      activeThumbColor: AppColors.gold,
-                      onChanged: (val) {
-                        context.read<SettingsCubit>().toggleSound();
-                      },
-                      contentPadding: EdgeInsets.zero,
                     ),
                     const Divider(color: Colors.white12, height: 32),
 
