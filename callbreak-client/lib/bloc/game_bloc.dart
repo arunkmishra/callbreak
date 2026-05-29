@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../core/audio_service.dart';
+import '../core/session_storage.dart';
+import '../core/stats_prefs.dart';
 import '../data/models/game_state.dart';
 import '../data/repositories/api_repository.dart';
 import '../data/repositories/socket_repository.dart';
-import '../core/session_storage.dart';
 import 'game_event.dart';
 import 'game_state.dart';
 
@@ -214,6 +216,27 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
       currentIsReconnecting = currentState.isReconnecting;
     }
 
+    final isMyTurnNow = gameState.isMyTurn(playerId);
+    bool turnChanged = false;
+
+    if (currentState is GameBidding) {
+      turnChanged = currentState.gameState.currentTurn != gameState.currentTurn;
+    } else if (currentState is GameActive) {
+      turnChanged = currentState.gameState.currentTurn != gameState.currentTurn;
+      // If it remained my turn but the trick advanced or cleared, it's a new turn for me
+      if (!turnChanged && isMyTurnNow) {
+        final oldTrick = currentState.gameState.currentTrick;
+        final newTrick = gameState.currentTrick;
+        if (oldTrick.cards.length != newTrick.cards.length) {
+          turnChanged = true;
+        }
+      }
+    }
+
+    if (turnChanged && isMyTurnNow && gameState.phase != GamePhase.lobby && gameState.phase != GamePhase.gameOver && gameState.phase != GamePhase.roundOver) {
+      AudioService.playTurnAlert();
+    }
+
     switch (gameState.phase) {
       case GamePhase.lobby:
         emit(GameLobby(gameState: gameState, myPlayerId: playerId, isReconnecting: currentIsReconnecting));
@@ -235,6 +258,13 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
       case GamePhase.gameOver:
         // Clear session — game is over, no need to reconnect
         _sessionStorage.clear();
+
+        try {
+          final me = gameState.players.firstWhere((p) => p.id == playerId);
+          final bool won = me.rank == 1;
+          StatsPrefs.recordGame(won: won, points: me.cumulativeScore);
+        } catch (_) {}
+
         emit(GameRoundOver(
           gameState: gameState,
           myPlayerId: playerId,

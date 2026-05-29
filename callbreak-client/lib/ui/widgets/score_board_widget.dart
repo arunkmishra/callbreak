@@ -39,9 +39,16 @@ class ScoreBoardWidget extends StatelessWidget {
                 const DataColumn(label: Text('Round', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                 ...players.map((p) {
                   final name = p.name.split(' ').first;
+                  String rankStr = '';
+                  if (gameState.phase.name == 'gameOver' && p.rank != null) {
+                    if (p.rank == 1) { rankStr = '🥇 '; }
+                    else if (p.rank == 2) { rankStr = '🥈 '; }
+                    else if (p.rank == 3) { rankStr = '🥉 '; }
+                    else { rankStr = '🤡 '; }
+                  }
                   return DataColumn(
                     label: Text(
-                      name,
+                      '$rankStr$name',
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   );

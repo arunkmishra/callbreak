@@ -9,6 +9,7 @@ import '../../bloc/settings_cubit.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../widgets/playing_card_widget.dart';
+import '../widgets/score_board_widget.dart';
 import '../widgets/tech_background.dart';
 import 'game_screen.dart';
 import 'home_screen.dart';
@@ -285,35 +286,68 @@ class _BiddingScreenState extends State<BiddingScreen> {
 
   Widget _buildHeader(BuildContext context, dynamic gameState) {
     return Padding(
-      padding: const EdgeInsets.only(left: 8, right: 16, top: 8, bottom: 8),
+      padding: const EdgeInsets.only(left: 4, right: 8, top: 8, bottom: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.exit_to_app, color: Colors.white54),
-                onPressed: () => _showLeaveMatchDialog(context),
-              ),
-              Text(
-                'Round ${gameState.currentRound} / ${gameState.totalRounds}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w600,
+          Expanded(
+            flex: 1,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.exit_to_app, color: Colors.white54),
+                  onPressed: () => _showLeaveMatchDialog(context),
+                  tooltip: 'Leave Match',
                 ),
-              ),
-            ],
+                Flexible(
+                  child: Text(
+                    'Round ${gameState.currentRound}/${gameState.totalRounds}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
           const Text(
             'BIDDING',
             style: TextStyle(
               color: AppColors.gold,
               fontWeight: FontWeight.w900,
-              letterSpacing: 3,
-              fontSize: 18,
+              letterSpacing: 2,
+              fontSize: 16,
             ),
           ),
-          const SizedBox(width: 48),
+          Expanded(
+            flex: 1,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: InkWell(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      insetPadding: const EdgeInsets.all(16),
+                      child: ScoreBoardWidget(gameState: gameState),
+                    ),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.tableGreenLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.leaderboard, color: AppColors.gold, size: 20),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

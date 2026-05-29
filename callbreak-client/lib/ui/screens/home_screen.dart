@@ -7,9 +7,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
+import '../../core/audio_service.dart';
 import '../../core/player_prefs.dart';
+import '../../core/stats_prefs.dart';
 import '../../core/theme.dart';
 import '../widgets/settings_sheet.dart';
+import '../widgets/stats_dialog.dart';
 import 'bidding_screen.dart';
 import 'game_screen.dart';
 import 'lobby_screen.dart';
@@ -462,10 +465,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _ActionButton(
             icon: Icons.person_outline,
             label: 'Stats',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile & Stats coming soon!')),
-              );
+            onTap: () async {
+              final stats = await StatsPrefs.loadStats();
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  builder: (_) => StatsDialog(stats: stats),
+                );
+              }
             },
           ),
           _ActionButton(
@@ -497,6 +504,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── Sheet launchers ─────────────────────────────────────────────────────────
 
   void _openBotSheet(BuildContext context) {
+    AudioService.preload();
     setState(() => _isBotGame = true);
     showModalBottomSheet(
       context: context,
@@ -510,6 +518,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _openMultiplayerSheet(BuildContext context, {String? initialRoomCode}) {
+    AudioService.preload();
     setState(() => _isBotGame = false);
     showModalBottomSheet(
       context: context,

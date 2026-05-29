@@ -23,6 +23,7 @@ dependencies:
   uuid: ^4.4.0
   share_plus: ^13.1.0
   shared_preferences: ^2.3.2
+  audioplayers: ^6.7.0
 
 dev_dependencies:
   flutter_test:
@@ -36,3 +37,4 @@ flutter:
 
   assets:
     - assets/face_cards/
+    - assets/sounds/
