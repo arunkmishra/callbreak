@@ -47668,18 +47668,23 @@ s=a.c
 r=A.V(s).h("a_<1,e>")
 s=A.Z(new A.a_(s,new A.arf(),r),r.h("al.E"))
 return new A.bt(B.pq,A.bI(q,A.bW(A.b([o,B.mU,A.c2(s,B.t,B.fA,B.w,0,q)],t.p),B.t,B.o,B.w),B.l,q,q,new A.bi(B.Gm,q,q,p,q,q,B.E),q,q,q,B.kL,q,q,q),q)},
-PO(a,b,c,d,e){var s,r,q,p,o,n=null
+PO(a,b,c,d,e){var s,r,q,p,o,n,m=null
 if(b&&d.b===B.fd){s=B.bc.bm(0.8)
 r=A.bT(16)
 q=A.fD(B.c6.bm(0.5),1)
-return A.bI(n,A.bW(A.b([B.a1q,B.fW,new A.Ie(d.at.a,new A.arc(a),new A.ard(a),n)],t.p),B.t,B.o,B.w),B.l,n,n,new A.bi(s,n,q,r,n,n,B.E),n,n,B.kK,B.kM,n,n,n)}if(b&&c.c==null&&d.b!==B.fd){p=d.y
-return new A.bt(B.kK,A.bW(A.b([B.RE,A.aOu(A.Q1(13,new A.are(p==null?1:p,a),!0,t.l7),8,8)],t.p),B.aD,B.o,B.w),n)}if(d.b===B.fd){s=B.bc.bm(0.8)
+return A.bI(m,A.bW(A.b([B.a1q,B.fW,new A.Ie(d.at.a,new A.arc(a),new A.ard(a),m)],t.p),B.t,B.o,B.w),B.l,m,m,new A.bi(s,m,q,r,m,m,B.E),m,m,B.kK,B.kM,m,m,m)}if(b&&c.c==null&&d.b!==B.fd){s={}
+p=d.y
+if(p==null)p=1
+s.a=p
+o=d.at
+if(o.b===c.a&&o.a>0){r=o.a
+if(r>p)s.a=r}return new A.bt(B.kK,A.bW(A.b([B.RE,A.aOu(A.Q1(13,new A.are(s,a),!0,t.l7),8,8)],t.p),B.aD,B.o,B.w),m)}if(d.b===B.fd){s=B.bc.bm(0.8)
 r=A.bT(12)
-return A.bI(n,A.c2(A.b([B.Jx,B.ds,A.b6(b?"Loading...":"Waiting for "+e.b+"...",n,n,n,B.Cg,n,n)],t.p),B.t,B.be,B.w,0,n),B.l,n,n,new A.bi(s,n,n,r,n,n,B.E),n,n,B.f7,B.kM,n,n,n)}s=c.c
+return A.bI(m,A.c2(A.b([B.Jx,B.ds,A.b6(b?"Loading...":"Waiting for "+e.b+"...",m,m,m,B.Cg,m,m)],t.p),B.t,B.be,B.w,0,m),B.l,m,m,new A.bi(s,m,m,r,m,m,B.E),m,m,B.f7,B.kM,m,m,m)}s=c.c
 if(s!=null){r=B.c5.bm(0.2)
 q=A.bT(12)
-o=A.fD(B.c5,1)
-return A.bI(n,A.c2(A.b([B.Js,B.ds,A.b6("You bid "+A.k(s)+". Waiting for others...",n,n,n,B.Cd,n,n)],t.p),B.t,B.be,B.w,0,n),B.l,n,n,new A.bi(r,n,o,q,n,n,B.E),n,n,B.f7,B.kM,n,n,n)}return B.aj}}
+n=A.fD(B.c5,1)
+return A.bI(m,A.c2(A.b([B.Js,B.ds,A.b6("You bid "+A.k(s)+". Waiting for others...",m,m,m,B.Cd,m,m)],t.p),B.t,B.be,B.w,0,m),B.l,m,m,new A.bi(r,m,n,q,m,m,B.E),m,m,B.f7,B.kM,m,m,m)}return B.aj}}
 A.arm.prototype={
 $1(a){var s=null,r=this.a
 return A.aFL(A.b([A.aon(B.Cm,r.ga9A(),s),A.Ok(B.Co,new A.arl(r,this.b),A.lG(s,s,B.bJ,s,s,s,s,s,s,B.j,s,s,s,s,s,s,s,s,s,s))],t.p),B.cp,B.Cl,s,B.Cn)},
@@ -47804,7 +47809,7 @@ A.ard.prototype={
 $0(){return J.cw(A.cL(this.a,!1,t.G),B.Sl)},
 $S:0}
 A.are.prototype={
-$1(a){var s=a+1,r=s>=this.a
+$1(a){var s=a+1,r=s>=this.a.a
 return new A.tB(s,r,r?new A.arb(this.b,s):null,null)},
 $S:330}
 A.arb.prototype={
