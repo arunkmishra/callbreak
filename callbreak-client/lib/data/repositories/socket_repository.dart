@@ -88,6 +88,12 @@ class SocketRepository {
 
     try {
       _channel = WebSocketChannel.connect(uri);
+      _channel!.ready.then((_) {
+        if (_isReconnecting) {
+          _isReconnecting = false;
+          _reconnectStatusController.add(ReconnectStatus.reconnected);
+        }
+      }).catchError((_) {});
     } catch (e) {
       _scheduleReconnect();
       return;
@@ -96,10 +102,6 @@ class SocketRepository {
     _channel!.stream.listen(
       (dynamic raw) {
         // Got a message — we're definitely connected
-        if (_isReconnecting) {
-          _isReconnecting = false;
-          _reconnectStatusController.add(ReconnectStatus.reconnected);
-        }
         _handleMessage(raw);
       },
       onError: (Object error) {

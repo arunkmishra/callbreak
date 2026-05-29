@@ -96,14 +96,6 @@ fun validateMove(
                         )
                     )
                 }
-            } else if (hasTrump) {
-                if (card.suit != trump) {
-                    return Result.failure(
-                        IllegalMoveException(
-                            "Must play a ${trump.displayName}."
-                        )
-                    )
-                }
             }
         }
     }

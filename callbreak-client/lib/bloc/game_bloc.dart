@@ -202,22 +202,35 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     final gameState = event.gameState as GameState;
     final playerId = _myPlayerId ?? '';
 
+    final currentState = state;
+    bool currentIsReconnecting = false;
+    if (currentState is GameActive) {
+      currentIsReconnecting = currentState.isReconnecting;
+    } else if (currentState is GameBidding) {
+      currentIsReconnecting = currentState.isReconnecting;
+    } else if (currentState is GameLobby) {
+      currentIsReconnecting = currentState.isReconnecting;
+    } else if (currentState is GameRoundOver) {
+      currentIsReconnecting = currentState.isReconnecting;
+    }
+
     switch (gameState.phase) {
       case GamePhase.lobby:
-        emit(GameLobby(gameState: gameState, myPlayerId: playerId));
+        emit(GameLobby(gameState: gameState, myPlayerId: playerId, isReconnecting: currentIsReconnecting));
       case GamePhase.dealingPhase1:
       case GamePhase.trumpBidding:
       case GamePhase.dealingPhase2:
       case GamePhase.regularBidding:
       case GamePhase.bidding:
-        emit(GameBidding(gameState: gameState, myPlayerId: playerId));
+        emit(GameBidding(gameState: gameState, myPlayerId: playerId, isReconnecting: currentIsReconnecting));
       case GamePhase.playing:
-        emit(GameActive(gameState: gameState, myPlayerId: playerId));
+        emit(GameActive(gameState: gameState, myPlayerId: playerId, isReconnecting: currentIsReconnecting));
       case GamePhase.roundOver:
         emit(GameRoundOver(
           gameState: gameState,
           myPlayerId: playerId,
           isGameOver: false,
+          isReconnecting: currentIsReconnecting,
         ));
       case GamePhase.gameOver:
         // Clear session — game is over, no need to reconnect
@@ -226,6 +239,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
           gameState: gameState,
           myPlayerId: playerId,
           isGameOver: true,
+          isReconnecting: currentIsReconnecting,
         ));
     }
   }
