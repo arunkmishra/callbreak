@@ -1,17 +1,11 @@
-import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class AudioService {
   static AudioPlayer? _player;
   static bool _isEnabled = true;
 
-  static Source get _tingSource {
-    return kIsWeb ? UrlSource('assets/sounds/ting.wav') : AssetSource('sounds/ting.wav');
-  }
-
-  static Source get _cardDealSequenceSource {
-    return kIsWeb ? UrlSource('assets/sounds/card_deal_sequence.wav') : AssetSource('sounds/card_deal_sequence.wav');
-  }
+  static final Source _tingSource = AssetSource('sounds/ting.wav');
+  static final Source _cardDealSequenceSource = AssetSource('sounds/card_deal_sequence.wav');
 
   static Future<void> playTurnAlert() async {
     print('AudioService: playTurnAlert requested. isEnabled=$_isEnabled');
@@ -49,6 +43,12 @@ class AudioService {
   static Future<void> preload() async {
     if (!_isEnabled) return;
     try {
+      // Force Android/iOS to treat this as a Game audio source (plays over media volume)
+      await AudioPlayer.global.setAudioContext(AudioContextConfig(
+        respectSilence: false,
+        stayAwake: false,
+      ).build());
+
       _player ??= AudioPlayer();
       await _player!.setSource(_tingSource);
       print('AudioService: preloaded ting.wav');
