@@ -62,15 +62,13 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
   }
 
   void _onAppResumed(AppResumed event, Emitter<GameBlocState> emit) {
-    // If we have a session but no live socket, reconnect silently
-    if (!_socketRepository.isConnected &&
-        _myPlayerId != null &&
-        (this.state is GameActive ||
-            this.state is GameBidding ||
-            this.state is GameLobby ||
-            this.state is GameRoundOver)) {
+    // On mobile, returning from the background should aggressively try to 
+    // restore the session if the socket was dropped, regardless of current UI state 
+    // (e.g., even if they are stuck on a GameError screen).
+    if (!_socketRepository.isConnected) {
       _sessionStorage.load().then((session) {
         if (session != null) {
+          _myPlayerId = session.playerId; // ensure memory cache is restored
           add(ConnectToRoom(session.roomId, session.playerId, session.sessionToken));
         }
       });
@@ -93,6 +91,10 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     CreateRoomRequested event,
     Emitter<GameBlocState> emit,
   ) async {
+    // Proactively clear any stale session/connection before starting fresh
+    _cleanUp();
+    _sessionStorage.clear();
+
     emit(const GameLoading());
     try {
       final result = await _apiRepository.createRoom(
@@ -120,6 +122,10 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     JoinRoomRequested event,
     Emitter<GameBlocState> emit,
   ) async {
+    // Proactively clear any stale session/connection before joining a new one
+    _cleanUp();
+    _sessionStorage.clear();
+
     emit(const GameLoading());
     try {
       final result = await _apiRepository.joinRoom(event.roomId, event.playerName);
@@ -176,9 +182,11 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     Emitter<GameBlocState> emit,
   ) {
     if (event.hasFailed) {
-      // All retries exhausted — clear session and send user home
-      _sessionStorage.clear();
-      emit(const GameError('Connection lost. Please rejoin the room.'));
+      // All retries exhausted — do NOT clear session! 
+      // If the user's internet is just down for a long time, we want them to 
+      // be able to restart the app and use their saved sessionToken to reclaim their seat.
+      _cleanUp();
+      emit(const GameError('Connection lost. Please check your internet and restart the app to rejoin.'));
       return;
     }
 
@@ -279,6 +287,16 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     Emitter<GameBlocState> emit,
   ) {
     print('🚨 ServerErrorReceived: ${event.reason}');
+    
+    // If the error indicates the room is dead/missing or session is invalid, clear the session
+    final reasonLower = event.reason.toLowerCase();
+    if (reasonLower.contains('not found') || 
+        reasonLower.contains('invalid') || 
+        reasonLower.contains('expired')) {
+      _sessionStorage.clear();
+      _cleanUp();
+    }
+    
     final currentState = state;
     emit(GameError(event.reason));
 
@@ -321,6 +339,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
   }
 
   void _onDisconnect(DisconnectRequested event, Emitter<GameBlocState> emit) {
+    _socketRepository.sendAction('LEAVE_ROOM');
     _sessionStorage.clear(); // Intentional — clear saved session
     _cleanUp();
     emit(const GameInitial());

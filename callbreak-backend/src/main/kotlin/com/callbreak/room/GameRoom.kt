@@ -87,6 +87,43 @@ class GameRoom(initialState: CallbreakState) {
         }
     }
 
+    suspend fun leaveRoom(playerId: PlayerId) {
+        mutex.withLock {
+            sessionTokens.remove(playerId)
+            
+            if (state.phase == GamePhase.LOBBY) {
+                // Remove player from the lobby to vacate the seat and transfer host
+                state = state.copy(
+                    players = state.players.filter { it.id != playerId }
+                )
+            } else if (state.phase != GamePhase.GAME_OVER) {
+                // Game active: immediately take over with a bot
+                state = state.copy(
+                    players = state.players.map { player ->
+                        if (player.id == playerId) {
+                            player.copy(
+                                isOnline = false,
+                                isBot = true,
+                                name = if (player.name.endsWith(" (Bot)")) player.name else "${player.name} (Bot)"
+                            )
+                        } else player
+                    }
+                )
+            }
+            broadcastState()
+        }
+        
+        var forceTakeover = false
+        mutex.withLock {
+            if (state.phase != GamePhase.LOBBY && state.phase != GamePhase.GAME_OVER && state.currentTurn == playerId) {
+                forceTakeover = true
+            }
+        }
+        if (forceTakeover) {
+            triggerBotActionsIfNeeded()
+        }
+    }
+
     fun registerSessionToken(playerId: PlayerId, token: String) {
         sessionTokens[playerId] = token
     }

@@ -97,6 +97,10 @@ fun Application.configureRouting() {
                                 room.playCard(playerId, PlayingCard(suit, rank))
                             }
                         }
+                        is ClientMessage.LeaveRoom -> {
+                            room.leaveRoom(playerId)
+                            null
+                        }
                     }
 
                     result?.onFailure { sendError(it.message ?: "Action failed") }

@@ -42,4 +42,8 @@ sealed interface ClientMessage {
         val bid: Int?,
         val suit: String?
     ) : ClientMessage
+
+    @Serializable
+    @SerialName("LEAVE_ROOM")
+    object LeaveRoom : ClientMessage
 }
