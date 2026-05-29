@@ -9,7 +9,6 @@ import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
-import 'bidding_screen.dart';
 import 'game_screen.dart';
 import 'home_screen.dart';
 
@@ -21,11 +20,7 @@ class LobbyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocConsumer<GameBloc, GameBlocState>(
       listener: (context, state) {
-        if (state is GameBidding) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const BiddingScreen()),
-          );
-        } else if (state is GameActive || state is GameRoundOver || state is GameOver) {
+        if (state is GameBidding || state is GameActive || state is GameRoundOver || state is GameOver) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const GameScreen()),
           );

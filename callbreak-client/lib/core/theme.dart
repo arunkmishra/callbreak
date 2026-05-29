@@ -51,6 +51,7 @@ ThemeData buildAppTheme() {
       error: AppColors.errorRed,
     ),
     fontFamily: 'Roboto',
+    fontFamilyFallback: const ['NotoSansSymbols'],
     appBarTheme: const AppBarTheme(
       backgroundColor: AppColors.background,
       foregroundColor: AppColors.textPrimary,

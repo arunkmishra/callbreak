@@ -38,3 +38,8 @@ flutter:
   assets:
     - assets/face_cards/
     - assets/sounds/
+
+  fonts:
+    - family: NotoSansSymbols
+      fonts:
+        - asset: assets/fonts/NotoSansSymbols-Regular.ttf

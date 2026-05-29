@@ -9,6 +9,10 @@ class AudioService {
     return kIsWeb ? UrlSource('assets/sounds/ting.wav') : AssetSource('sounds/ting.wav');
   }
 
+  static Source get _cardDealSequenceSource {
+    return kIsWeb ? UrlSource('assets/sounds/card_deal_sequence.wav') : AssetSource('sounds/card_deal_sequence.wav');
+  }
+
   static Future<void> playTurnAlert() async {
     print('AudioService: playTurnAlert requested. isEnabled=$_isEnabled');
     if (!_isEnabled) return;
@@ -26,12 +30,32 @@ class AudioService {
     }
   }
 
+  static AudioPlayer? _sequencePlayer;
+
+  static Future<void> playCardDealSequence() async {
+    if (!_isEnabled) return;
+    
+    try {
+      _sequencePlayer ??= AudioPlayer();
+      if (_sequencePlayer!.state == PlayerState.playing) {
+        await _sequencePlayer!.stop();
+      }
+      await _sequencePlayer!.play(_cardDealSequenceSource);
+    } catch (e) {
+      print('AudioService: ERROR playing sequence: $e');
+    }
+  }
+
   static Future<void> preload() async {
     if (!_isEnabled) return;
     try {
       _player ??= AudioPlayer();
       await _player!.setSource(_tingSource);
       print('AudioService: preloaded ting.wav');
+
+      _sequencePlayer ??= AudioPlayer();
+      await _sequencePlayer!.setSource(_cardDealSequenceSource);
+      print('AudioService: preloaded card_deal_sequence.wav');
     } catch (e) {
       print('AudioService: ERROR preloading sound: $e');
     }

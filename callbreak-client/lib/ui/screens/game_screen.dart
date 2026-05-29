@@ -10,13 +10,15 @@ import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
 import '../../bloc/settings_cubit.dart';
+import '../../core/audio_service.dart';
 import '../../core/theme.dart';
+import '../../data/models/game_state.dart';
+import '../../data/models/player.dart';
 import '../widgets/opponent_widget.dart';
 import '../widgets/playing_card_widget.dart';
 import '../widgets/score_board_widget.dart';
 import '../widgets/tech_background.dart';
 import '../widgets/trick_zone_widget.dart';
-import 'bidding_screen.dart';
 import 'home_screen.dart';
 
 /// Screen 4: The Virtual Game Table.
@@ -192,11 +194,6 @@ class _GameScreenState extends State<GameScreen> {
         } else {
           _dismissDialog();
         }
-        if (state is GameBidding) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const BiddingScreen()),
-          );
-        }
         if (state is GameInitial) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -227,15 +224,26 @@ class _GameScreenState extends State<GameScreen> {
               }
             }
 
-            if (state is! GameActive) {
+            if (state is! GameActive && state is! GameBidding) {
               return Scaffold(
                 backgroundColor: getTableColor(false),
                 body: const Center(child: CircularProgressIndicator(color: AppColors.gold)),
               );
             }
 
-        final gameState = state.gameState;
-        final myPlayerId = state.myPlayerId;
+        final gameState = state is GameActive 
+            ? state.gameState 
+            : (state as GameBidding).gameState;
+        final myPlayerId = state is GameActive 
+            ? state.myPlayerId 
+            : (state as GameBidding).myPlayerId;
+        final isReconnecting = state is GameActive 
+            ? state.isReconnecting 
+            : (state as GameBidding).isReconnecting;
+        final awaitingServer = state is GameActive 
+            ? state.awaitingServer 
+            : false;
+            
         final isMyTurn = gameState.isMyTurn(myPlayerId);
 
         final numPlayers = gameState.players.length;
@@ -274,7 +282,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
 
               // ── Reconnecting banner ────────────────────────────────────
-              if (state.isReconnecting)
+              if (isReconnecting)
                 Positioned(
                   top: 0,
                   left: 0,
@@ -315,21 +323,26 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ),
 
-              // ── Trick Zone (center) ────────────────────────────────────
+              // ── Center Area (Trick Zone or Bidding Overlay) ──────────────
               Align(
-                alignment: Alignment.center,
-                child: TrickZoneWidget(
-                  trick: gameState.currentTrick,
-                  players: gameState.players,
-                  myPlayerId: myPlayerId,
-                ),
+                alignment: state is GameBidding ? const Alignment(0, -0.3) : Alignment.center,
+                child: state is GameBidding
+                    ? _BiddingOverlay(
+                        gameState: gameState,
+                        myPlayerId: myPlayerId,
+                      )
+                    : TrickZoneWidget(
+                        trick: gameState.currentTrick,
+                        players: gameState.players,
+                        myPlayerId: myPlayerId,
+                      ),
               ),
 
               // ── Turn indicator ─────────────────────────────────────────
               Align(
                 alignment: const Alignment(0, 0.4),
                 child: AnimatedOpacity(
-                  opacity: isMyTurn ? 1.0 : 0.0,
+                  opacity: (isMyTurn && state is GameActive) ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 500),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -392,12 +405,12 @@ class _GameScreenState extends State<GameScreen> {
                 bottom: 0,
                 child: _FannedHand(
                   cards: gameState.myHand,
-                  isMyTurn: isMyTurn,
-                  awaitingServer: state.awaitingServer,
+                  isMyTurn: state is GameActive && isMyTurn,
+                  awaitingServer: awaitingServer,
                   currentTrick: gameState.currentTrick,
                   trumpSuit: gameState.currentTrumpSuit ?? 'Spade',
                   onCardTap: (card) {
-                    if (isMyTurn && !state.awaitingServer) {
+                    if (state is GameActive && isMyTurn && !awaitingServer) {
                       context.read<GameBloc>().add(PlayCardAttempt(card));
                     }
                   },
@@ -422,7 +435,7 @@ class _GameScreenState extends State<GameScreen> {
 
 /// Fanned card hand widget with playability logic.
 /// Uses overlapping cards to fit all 13 cards on screen in landscape.
-class _FannedHand extends StatelessWidget {
+class _FannedHand extends StatefulWidget {
   final List<dynamic> cards;
   final bool isMyTurn;
   final bool awaitingServer;
@@ -439,16 +452,50 @@ class _FannedHand extends StatelessWidget {
     required this.onCardTap,
   });
 
-  bool _canPlayCard(dynamic cardToPlay) {
-    if (!isMyTurn || awaitingServer) return false;
+  @override
+  State<_FannedHand> createState() => _FannedHandState();
+}
 
-    final trickCards = currentTrick.cards as List<dynamic>;
+class _FannedHandState extends State<_FannedHand> with SingleTickerProviderStateMixin {
+  late AnimationController _dealController;
+  @override
+  void initState() {
+    super.initState();
+    _dealController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200), // Total deal time
+    );
+    if (widget.cards.isNotEmpty) {
+      _dealController.forward();
+      AudioService.playCardDealSequence();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _FannedHand oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cards.isEmpty && widget.cards.isNotEmpty) {
+      _dealController.forward(from: 0.0);
+      AudioService.playCardDealSequence();
+    }
+  }
+
+  @override
+  void dispose() {
+    _dealController.dispose();
+    super.dispose();
+  }
+
+  bool _canPlayCard(dynamic cardToPlay) {
+    if (!widget.isMyTurn || widget.awaitingServer) return false;
+
+    final trickCards = widget.currentTrick.cards as List<dynamic>;
     if (trickCards.isEmpty) return true;
 
-    final String ledSuit = (currentTrick.ledSuit ?? trickCards.first.card.suit) as String;
+    final String ledSuit = (widget.currentTrick.ledSuit ?? trickCards.first.card.suit) as String;
 
     dynamic getWinningTrickCard() {
-      final trumpCards = trickCards.where((tc) => tc.card.suit == trumpSuit).toList();
+      final trumpCards = trickCards.where((tc) => tc.card.suit == widget.trumpSuit).toList();
       if (trumpCards.isNotEmpty) {
         var maxTrump = trumpCards[0];
         for (var i = 1; i < trumpCards.length; i++) {
@@ -466,23 +513,23 @@ class _FannedHand extends StatelessWidget {
     }
 
     final winningCard = getWinningTrickCard();
-    final hasLedSuit = cards.any((c) => c.suit == ledSuit);
+    final hasLedSuit = widget.cards.any((c) => c.suit == ledSuit);
 
     if (hasLedSuit) {
       if (cardToPlay.suit != ledSuit) return false;
       final bool canBeat = winningCard.suit == ledSuit;
-      final hasBeatingCard = cards.any(
+      final hasBeatingCard = widget.cards.any(
           (c) => c.suit == ledSuit && canBeat && c.value > winningCard.value);
       if (hasBeatingCard) return cardToPlay.value > winningCard.value;
       return true;
     } else {
-      final hasBeatingSpade = cards.any((c) =>
-          c.suit == trumpSuit &&
-          (winningCard.suit != trumpSuit || c.value > winningCard.value));
+      final hasBeatingSpade = widget.cards.any((c) =>
+          c.suit == widget.trumpSuit &&
+          (winningCard.suit != widget.trumpSuit || c.value > winningCard.value));
           
       if (hasBeatingSpade) {
-        if (cardToPlay.suit != trumpSuit) return false;
-        if (winningCard.suit == trumpSuit && cardToPlay.value <= winningCard.value) return false;
+        if (cardToPlay.suit != widget.trumpSuit) return false;
+        if (winningCard.suit == widget.trumpSuit && cardToPlay.value <= winningCard.value) return false;
         return true;
       }
       return true;
@@ -491,7 +538,7 @@ class _FannedHand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (cards.isEmpty) {
+    if (widget.cards.isEmpty) {
       return const SizedBox(
         height: 100,
         child: Center(
@@ -500,8 +547,10 @@ class _FannedHand extends StatelessWidget {
       );
     }
 
-    final sortedCards = List<dynamic>.from(cards)..sort();
+    final sortedCards = List<dynamic>.from(widget.cards)..sort();
     final int count = sortedCards.length;
+    // Base the stagger on 13 cards so timing is consistent
+    const double staggerStep = 1.0 / 13; 
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -531,15 +580,39 @@ class _FannedHand extends StatelessWidget {
                 final card = entry.value;
                 final canPlay = _canPlayCard(card);
 
-                return Positioned(
-                  left: i * step,
-                  bottom: 0,
+                // Calculate staggered animation for this specific card
+                final start = (i * staggerStep).clamp(0.0, 1.0);
+                final end = (start + 0.2).clamp(0.0, 1.0);
+                final animation = CurvedAnimation(
+                  parent: _dealController,
+                  curve: Interval(start, end, curve: Curves.easeOutBack),
+                );
+
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) {
+                    // Fly in from bottom (offset dx=0, dy=cardH + 50) and fade in
+                    final dy = (1.0 - animation.value) * (cardH + 50);
+                    final opacity = animation.value.clamp(0.0, 1.0);
+                    
+                    return Positioned(
+                      left: i * step,
+                      bottom: 0,
+                      child: Transform.translate(
+                        offset: Offset(0, dy),
+                        child: Opacity(
+                          opacity: opacity,
+                          child: child,
+                        ),
+                      ),
+                    );
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     transform: Matrix4.translationValues(
                         0, canPlay ? -10 : 0, 0),
                     child: GestureDetector(
-                      onTap: canPlay ? () => onCardTap(card) : null,
+                      onTap: canPlay ? () => widget.onCardTap(card) : null,
                       child: SizedBox(
                         width: cardW,
                         height: cardH,
@@ -547,7 +620,7 @@ class _FannedHand extends StatelessWidget {
                           card: card,
                           isPlayable: canPlay,
                           isSmall: true,
-                          onTap: canPlay ? () => onCardTap(card) : null,
+                          onTap: canPlay ? () => widget.onCardTap(card) : null,
                         ),
                       ),
                     ),
@@ -731,6 +804,291 @@ class _ReconnectingBanner extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bidding Overlay
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BiddingOverlay extends StatefulWidget {
+  final GameState gameState;
+  final String myPlayerId;
+
+  const _BiddingOverlay({required this.gameState, required this.myPlayerId});
+
+  @override
+  State<_BiddingOverlay> createState() => _BiddingOverlayState();
+}
+
+class _BiddingOverlayState extends State<_BiddingOverlay> {
+  int _sliderBid = 1; 
+  late int _trumpBid;
+  String _trumpSuit = 'Spade';
+
+  @override
+  void initState() {
+    super.initState();
+    _initBidValues();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BiddingOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _initBidValues();
+  }
+
+  void _initBidValues() {
+    final gameState = widget.gameState;
+    int minBid = gameState.minBid ?? 1;
+    if (gameState.phase == GamePhase.trumpBidding) {
+      final highest = gameState.trumpBidState.highestBid;
+      _trumpBid = highest >= 5 ? highest + 1 : 5;
+    } else {
+      final myPlayer = gameState.players.firstWhere((p) => p.id == widget.myPlayerId);
+      final trumpState = gameState.trumpBidState;
+      if (trumpState.highestBidderId == myPlayer.id && trumpState.highestBid > 0) {
+        if (trumpState.highestBid > minBid) {
+          minBid = trumpState.highestBid;
+        }
+      }
+      if (_sliderBid < minBid) {
+        _sliderBid = minBid;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gameState = widget.gameState;
+    final myPlayer = gameState.players.firstWhere((p) => p.id == widget.myPlayerId);
+    final isMyTurn = gameState.isMyTurn(widget.myPlayerId);
+    final currentBidder = gameState.players.firstWhere(
+      (p) => p.id == gameState.currentTurn,
+      orElse: () => gameState.players.first,
+    );
+
+    if (myPlayer.bid != null) {
+      return _buildWaitingBubble(
+        icon: Icons.check_circle,
+        color: AppColors.successGreen,
+        text: 'You bid ${myPlayer.bid}. Waiting for others...',
+      );
+    }
+
+    if (!isMyTurn) {
+      return _buildWaitingBubble(
+        icon: Icons.hourglass_empty,
+        color: Colors.white54,
+        text: 'Waiting for ${currentBidder.name} to bid...',
+      );
+    }
+
+    if (gameState.phase == GamePhase.trumpBidding) {
+      return _buildTrumpBidForm(gameState, context);
+    }
+
+    return _buildRegularBidSlider(gameState, myPlayer, context);
+  }
+
+  Widget _buildWaitingBubble({required IconData icon, required Color color, required String text}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 12),
+          Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRegularBidSlider(GameState gameState, Player myPlayer, BuildContext context) {
+    int minBid = gameState.minBid ?? 1;
+    final trumpState = gameState.trumpBidState;
+    if (trumpState.highestBidderId == myPlayer.id && trumpState.highestBid > 0) {
+      if (trumpState.highestBid > minBid) {
+        minBid = trumpState.highestBid;
+      }
+    }
+
+    final isCompact = MediaQuery.sizeOf(context).height < 500;
+
+    return Container(
+      width: isCompact ? 300 : 320,
+      padding: EdgeInsets.all(isCompact ? 12 : 20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.5), width: 2),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Place Your Bid',
+            style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: isCompact ? 16 : 18),
+          ),
+          SizedBox(height: isCompact ? 4 : 8),
+          Text(
+            'Select how many tricks you can win',
+            style: TextStyle(color: Colors.white70, fontSize: isCompact ? 11 : 13),
+          ),
+          SizedBox(height: isCompact ? 12 : 24),
+          Row(
+            children: [
+              Text('$minBid', style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: Slider(
+                  value: _sliderBid.toDouble(),
+                  min: minBid.toDouble(),
+                  max: 13,
+                  divisions: 13 - minBid > 0 ? 13 - minBid : 1,
+                  activeColor: AppColors.gold,
+                  inactiveColor: Colors.white24,
+                  label: '$_sliderBid',
+                  onChanged: (val) {
+                    setState(() {
+                      _sliderBid = val.toInt();
+                    });
+                  },
+                ),
+              ),
+              const Text('13', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          SizedBox(height: isCompact ? 12 : 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$_sliderBid',
+                style: TextStyle(color: AppColors.gold, fontSize: isCompact ? 36 : 48, fontWeight: FontWeight.w900, height: 1),
+              ),
+              SizedBox(width: isCompact ? 20 : 32),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  padding: isCompact ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8) : null,
+                  minimumSize: isCompact ? const Size(0, 36) : const Size(0, 52),
+                ),
+                onPressed: () {
+                  context.read<GameBloc>().add(PlaceBidAttempt(_sliderBid));
+                },
+                icon: Icon(Icons.check, size: isCompact ? 18 : 20),
+                label: Text(isCompact ? 'CONFIRM' : 'CONFIRM BID'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrumpBidForm(GameState gameState, BuildContext context) {
+    final highest = gameState.trumpBidState.highestBid;
+    final validBids = List.generate(13 - 5 + 1, (i) => 5 + i).where((b) => b > highest).toList();
+
+    final isCompact = MediaQuery.sizeOf(context).height < 500;
+
+    return Container(
+      width: isCompact ? 300 : 320,
+      padding: EdgeInsets.all(isCompact ? 12 : 20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFBA68C8).withValues(alpha: 0.5), width: 2),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Set Trump Suit & Bid',
+            style: TextStyle(color: const Color(0xFFBA68C8), fontWeight: FontWeight.bold, fontSize: isCompact ? 16 : 18),
+          ),
+          if (!isCompact) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Based on your first 5 cards',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ],
+          SizedBox(height: isCompact ? 12 : 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('Bid:', style: TextStyle(color: Colors.white70)),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: validBids.contains(_trumpBid) ? _trumpBid : (validBids.isNotEmpty ? validBids.first : null),
+                dropdownColor: AppColors.surfaceElevated,
+                items: validBids.map((b) => DropdownMenuItem(value: b, child: Text('$b', style: const TextStyle(color: Colors.white)))).toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _trumpBid = v);
+                },
+              ),
+              const SizedBox(width: 16),
+              DropdownButton<String>(
+                value: _trumpSuit,
+                dropdownColor: AppColors.surfaceElevated,
+                items: ['Spade', 'Heart', 'Diamond', 'Club'].map((s) {
+                  final String symbol = s == 'Spade' ? '♠' : s == 'Heart' ? '♥' : s == 'Diamond' ? '♦' : '♣';
+                  final Color color = (s == 'Heart' || s == 'Diamond') ? AppColors.rankRed : Colors.white;
+                  return DropdownMenuItem(
+                    value: s,
+                    child: Text(symbol, style: TextStyle(color: color, fontSize: 22)),
+                  );
+                }).toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _trumpSuit = v);
+                },
+              ),
+            ],
+          ),
+          SizedBox(height: isCompact ? 12 : 24),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () {
+                    context.read<GameBloc>().add(const PlaceTrumpBidAttempt(null, null));
+                  },
+                  child: const Text('PASS', style: TextStyle(color: Colors.white54)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFBA68C8),
+                    padding: isCompact ? const EdgeInsets.symmetric(horizontal: 8, vertical: 8) : null,
+                    minimumSize: isCompact ? const Size(0, 36) : const Size(0, 52),
+                  ),
+                  onPressed: () {
+                    context.read<GameBloc>().add(PlaceTrumpBidAttempt(_trumpBid, _trumpSuit));
+                  },
+                  icon: const Icon(Icons.check, size: 16, color: Colors.white),
+                  label: Text('BID & SET', style: TextStyle(color: Colors.white, fontSize: isCompact ? 12 : 13)),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
