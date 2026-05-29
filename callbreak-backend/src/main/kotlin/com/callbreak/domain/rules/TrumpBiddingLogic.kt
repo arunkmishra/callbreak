@@ -32,21 +32,9 @@ fun processTrumpBid(state: CallbreakState, playerId: PlayerId, bid: Int?, suit: 
             val winningBid = bidState.highestBid
             val winningSuit = bidState.proposedSuit!!
             
-            val newBids = state.bids + (winner to winningBid)
+            val newBids = state.bids
             
-            var firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
-            if (newBids[firstBidder] != null) {
-                // First bidder already has a bid, find the next one
-                var currentIndex = state.players.indexOfFirst { it.id == firstBidder }
-                for (i in 1..4) {
-                    currentIndex = (currentIndex + state.players.size - 1) % state.players.size
-                    val candidate = state.players[currentIndex].id
-                    if (newBids[candidate] == null) {
-                        firstBidder = candidate
-                        break
-                    }
-                }
-            }
+            val firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
             
             return Result.success(state.copy(
                 currentTrumpSuit = winningSuit,
@@ -70,20 +58,9 @@ fun processTrumpBid(state: CallbreakState, playerId: PlayerId, bid: Int?, suit: 
         if (bidState.playersPassed.size == 3) {
             // 3 players have already passed, and this player just placed a bid.
             // They are the winner. End the phase.
-            val newBids = state.bids + (playerId to bid)
+            val newBids = state.bids
             
-            var firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
-            if (newBids[firstBidder] != null) {
-                var currentIndex = state.players.indexOfFirst { it.id == firstBidder }
-                for (i in 1..4) {
-                    currentIndex = (currentIndex + state.players.size - 1) % state.players.size
-                    val candidate = state.players[currentIndex].id
-                    if (newBids[candidate] == null) {
-                        firstBidder = candidate
-                        break
-                    }
-                }
-            }
+            val firstBidder = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
             
             return Result.success(state.copy(
                 currentTrumpSuit = suit,

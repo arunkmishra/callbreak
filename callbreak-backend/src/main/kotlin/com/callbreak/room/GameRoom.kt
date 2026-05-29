@@ -188,7 +188,10 @@ class GameRoom(initialState: CallbreakState) {
             if (state.currentTurn != playerId) {
                 return@withLock Result.failure(Exception("Not $playerId's turn to bid"))
             }
-            val minBidAllowed = state.minBid ?: 1
+            var minBidAllowed = state.minBid ?: 1
+            if (state.trumpBidState.highestBidderId == playerId && state.trumpBidState.highestBid > 0) {
+                minBidAllowed = maxOf(minBidAllowed, state.trumpBidState.highestBid)
+            }
             if (bid < minBidAllowed || bid > CallbreakState.CARDS_PER_HAND) {
                 return@withLock Result.failure(Exception("Bid must be between $minBidAllowed and ${CallbreakState.CARDS_PER_HAND}"))
             }

@@ -519,7 +519,13 @@ class _BiddingScreenState extends State<BiddingScreen> {
 
     // Regular bidding — my turn: Wrap grid, all 13 visible
     if (isMyTurn && myPlayer.bid == null && gameState.phase != GamePhase.trumpBidding) {
-      final minBid = gameState.minBid ?? 1;
+      int minBid = gameState.minBid ?? 1;
+      final trumpState = gameState.trumpBidState;
+      if (trumpState.highestBidderId == myPlayer.id && trumpState.highestBid > 0) {
+        if (trumpState.highestBid > minBid) {
+          minBid = trumpState.highestBid;
+        }
+      }
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Column(
