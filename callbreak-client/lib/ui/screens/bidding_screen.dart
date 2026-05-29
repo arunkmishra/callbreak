@@ -372,11 +372,11 @@ class _BiddingScreenState extends State<BiddingScreen> {
 
         Widget getSuitIcon(String? suit) {
           final s = (suit ?? 'Spade').toUpperCase();
-          String char = '♠';
+          String char = '♠\uFE0E';
           Color color = Colors.white;
-          if (s.contains('HEART')) { char = '♥'; color = const Color(0xFFE53935); }
-          else if (s.contains('DIAMOND')) { char = '♦'; color = const Color(0xFFE53935); }
-          else if (s.contains('CLUB')) { char = '♣'; color = Colors.white; }
+          if (s.contains('HEART')) { char = '♥\uFE0E'; color = const Color(0xFFE53935); }
+          else if (s.contains('DIAMOND')) { char = '♦\uFE0E'; color = const Color(0xFFE53935); }
+          else if (s.contains('CLUB')) { char = '♣\uFE0E'; color = Colors.white; }
           return Text(char, style: TextStyle(fontSize: 24, height: 1.2, color: color));
         }
 
@@ -806,11 +806,11 @@ class _InlineTrumpBidFormState extends State<_InlineTrumpBidForm> {
               value: _selectedSuit,
               dropdownColor: AppColors.surfaceElevated,
               items: ['Spade', 'Heart', 'Diamond', 'Club'].map((s) {
-                String char = '♠';
+                String char = '♠\uFE0E';
                 Color color = Colors.white;
-                if (s == 'Heart') { char = '♥'; color = const Color(0xFFE53935); }
-                else if (s == 'Diamond') { char = '♦'; color = const Color(0xFFE53935); }
-                else if (s == 'Club') { char = '♣'; color = Colors.white; }
+                if (s == 'Heart') { char = '♥\uFE0E'; color = const Color(0xFFE53935); }
+                else if (s == 'Diamond') { char = '♦\uFE0E'; color = const Color(0xFFE53935); }
+                else if (s == 'Club') { char = '♣\uFE0E'; color = Colors.white; }
                 return DropdownMenuItem(
                   value: s,
                   child: Text(char, style: TextStyle(color: color, fontSize: 18)),
