@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../core/audio_service.dart';
 
 enum TableColor { green, red, blue }
 
@@ -30,6 +31,8 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   void toggleSound() {
-    emit(state.copyWith(soundEnabled: !state.soundEnabled));
+    final newValue = !state.soundEnabled;
+    AudioService.toggleSound(newValue);
+    emit(state.copyWith(soundEnabled: newValue));
   }
 }
