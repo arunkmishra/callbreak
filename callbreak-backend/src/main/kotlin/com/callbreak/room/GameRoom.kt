@@ -51,6 +51,15 @@ class GameRoom(initialState: CallbreakState) {
     /** Takeover timers for players who are offline, keyed by playerId. */
     private val offlineTimers = ConcurrentHashMap<PlayerId, Job>()
 
+    /** Active turn timers for human players, keyed by playerId. */
+    private val turnTimers = ConcurrentHashMap<PlayerId, Job>()
+
+    private fun cancelTurnTimer(playerId: PlayerId?) {
+        if (playerId != null) {
+            turnTimers.remove(playerId)?.cancel()
+        }
+    }
+
     // ─── Session Management ──────────────────────────────────────────────────
 
     suspend fun addSession(playerId: PlayerId, session: DefaultWebSocketSession) {
@@ -214,15 +223,18 @@ class GameRoom(initialState: CallbreakState) {
                 }
             }
 
+            val oldTurn = state.currentTurn
             state = state.copy(
                 bids = newBids,
                 phase = if (allBid) GamePhase.PLAYING else GamePhase.REGULAR_BIDDING,
                 currentTurn = if (allBid) firstPlayer else nextTurn,
+                turnEndTime = null,
                 players = state.players.map { p ->
                     if (p.id == playerId) p.copy(bid = bid) else p
                 }
             )
 
+            cancelTurnTimer(oldTurn)
             broadcastState()
             Result.success(Unit)
         }
@@ -243,11 +255,13 @@ class GameRoom(initialState: CallbreakState) {
             val nextStateResult = processTrumpBid(state, playerId, bid, suit)
             if (nextStateResult.isFailure) return@withLock nextStateResult.map { Unit }
             
+            val oldTurn = state.currentTurn
             var nextState = nextStateResult.getOrThrow()
             if (nextState.phase == GamePhase.DEALING_PHASE_2) {
                 nextState = startDealPhase2(nextState)
             }
-            state = nextState
+            state = nextState.copy(turnEndTime = null)
+            cancelTurnTimer(oldTurn)
             broadcastState()
             Result.success(Unit)
         }
@@ -293,12 +307,15 @@ class GameRoom(initialState: CallbreakState) {
 
                 if (totalTricksPlayed == CallbreakState.CARDS_PER_HAND) {
                     // Round over — show final trick card first, but pause play (currentTurn = null)
+                    val oldTurn = state.currentTurn
                     state = state.copy(
                         hands = state.hands + (playerId to updatedHand),
                         currentTrick = newTrick,
                         currentTurn = null,
+                        turnEndTime = null,
                         players = updatedPlayers
                     )
+                    cancelTurnTimer(oldTurn)
                     broadcastState()
 
                     val roundFinishedState = state.copy(
@@ -319,12 +336,15 @@ class GameRoom(initialState: CallbreakState) {
                     }
                 } else {
                     // More tricks to play; show final trick card first, pause play
+                    val oldTurn = state.currentTurn
                     state = state.copy(
                         hands = state.hands + (playerId to updatedHand),
                         currentTrick = newTrick,
                         currentTurn = null,
+                        turnEndTime = null,
                         players = updatedPlayers
                     )
+                    cancelTurnTimer(oldTurn)
                     broadcastState()
 
                     CoroutineScope(Dispatchers.Default).launch {
@@ -346,12 +366,15 @@ class GameRoom(initialState: CallbreakState) {
                 val playerIndex = state.players.indexOfFirst { it.id == playerId }
                 val nextPlayer = state.players[(playerIndex + state.players.size - 1) % state.players.size].id
 
+                val oldTurn = state.currentTurn
                 state = state.copy(
                     hands = state.hands + (playerId to updatedHand),
                     currentTrick = newTrick,
                     currentTurn = nextPlayer,
+                    turnEndTime = null,
                     players = updatedPlayers,
                 )
+                cancelTurnTimer(oldTurn)
                 broadcastState()
             }
 
@@ -433,6 +456,28 @@ class GameRoom(initialState: CallbreakState) {
         }
     }
 
+    private suspend fun forceBotMove(playerId: PlayerId) {
+        var phase: GamePhase = GamePhase.LOBBY
+        var stateCopy: CallbreakState = state
+        
+        mutex.withLock {
+            if (state.currentTurn != playerId) return
+            phase = state.phase
+            stateCopy = state
+        }
+        
+        if (phase == GamePhase.REGULAR_BIDDING) {
+            val botHand = stateCopy.hands[playerId] ?: emptyList()
+            val bid = calculateBotBid(botHand, stateCopy.minBid, stateCopy.currentTrumpSuit)
+            placeBid(playerId, bid)
+        } else if (phase == GamePhase.TRUMP_BIDDING) {
+            placeTrumpBid(playerId, null, null)
+        } else if (phase == GamePhase.PLAYING) {
+            val card = selectBotCard(stateCopy, playerId)
+            playCard(playerId, card)
+        }
+    }
+
     suspend fun triggerBotActionsIfNeeded() {
         var turnPlayer: Player? = null
         var phase: GamePhase = GamePhase.LOBBY
@@ -447,6 +492,23 @@ class GameRoom(initialState: CallbreakState) {
 
         val player = turnPlayer ?: return
         if (!player.isBot) {
+            // Start 10-second turn timer for human player
+            var startedTimer = false
+            mutex.withLock {
+                if (state.currentTurn == player.id && !turnTimers.containsKey(player.id)) {
+                    val turnEnd = System.currentTimeMillis() + 10_000
+                    state = state.copy(turnEndTime = turnEnd)
+                    broadcastState()
+                    
+                    val job = CoroutineScope(Dispatchers.Default).launch {
+                        delay(10_000)
+                        forceBotMove(player.id)
+                    }
+                    turnTimers[player.id] = job
+                    startedTimer = true
+                }
+            }
+
             // If human is offline and has no active takeover timer, start one
             if (!player.isOnline) {
                 mutex.withLock {

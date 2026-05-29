@@ -94,6 +94,7 @@ data class CallbreakState(
     val trumpBidState: TrumpBidState = TrumpBidState(),
     val deck: List<PlayingCard> = emptyList(),
     val roundScores: List<Map<PlayerId, Double>> = emptyList(),
+    val turnEndTime: Long? = null,
 ) {
     companion object {
         const val PLAYERS_REQUIRED = 4

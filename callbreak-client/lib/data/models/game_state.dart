@@ -126,6 +126,7 @@ class GameState extends Equatable {
   final String? currentTrumpSuit;
   final TrumpBidState trumpBidState;
   final List<Map<String, double>> roundScores;
+  final int? turnEndTime;
 
   const GameState({
     required this.roomId,
@@ -143,6 +144,7 @@ class GameState extends Equatable {
     this.currentTrumpSuit,
     this.trumpBidState = const TrumpBidState(),
     this.roundScores = const [],
+    this.turnEndTime,
   });
 
   factory GameState.fromJson(Map<String, dynamic> json) => GameState(
@@ -170,6 +172,7 @@ class GameState extends Equatable {
         roundScores: (json['roundScores'] as List<dynamic>? ?? [])
             .map((e) => (e as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as num).toDouble())))
             .toList(),
+        turnEndTime: json['turnEndTime'] as int?,
       );
 
   /// Whether it is [myPlayerId]'s turn to act.
@@ -195,5 +198,6 @@ class GameState extends Equatable {
         currentTrumpSuit,
         trumpBidState,
         roundScores,
+        turnEndTime,
       ];
 }

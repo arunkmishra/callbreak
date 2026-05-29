@@ -51,7 +51,8 @@ data class GameStateDto(
     val allowCustomTrump: Boolean,
     val currentTrumpSuit: Suit?,
     val trumpBidState: com.callbreak.domain.models.TrumpBidState?,
-    val roundScores: List<Map<PlayerId, Double>>
+    val roundScores: List<Map<PlayerId, Double>>,
+    val turnEndTime: Long?,
 )
 
 @Serializable

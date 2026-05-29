@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../data/models/player.dart';
 import '../../core/theme.dart';
 
+import '../widgets/turn_timer_widget.dart';
+
 enum OpponentPosition { top, left, right }
 
 /// Displays an opponent's avatar, name, bid/tricks won, and card count.
@@ -9,12 +11,14 @@ enum OpponentPosition { top, left, right }
 class OpponentWidget extends StatelessWidget {
   final Player player;
   final bool isCurrentTurn;
+  final int? turnEndTime;
   final OpponentPosition position;
 
   const OpponentWidget({
     super.key,
     required this.player,
     required this.isCurrentTurn,
+    this.turnEndTime,
     required this.position,
   });
 
@@ -62,6 +66,11 @@ class OpponentWidget extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (isCurrentTurn && turnEndTime != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: TurnTimerWidget(turnEndTime: turnEndTime!, compact: true),
+          ),
         _Avatar(player: player, isCurrentTurn: isCurrentTurn),
         const SizedBox(height: 6),
         _Name(player: player),
@@ -83,7 +92,16 @@ class OpponentWidget extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Name(player: player),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _Name(player: player),
+                if (isCurrentTurn && turnEndTime != null) ...[
+                  const SizedBox(width: 6),
+                  TurnTimerWidget(turnEndTime: turnEndTime!, compact: true),
+                ]
+              ],
+            ),
             const SizedBox(height: 2),
             Row(
               mainAxisSize: MainAxisSize.min,

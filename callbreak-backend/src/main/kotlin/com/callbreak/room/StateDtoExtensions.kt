@@ -46,4 +46,5 @@ fun toDto(state: CallbreakState, requestingPlayerId: PlayerId): GameStateDto =
         currentTrumpSuit = state.currentTrumpSuit,
         trumpBidState = state.trumpBidState,
         roundScores = state.roundScores,
+        turnEndTime = state.turnEndTime,
     )

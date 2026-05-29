@@ -19,6 +19,7 @@ import '../widgets/playing_card_widget.dart';
 import '../widgets/score_board_widget.dart';
 import '../widgets/tech_background.dart';
 import '../widgets/trick_zone_widget.dart';
+import '../widgets/turn_timer_widget.dart';
 import 'home_screen.dart';
 
 /// Screen 4: The Virtual Game Table.
@@ -297,6 +298,7 @@ class _GameScreenState extends State<GameScreen> {
                   child: OpponentWidget(
                     player: topOpponent,
                     isCurrentTurn: gameState.currentTurn == topOpponent.id,
+                    turnEndTime: gameState.currentTurn == topOpponent.id ? gameState.turnEndTime : null,
                     position: OpponentPosition.top,
                   ),
                 ),
@@ -308,6 +310,7 @@ class _GameScreenState extends State<GameScreen> {
                   child: OpponentWidget(
                     player: leftOpponent,
                     isCurrentTurn: gameState.currentTurn == leftOpponent.id,
+                    turnEndTime: gameState.currentTurn == leftOpponent.id ? gameState.turnEndTime : null,
                     position: OpponentPosition.left,
                   ),
                 ),
@@ -319,6 +322,7 @@ class _GameScreenState extends State<GameScreen> {
                   child: OpponentWidget(
                     player: rightOpponent,
                     isCurrentTurn: gameState.currentTurn == rightOpponent.id,
+                    turnEndTime: gameState.currentTurn == rightOpponent.id ? gameState.turnEndTime : null,
                     position: OpponentPosition.right,
                   ),
                 ),
@@ -338,28 +342,39 @@ class _GameScreenState extends State<GameScreen> {
                       ),
               ),
 
-              // ── Turn indicator ─────────────────────────────────────────
+              // ── Turn indicator & Timer ─────────────────────────────────
               Align(
                 alignment: const Alignment(0, 0.4),
-                child: AnimatedOpacity(
-                  opacity: (isMyTurn && state is GameActive) ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 500),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.gold.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Your turn — play a card',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isMyTurn && gameState.turnEndTime != null)
+                      TurnTimerWidget(
+                        turnEndTime: gameState.turnEndTime!,
+                        isMyTurn: true,
+                      ),
+                    const SizedBox(height: 8),
+                    AnimatedOpacity(
+                      opacity: (isMyTurn && state is GameActive) ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 500),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'Your turn — play a card',
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
 
