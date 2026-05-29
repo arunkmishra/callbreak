@@ -158,12 +158,37 @@ class _PlayingCardWidgetState extends State<PlayingCardWidget> {
           borderRadius: BorderRadius.circular(widget.isSmall ? 6 : 10),
           child: Stack(
             children: [
-              // Traditional face card image
+              // ── Instant text placeholder (always rendered underneath) ──
+              // Visible immediately — no waiting for asset. If the image loads
+              // successfully this gets covered; if it fails it stays visible.
+              _FaceCardTextFallback(
+                rank: widget.card.rank,
+                suit: widget.card.suit,
+                width: w,
+                height: h,
+                isSmall: widget.isSmall,
+              ),
+
+              // ── Face card image with crossfade on load ──────────────────
               Image.asset(
                 assetPath,
                 width: w,
                 height: h,
                 fit: BoxFit.fill,
+                // Crossfade from transparent → opaque once first frame renders
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                  if (wasSynchronouslyLoaded || frame != null) {
+                    return child; // already in memory — show instantly
+                  }
+                  return AnimatedOpacity(
+                    opacity: frame == null ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeIn,
+                    child: child,
+                  );
+                },
+                // If asset is missing or corrupt, show nothing (fallback underneath shows)
+                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
               ),
             ],
           ),
@@ -226,5 +251,93 @@ class _PlayingCardWidgetState extends State<PlayingCardWidget> {
       default:
         return suit[0];
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Text-based fallback for face cards (J / Q / K)
+//
+// Renders immediately so the player can always see rank + suit while the
+// image asset is being fetched from disk/cache. The image is layered on top
+// and fades in once ready; if it never loads this stays visible.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FaceCardTextFallback extends StatelessWidget {
+  final String rank;
+  final String suit;
+  final double width;
+  final double height;
+  final bool isSmall;
+
+  const _FaceCardTextFallback({
+    required this.rank,
+    required this.suit,
+    required this.width,
+    required this.height,
+    required this.isSmall,
+  });
+
+  Color get _suitColor {
+    switch (suit) {
+      case 'Heart':
+      case 'Diamond':
+        return AppColors.rankRed;
+      default:
+        return AppColors.rankBlack;
+    }
+  }
+
+  String get _suitSymbol {
+    switch (suit) {
+      case 'Spade':   return '♠';
+      case 'Heart':   return '♥';
+      case 'Diamond': return '♦';
+      case 'Club':    return '♣';
+      default:        return suit[0];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rankFontSize = isSmall ? 15.0 : 20.0;
+    final suitFontSize = isSmall ? 11.0 : 15.0;
+    final centerFontSize = isSmall ? 20.0 : 30.0;
+    final color = _suitColor;
+    final symbol = _suitSymbol;
+
+    return Container(
+      width: width,
+      height: height,
+      color: AppColors.cardWhite,
+      padding: const EdgeInsets.all(4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Top-left rank + suit
+          Text(
+            rank,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontSize: rankFontSize,
+              height: 1,
+            ),
+          ),
+          Text(
+            symbol,
+            style: TextStyle(color: color, fontSize: suitFontSize, height: 1),
+          ),
+          // Center large suit
+          Expanded(
+            child: Center(
+              child: Text(
+                symbol,
+                style: TextStyle(color: color, fontSize: centerFontSize),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
+import '../../core/player_prefs.dart';
 import '../../core/theme.dart';
 import '../widgets/settings_sheet.dart';
 import 'bidding_screen.dart';
@@ -142,72 +143,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   curve: Curves.easeOut,
                 ),
                 child: SafeArea(
-                  child: CustomScrollView(
-                    slivers: [
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Column(
-                          children: [
-                            const Spacer(flex: 2),
-
-                            // ── Animated card fan hero ─────────────────────────
-                            _buildCardFan(),
-
-                            const SizedBox(height: 44),
-
-                            // ── CALLBREAK branding ─────────────────────────────
-                            _buildBranding(),
-
-                            const Spacer(flex: 3),
-
-                            // ── Mode selection tiles ───────────────────────────
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _ModeTile(
-                                      id: 'play_vs_bot_tile',
-                                      label: 'Play vs Bot',
-                                      subtitle: 'Solo · AI opponents',
-                                      icon: Icons.smart_toy_outlined,
-                                      accentColor: const Color(0xFF1E88E5),
-                                      suitSymbols: '♠♣',
-                                      onTap: isLoading ? null : () => _openBotSheet(context),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _ModeTile(
-                                      id: 'multiplayer_tile',
-                                      label: 'Multiplayer',
-                                      subtitle: 'Play with friends',
-                                      icon: Icons.group_outlined,
-                                      accentColor: const Color(0xFF8E24AA),
-                                      suitSymbols: '♥♦',
-                                      onTap: isLoading ? null : () => _openMultiplayerSheet(context),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const Spacer(flex: 1),
-                            
-                            // ── Bottom Action Bar ──────────────────────────────
-                            _buildBottomActionBar(context),
-
-                            if (isLoading)
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 32, top: 16),
-                                child: CircularProgressIndicator(color: AppColors.gold),
-                              )
-                            else
-                              const SizedBox(height: 36),
-                          ],
-                        ),
-                      ),
-                    ],
+                  child: OrientationBuilder(
+                    builder: (context, orientation) {
+                      if (orientation == Orientation.landscape) {
+                        return _buildLandscapeLayout(context, isLoading);
+                      }
+                      return _buildPortraitLayout(context, isLoading);
+                    },
                   ),
                 ),
               ),
@@ -218,9 +160,166 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  // ── Portrait layout (original) ───────────────────────────────────────────────
+
+  Widget _buildPortraitLayout(BuildContext context, bool isLoading) {
+    return CustomScrollView(
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Column(
+            children: [
+              const Spacer(flex: 2),
+
+              // ── Animated card fan hero ─────────────────────────
+              _buildCardFan(),
+
+              const SizedBox(height: 44),
+
+              // ── CALLBREAK branding ─────────────────────────────
+              _buildBranding(),
+
+              const Spacer(flex: 3),
+
+              // ── Mode selection tiles ───────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _ModeTile(
+                        id: 'play_vs_bot_tile',
+                        label: 'Play vs Bot',
+                        subtitle: 'Solo · AI opponents',
+                        icon: Icons.smart_toy_outlined,
+                        accentColor: const Color(0xFF1E88E5),
+                        suitSymbols: '♠♣',
+                        onTap: isLoading ? null : () => _openBotSheet(context),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _ModeTile(
+                        id: 'multiplayer_tile',
+                        label: 'Multiplayer',
+                        subtitle: 'Play with friends',
+                        icon: Icons.group_outlined,
+                        accentColor: const Color(0xFF8E24AA),
+                        suitSymbols: '♥♦',
+                        onTap: isLoading ? null : () => _openMultiplayerSheet(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Spacer(flex: 1),
+
+              // ── Bottom Action Bar ──────────────────────────────
+              _buildBottomActionBar(context),
+
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 32, top: 16),
+                  child: CircularProgressIndicator(color: AppColors.gold),
+                )
+              else
+                const SizedBox(height: 36),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Landscape layout — side-by-side, compact ─────────────────────────────────
+
+  Widget _buildLandscapeLayout(BuildContext context, bool isLoading) {
+    return Row(
+      children: [
+        // Left side: compact card fan
+        Expanded(
+          flex: 4,
+          child: Center(
+            child: _buildCardFanLandscape(),
+          ),
+        ),
+
+        // Right side: branding + tiles + action bar
+        Expanded(
+          flex: 6,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── CALLBREAK branding ─────────────────────────
+                _buildBrandingLandscape(),
+
+                const SizedBox(height: 16),
+
+                // ── Mode selection tiles ───────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ModeTile(
+                        id: 'play_vs_bot_tile',
+                        label: 'Play vs Bot',
+                        subtitle: 'Solo · AI opponents',
+                        icon: Icons.smart_toy_outlined,
+                        accentColor: const Color(0xFF1E88E5),
+                        suitSymbols: '♠♣',
+                        onTap: isLoading ? null : () => _openBotSheet(context),
+                        compact: true,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ModeTile(
+                        id: 'multiplayer_tile',
+                        label: 'Multiplayer',
+                        subtitle: 'Play with friends',
+                        icon: Icons.group_outlined,
+                        accentColor: const Color(0xFF8E24AA),
+                        suitSymbols: '♥♦',
+                        onTap: isLoading ? null : () => _openMultiplayerSheet(context),
+                        compact: true,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Bottom Action Bar ──────────────────────────
+                _buildBottomActionBar(context),
+
+                if (isLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Center(
+                      child: CircularProgressIndicator(color: AppColors.gold),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ── Card fan hero ───────────────────────────────────────────────────────────
 
   Widget _buildCardFan() {
+    return _buildCardFanWithSize(height: 190, offsets: [-68.0, -23.0, 23.0, 68.0]);
+  }
+
+  Widget _buildCardFanLandscape() {
+    return _buildCardFanWithSize(height: 140, offsets: [-50.0, -17.0, 17.0, 50.0]);
+  }
+
+  Widget _buildCardFanWithSize({required double height, required List<double> offsets}) {
     const fanCards = [
       (rank: 'A', suit: '♠', isRed: false),
       (rank: 'K', suit: '♥', isRed: true),
@@ -228,10 +327,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       (rank: 'J', suit: '♣', isRed: false),
     ];
     const angles = [-0.42, -0.14, 0.14, 0.42];
-    const offsets = [-68.0, -23.0, 23.0, 68.0];
 
     return SizedBox(
-      height: 190,
+      height: height,
       child: AnimatedBuilder(
         animation: _fanController,
         builder: (context, _) {
@@ -264,6 +362,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── Branding ────────────────────────────────────────────────────────────────
 
   Widget _buildBranding() {
+    return _buildBrandingWithSize(fontSize: 40, letterSpacing: 9, showSubtitle: true);
+  }
+
+  Widget _buildBrandingLandscape() {
+    return _buildBrandingWithSize(fontSize: 28, letterSpacing: 6, showSubtitle: false);
+  }
+
+  Widget _buildBrandingWithSize({
+    required double fontSize,
+    required double letterSpacing,
+    required bool showSubtitle,
+  }) {
     return AnimatedBuilder(
       animation: _pulseController,
       builder: (context, child) {
@@ -283,57 +393,59 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ],
               stops: [0.0, 0.25, 0.5, 0.75, 1.0],
             ).createShader(bounds),
-            child: const Text(
+            child: Text(
               'CALLBREAK',
               style: TextStyle(
-                fontSize: 40,
+                fontSize: fontSize,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
-                letterSpacing: 9,
+                letterSpacing: letterSpacing,
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 36,
-                height: 1,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      AppColors.textSecondary.withValues(alpha: 0.5),
-                    ],
+          if (showSubtitle) ...[
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 36,
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        AppColors.textSecondary.withValues(alpha: 0.5),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'T H E  C L A S S I C  C A R D  G A M E',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: AppColors.textSecondary,
-                    letterSpacing: 2.5,
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    'T H E  C L A S S I C  C A R D  G A M E',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: AppColors.textSecondary,
+                      letterSpacing: 2.5,
+                    ),
                   ),
                 ),
-              ),
-              Container(
-                width: 36,
-                height: 1,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.textSecondary.withValues(alpha: 0.5),
-                      Colors.transparent,
-                    ],
+                Container(
+                  width: 36,
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.textSecondary.withValues(alpha: 0.5),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -553,6 +665,8 @@ class _ModeTile extends StatefulWidget {
   final Color accentColor;
   final String suitSymbols;
   final VoidCallback? onTap;
+  /// When true, renders a shorter tile optimised for landscape.
+  final bool compact;
 
   const _ModeTile({
     required this.id,
@@ -562,6 +676,7 @@ class _ModeTile extends StatefulWidget {
     required this.accentColor,
     required this.suitSymbols,
     this.onTap,
+    this.compact = false,
   });
 
   @override
@@ -593,6 +708,10 @@ class _ModeTileState extends State<_ModeTile>
 
   @override
   Widget build(BuildContext context) {
+    final tileHeight = widget.compact ? 100.0 : 160.0;
+    final iconSize = widget.compact ? 36.0 : 46.0;
+    final padding = widget.compact ? 14.0 : 20.0;
+
     return GestureDetector(
       onTapDown: (_) => _pressController.forward(),
       onTapUp: (_) {
@@ -603,7 +722,7 @@ class _ModeTileState extends State<_ModeTile>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
-          height: 160,
+          height: tileHeight,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -639,7 +758,7 @@ class _ModeTileState extends State<_ModeTile>
                   widget.suitSymbols,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.07),
-                    fontSize: 80,
+                    fontSize: widget.compact ? 54 : 80,
                     height: 1,
                   ),
                 ),
@@ -647,55 +766,98 @@ class _ModeTileState extends State<_ModeTile>
 
               // Content
               Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Icon badge
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: Icon(widget.icon, color: Colors.white, size: 24),
-                    ),
+                padding: EdgeInsets.all(padding),
+                child: widget.compact
+                    // Landscape compact: icon + label row
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: iconSize,
+                            height: iconSize,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(widget.icon, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  widget.label,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.subtitle,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.72),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    // Portrait full: stacked icon → label
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Icon badge
+                          Container(
+                            width: iconSize,
+                            height: iconSize,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: Icon(widget.icon, color: Colors.white, size: 24),
+                          ),
 
-                    const Spacer(),
+                          const Spacer(),
 
-                    // Label
-                    Text(
-                      widget.label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
+                          // Label
+                          Text(
+                            widget.label,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
 
-                    // Subtitle
-                    Text(
-                      widget.subtitle,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
-                        fontSize: 11,
+                          // Subtitle
+                          Text(
+                            widget.subtitle,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.72),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
 
               // Tap arrow hint
               Positioned(
-                bottom: 16,
-                right: 16,
+                bottom: widget.compact ? 12 : 16,
+                right: 12,
                 child: Icon(
                   Icons.arrow_forward_rounded,
                   color: Colors.white.withValues(alpha: 0.45),
-                  size: 18,
+                  size: 16,
                 ),
               ),
             ],
@@ -715,14 +877,11 @@ class _SheetContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 0),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 12,
-        bottom: math.max(MediaQuery.of(context).viewInsets.bottom, 24),
-      ),
       decoration: BoxDecoration(
         color: const Color(0xFF141824),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
@@ -736,21 +895,33 @@ class _SheetContainer extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Drag handle
-            Container(
-              width: 44,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: AppColors.textSecondary.withValues(alpha: 0.30),
-                borderRadius: BorderRadius.circular(2),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 12,
+            bottom: math.max(bottomInset, 24),
+          ),
+          // In landscape the sheet height is limited — always allow scrolling
+          physics: isLandscape
+              ? const AlwaysScrollableScrollPhysics()
+              : const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                width: 44,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.textSecondary.withValues(alpha: 0.30),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            child,
-          ],
+              child,
+            ],
+          ),
         ),
       ),
     );
@@ -770,6 +941,25 @@ class _BotGameSheetState extends State<_BotGameSheet> {
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   int _rounds = 5;
+  bool _nameLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedName();
+  }
+
+  Future<void> _loadSavedName() async {
+    final saved = await PlayerPrefs.loadName();
+    if (mounted) {
+      setState(() {
+        if (saved != null) {
+          _nameController.text = saved;
+        }
+        _nameLoaded = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -843,24 +1033,11 @@ class _BotGameSheetState extends State<_BotGameSheet> {
                   const SizedBox(height: 28),
 
                   // ── Name field ─────────────────────────────────────────
-                  TextFormField(
+                  _NameField(
                     controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Your Name',
-                      prefixIcon: const Icon(
-                        Icons.person_outline,
-                        color: Color(0xFF42A5F5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF1E88E5)),
-                      ),
-                    ),
-                    style: const TextStyle(color: AppColors.textPrimary),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
-                    textCapitalization: TextCapitalization.words,
-                    enabled: !isLoading,
+                    accentColor: const Color(0xFF42A5F5),
+                    enabled: !isLoading && _nameLoaded,
+                    isLoaded: _nameLoaded,
                   ),
                   const SizedBox(height: 16),
 
@@ -928,9 +1105,11 @@ class _BotGameSheetState extends State<_BotGameSheet> {
 
   void _startBotGame() {
     if (!_formKey.currentState!.validate()) return;
+    final name = _nameController.text.trim();
+    PlayerPrefs.saveName(name); // persist for next session
     context.read<GameBloc>().add(
           CreateRoomRequested(
-            _nameController.text.trim(),
+            name,
             totalRounds: _rounds,
           ),
         );
@@ -957,6 +1136,7 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
   bool _greedPenalty = false;
   bool _allowCustomTrump = false;
   bool _isCreateMode = true;
+  bool _nameLoaded = false;
 
   @override
   void initState() {
@@ -964,6 +1144,19 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
     if (widget.initialRoomCode != null && widget.initialRoomCode!.isNotEmpty) {
       _isCreateMode = false;
       _roomCodeController.text = widget.initialRoomCode!;
+    }
+    _loadSavedName();
+  }
+
+  Future<void> _loadSavedName() async {
+    final saved = await PlayerPrefs.loadName();
+    if (mounted) {
+      setState(() {
+        if (saved != null) {
+          _nameController.text = saved;
+        }
+        _nameLoaded = true;
+      });
     }
   }
 
@@ -1076,6 +1269,7 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
                       ? _CreateRoomForm(
                           key: const ValueKey('create'),
                           nameController: _nameController,
+                          nameLoaded: _nameLoaded,
                           formKey: _createFormKey,
                           rounds: _rounds,
                           minBid: _minBid,
@@ -1091,6 +1285,7 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
                       : _JoinRoomForm(
                           key: const ValueKey('join'),
                           nameController: _nameController,
+                          nameLoaded: _nameLoaded,
                           roomCodeController: _roomCodeController,
                           formKey: _joinFormKey,
                           isLoading: isLoading,
@@ -1108,9 +1303,11 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
 
   void _createRoom() {
     if (!_createFormKey.currentState!.validate()) return;
+    final name = _nameController.text.trim();
+    PlayerPrefs.saveName(name);
     context.read<GameBloc>().add(
           CreateRoomRequested(
-            _nameController.text.trim(),
+            name,
             totalRounds: _rounds,
             minBid: _minBid,
             greedPenalty: _greedPenalty,
@@ -1121,10 +1318,10 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
 
   void _joinRoom() {
     if (!_joinFormKey.currentState!.validate()) return;
+    final name = _nameController.text.trim();
+    PlayerPrefs.saveName(name);
     final code = _roomCodeController.text.trim().toUpperCase();
-    context
-        .read<GameBloc>()
-        .add(JoinRoomRequested(code, _nameController.text.trim()));
+    context.read<GameBloc>().add(JoinRoomRequested(code, name));
   }
 }
 
@@ -1132,6 +1329,7 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
 
 class _CreateRoomForm extends StatelessWidget {
   final TextEditingController nameController;
+  final bool nameLoaded;
   final GlobalKey<FormState> formKey;
   final int rounds;
   final int? minBid;
@@ -1147,6 +1345,7 @@ class _CreateRoomForm extends StatelessWidget {
   const _CreateRoomForm({
     super.key,
     required this.nameController,
+    required this.nameLoaded,
     required this.formKey,
     required this.rounds,
     required this.minBid,
@@ -1278,6 +1477,7 @@ class _CreateRoomForm extends StatelessWidget {
 
 class _JoinRoomForm extends StatelessWidget {
   final TextEditingController nameController;
+  final bool nameLoaded;
   final TextEditingController roomCodeController;
   final GlobalKey<FormState> formKey;
   final bool isLoading;
@@ -1286,6 +1486,7 @@ class _JoinRoomForm extends StatelessWidget {
   const _JoinRoomForm({
     super.key,
     required this.nameController,
+    required this.nameLoaded,
     required this.roomCodeController,
     required this.formKey,
     required this.isLoading,
@@ -1299,17 +1500,11 @@ class _JoinRoomForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
+          _NameField(
             controller: nameController,
-            decoration: const InputDecoration(
-              labelText: 'Your Name',
-              prefixIcon: Icon(Icons.person_outline, color: Color(0xFFBA68C8)),
-            ),
-            style: const TextStyle(color: AppColors.textPrimary),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
-            textCapitalization: TextCapitalization.words,
-            enabled: !isLoading,
+            accentColor: const Color(0xFFBA68C8),
+            enabled: !isLoading && nameLoaded,
+            isLoaded: nameLoaded,
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -1365,6 +1560,43 @@ class _JoinRoomForm extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Shared Name Field ────────────────────────────────────────────────────────
+//
+// Pure StatelessWidget: shows the name field pre-filled with the loaded name.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NameField extends StatelessWidget {
+  final TextEditingController controller;
+  final Color accentColor;
+  final bool enabled;
+  /// True while SharedPreferences load is pending (shows "Loading…" hint).
+  final bool isLoaded;
+
+  const _NameField({
+    required this.controller,
+    required this.accentColor,
+    required this.enabled,
+    required this.isLoaded,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: 'Your Name',
+        prefixIcon: Icon(Icons.person_outline, color: accentColor),
+        hintText: isLoaded ? null : 'Loading…',
+      ),
+      style: const TextStyle(color: AppColors.textPrimary),
+      validator: (v) =>
+          (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
+      textCapitalization: TextCapitalization.words,
+      enabled: enabled,
     );
   }
 }
