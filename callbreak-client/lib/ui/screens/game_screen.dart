@@ -13,9 +13,9 @@ import '../../bloc/settings_cubit.dart';
 import '../../core/theme.dart';
 import '../widgets/opponent_widget.dart';
 import '../widgets/playing_card_widget.dart';
+import '../widgets/score_board_widget.dart';
 import '../widgets/tech_background.dart';
 import '../widgets/trick_zone_widget.dart';
-import '../../data/models/player.dart';
 import 'bidding_screen.dart';
 import 'home_screen.dart';
 
@@ -98,15 +98,6 @@ class _GameScreenState extends State<GameScreen> {
     _isDialogOpen = true;
     final gameState = state.gameState;
     
-    // Sort scoreboard players by rank ascending, fallback to score descending
-    final sortedPlayers = List<Player>.from(gameState.players)
-      ..sort((a, b) {
-        if (a.rank != null && b.rank != null) {
-          return a.rank!.compareTo(b.rank!);
-        }
-        return b.cumulativeScore.compareTo(a.cumulativeScore);
-      });
-
     final screenshotKey = GlobalKey();
 
     showDialog(
@@ -120,40 +111,18 @@ class _GameScreenState extends State<GameScreen> {
           child: Container(
             color: AppColors.surface,
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  state.isGameOver ? '🏆 Game Over!' : 'Round ${gameState.currentRound} Over!',
-                  style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 20),
-                ),
-                const SizedBox(height: 16),
-                ...sortedPlayers.mapIndexed((idx, p) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              _RankBadge(rank: p.rank ?? (idx + 1)),
-                              const SizedBox(width: 8),
-                              Text(
-                                p.name,
-                                style: const TextStyle(color: AppColors.textPrimary),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            p.cumulativeScore.toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: AppColors.gold,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    state.isGameOver ? '🏆 Game Over!' : 'Round ${gameState.currentRound} Over!',
+                    style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 20),
+                  ),
+                  const SizedBox(height: 16),
+                  ScoreBoardWidget(gameState: gameState),
+                ],
+              ),
             ),
           ),
         ),
@@ -316,7 +285,7 @@ class _GameScreenState extends State<GameScreen> {
               // ── Top Opponent ───────────────────────────────────────────
               if (topOpponent != null)
                 Align(
-                  alignment: const Alignment(0, -0.8),
+                  alignment: const Alignment(0, -0.95),
                   child: OpponentWidget(
                     player: topOpponent,
                     isCurrentTurn: gameState.currentTurn == topOpponent.id,
@@ -639,108 +608,84 @@ class _ScorePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.black45,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Round ${gameState.currentRound} / ${gameState.totalRounds}',
-                style: const TextStyle(
-                  color: AppColors.gold,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (gameState.allowCustomTrump)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFBA68C8).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFFBA68C8)),
-                  ),
-                  child: Builder(
-                    builder: (context) {
-                      final s = (gameState.currentTrumpSuit ?? 'Spade').toUpperCase();
-                      String char = '♠';
-                      if (s.contains('HEART')) char = '♥';
-                      else if (s.contains('DIAMOND')) char = '♦';
-                      else if (s.contains('CLUB')) char = '♣';
-                      return Text(
-                        'Trump: $char',
-                        style: const TextStyle(
-                          color: Color(0xFFBA68C8),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      );
-                    }
-                  ),
-                ),
-            ],
+          Text(
+            'Round ${gameState.currentRound} / ${gameState.totalRounds}',
+            style: const TextStyle(
+              color: AppColors.gold,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
           ),
-          ...gameState.players.map((p) => Text(
-                '${p.name}: ${p.cumulativeScore.toStringAsFixed(1)}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
+          const SizedBox(width: 8),
+          if (gameState.allowCustomTrump)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+              ),
+              child: Builder(
+                builder: (context) {
+                  final s = (gameState.currentTrumpSuit ?? 'Spade').toUpperCase();
+                  String char = '♠';
+                  Color suitColor = Colors.white;
+                  if (s.contains('HEART')) { char = '♥'; suitColor = Colors.redAccent; }
+                  else if (s.contains('DIAMOND')) { char = '♦'; suitColor = Colors.redAccent; }
+                  else if (s.contains('CLUB')) { char = '♣'; suitColor = Colors.white; }
+                  return RichText(
+                    text: TextSpan(
+                      children: [
+                        const TextSpan(
+                          text: 'Trump: ',
+                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(
+                          text: char,
+                          style: TextStyle(color: suitColor, fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              ),
+            ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (_) => Dialog(
+                  backgroundColor: Colors.transparent,
+                  insetPadding: const EdgeInsets.all(16),
+                  child: ScoreBoardWidget(gameState: gameState),
                 ),
-              )),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.tableGreenLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.leaderboard, color: AppColors.gold, size: 20),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Creative rank badge using medal emojis and colored containers.
-class _RankBadge extends StatelessWidget {
-  final int rank;
-  const _RankBadge({required this.rank});
 
-  @override
-  Widget build(BuildContext context) {
-    final String emoji;
-    final Color bg;
-    final Color border;
-
-    switch (rank) {
-      case 1:
-        emoji = '🥇';
-        bg = const Color(0xFFFFD700).withValues(alpha: 0.2);
-        border = const Color(0xFFFFD700);
-      case 2:
-        emoji = '🥈';
-        bg = const Color(0xFFC0C0C0).withValues(alpha: 0.2);
-        border = const Color(0xFFC0C0C0);
-      case 3:
-        emoji = '🥉';
-        bg = const Color(0xFFCD7F32).withValues(alpha: 0.2);
-        border = const Color(0xFFCD7F32);
-      default:
-        emoji = '🤡';
-        bg = Colors.red.withValues(alpha: 0.12);
-        border = Colors.red.shade300;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: border, width: 1),
-      ),
-      child: Text(emoji, style: const TextStyle(fontSize: 16)),
-    );
-  }
-}
 
 // Extension to iterate with index
 extension ListMapIndexed<T> on Iterable<T> {

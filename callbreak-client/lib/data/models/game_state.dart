@@ -125,6 +125,7 @@ class GameState extends Equatable {
   final bool allowCustomTrump;
   final String? currentTrumpSuit;
   final TrumpBidState trumpBidState;
+  final List<Map<String, double>> roundScores;
 
   const GameState({
     required this.roomId,
@@ -141,6 +142,7 @@ class GameState extends Equatable {
     this.allowCustomTrump = false,
     this.currentTrumpSuit,
     this.trumpBidState = const TrumpBidState(),
+    this.roundScores = const [],
   });
 
   factory GameState.fromJson(Map<String, dynamic> json) => GameState(
@@ -165,6 +167,9 @@ class GameState extends Equatable {
         allowCustomTrump: json['allowCustomTrump'] as bool? ?? false,
         currentTrumpSuit: json['currentTrumpSuit'] as String?,
         trumpBidState: TrumpBidState.fromJson(json['trumpBidState'] as Map<String, dynamic>?),
+        roundScores: (json['roundScores'] as List<dynamic>? ?? [])
+            .map((e) => (e as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as num).toDouble())))
+            .toList(),
       );
 
   /// Whether it is [myPlayerId]'s turn to act.
@@ -189,5 +194,6 @@ class GameState extends Equatable {
         allowCustomTrump,
         currentTrumpSuit,
         trumpBidState,
+        roundScores,
       ];
 }

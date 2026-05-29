@@ -20,7 +20,9 @@ class OpponentWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isVertical = position == OpponentPosition.top;
+    // Top opponent should be horizontal to save vertical space.
+    // Left and Right opponents should be vertical to save horizontal space.
+    final isVertical = position == OpponentPosition.left || position == OpponentPosition.right;
 
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -72,16 +74,27 @@ class OpponentWidget extends StatelessWidget {
   }
 
   Widget _buildHorizontal() {
-    return Column(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _Avatar(player: player, isCurrentTurn: isCurrentTurn),
-        const SizedBox(height: 4),
-        _Name(player: player),
-        const SizedBox(height: 2),
-        _Stats(player: player),
-        const SizedBox(height: 2),
-        _CardCount(cardCount: player.cardCount),
+        const SizedBox(width: 8),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Name(player: player),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _Stats(player: player),
+                const SizedBox(width: 8),
+                _CardCount(cardCount: player.cardCount),
+              ],
+            ),
+          ],
+        ),
       ],
     );
   }

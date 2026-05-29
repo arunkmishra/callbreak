@@ -313,22 +313,42 @@ class _PlayerList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      itemCount: kPlayersRequired,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (index < players.length) {
-          final player = players[index];
-          final isMe = player.id == myPlayerId;
-          return _PlayerTile(
-            name: player.name,
-            isMe: isMe,
-            isHost: index == 0,
-          );
-        } else {
-          return _EmptySlot(slotNumber: index + 1);
-        }
-      },
+    List<Widget> slots = [];
+    for (int i = 0; i < kPlayersRequired; i++) {
+      if (i < players.length) {
+        final player = players[i];
+        final isMe = player.id == myPlayerId;
+        slots.add(_GridPlayerCard(
+          name: player.name,
+          isMe: isMe,
+          isHost: i == 0,
+        ));
+      } else {
+        slots.add(const _GridEmptySlot());
+      }
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(child: slots[0]),
+              const SizedBox(width: 16),
+              Expanded(child: slots[1]),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: slots[2]),
+              const SizedBox(width: 16),
+              Expanded(child: slots[3]),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -384,12 +404,12 @@ class _StartButton extends StatelessWidget {
   }
 }
 
-class _PlayerTile extends StatelessWidget {
+class _GridPlayerCard extends StatelessWidget {
   final String name;
   final bool isMe;
   final bool isHost;
 
-  const _PlayerTile({
+  const _GridPlayerCard({
     required this.name,
     required this.isMe,
     required this.isHost,
@@ -397,104 +417,116 @@ class _PlayerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: isMe
-            ? AppColors.gold.withValues(alpha: 0.12)
-            : AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isMe ? AppColors.gold : Colors.transparent,
-          width: 1.5,
-        ),
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.successGreen, width: 1.5),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: isMe ? AppColors.gold : AppColors.tableGreenLight,
+            backgroundColor: AppColors.tableGreen.withValues(alpha: 0.5),
             radius: 20,
             child: Text(
-              name[0].toUpperCase(),
-              style: TextStyle(
-                color: isMe ? Colors.black : Colors.white,
+              isMe ? 'Y' : name[0].toUpperCase(),
+              style: const TextStyle(
+                color: AppColors.successGreen,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              name,
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: isMe ? FontWeight.bold : FontWeight.normal,
-                fontSize: 16,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        isMe ? 'You' : name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isHost) ...[
+                      const SizedBox(width: 4),
+                      const Text('👑', style: TextStyle(fontSize: 12)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Ready',
+                  style: TextStyle(
+                    color: AppColors.successGreen,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
-          if (isHost)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.gold.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'HOST',
-                style: TextStyle(
-                  color: AppColors.gold,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          if (isMe) ...[
-            const SizedBox(width: 8),
-            const Text('(You)', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          ],
         ],
       ),
     );
   }
 }
 
-class _EmptySlot extends StatelessWidget {
-  final int slotNumber;
-
-  const _EmptySlot({required this.slotNumber});
+class _GridEmptySlot extends StatelessWidget {
+  const _GridEmptySlot();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.surfaceElevated,
-          style: BorderStyle.solid,
-        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white24, width: 1.5),
       ),
       child: Row(
         children: [
           CircleAvatar(
             backgroundColor: AppColors.surfaceElevated,
             radius: 20,
-            child: Text(
-              '$slotNumber',
-              style: const TextStyle(color: AppColors.textSecondary),
+            child: const Text(
+              '?',
+              style: TextStyle(
+                color: Colors.white54,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
-          const Text(
-            'Waiting for player...',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontStyle: FontStyle.italic,
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Empty',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Waiting...',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
