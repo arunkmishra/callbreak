@@ -55,16 +55,9 @@ class ScoreBoardWidget extends StatelessWidget {
                     else { rankStr = '🤡 '; }
                   }
                   return DataColumn(
-                    label: Container(
-                      constraints: const BoxConstraints(minWidth: 45),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '$rankStr$name',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                      ),
+                    label: Text(
+                      '$rankStr$name',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   );
                 }),
@@ -78,23 +71,17 @@ class ScoreBoardWidget extends StatelessWidget {
                   return DataRow(
                     cells: [
                       DataCell(
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text('R$roundIndex', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                        ),
+                        Text('R$roundIndex', style: const TextStyle(color: Colors.white70, fontSize: 13)),
                       ),
                       ...players.map((p) {
                         final score = scoresForRound[p.id] ?? 0.0;
                         return DataCell(
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              score.toStringAsFixed(1),
-                              style: TextStyle(
-                                color: score < 0 ? AppColors.errorRed : Colors.white,
-                                fontWeight: score < 0 ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 13,
-                              ),
+                          Text(
+                            score.toStringAsFixed(1),
+                            style: TextStyle(
+                              color: score < 0 ? AppColors.errorRed : Colors.white,
+                              fontWeight: score < 0 ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 13,
                             ),
                           ),
                         );

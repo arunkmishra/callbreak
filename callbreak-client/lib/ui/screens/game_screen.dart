@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../bloc/game_bloc.dart';
@@ -17,6 +21,7 @@ import '../../data/models/player.dart';
 import '../widgets/opponent_widget.dart';
 import '../widgets/playing_card_widget.dart';
 import '../widgets/score_board_widget.dart';
+import '../widgets/settings_sheet.dart';
 import '../widgets/tech_background.dart';
 import '../widgets/trick_zone_widget.dart';
 import '../widgets/turn_timer_widget.dart';
@@ -39,6 +44,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   bool _isDialogOpen = false;
+  String? _lastTrumpBidderId;
 
   @override
   void initState() {
@@ -63,33 +69,82 @@ class _GameScreenState extends State<GameScreen> {
     
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Leave Match?', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Are you sure you want to leave?\n\nA bot will take over your seat, and you may lose points.',
-          style: TextStyle(color: Colors.white70),
+      barrierDismissible: true,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_rounded, color: AppColors.errorRed, size: 48),
+              const SizedBox(height: 16),
+              const Text(
+                'Leave Match?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Are you sure you want to leave?\n\nA bot will take over your seat, and you may lose points.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 15,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => _dismissDialog(),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.errorRed,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        _dismissDialog();
+                        context.read<GameBloc>().add(const DisconnectRequested());
+                      },
+                      child: const Text('Leave', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _dismissDialog();
-            },
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.errorRed,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              _dismissDialog();
-              context.read<GameBloc>().add(const DisconnectRequested());
-            },
-            child: const Text('Leave'),
-          ),
-        ],
       ),
     ).then((_) {
       _isDialogOpen = false;
@@ -166,11 +221,20 @@ class _GameScreenState extends State<GameScreen> {
                                 if (byteData == null) return;
                                 final pngBytes = byteData.buffer.asUint8List();
                                 
-                                final xFile = XFile.fromData(
-                                  pngBytes,
-                                  mimeType: 'image/png',
-                                  name: 'callbreak_result.png',
-                                );
+                                late XFile xFile;
+                                if (kIsWeb) {
+                                  xFile = XFile.fromData(
+                                    pngBytes,
+                                    mimeType: 'image/png',
+                                    name: 'callbreak_result.png',
+                                  );
+                                } else {
+                                  final tempDir = await getTemporaryDirectory();
+                                  final file = await File('${tempDir.path}/callbreak_result.png').create();
+                                  await file.writeAsBytes(pngBytes);
+                                  xFile = XFile(file.path);
+                                }
+                                
                                 // ignore: deprecated_member_use
                                 await Share.shareXFiles(
                                   [xFile],
@@ -255,6 +319,70 @@ class _GameScreenState extends State<GameScreen> {
         } else {
           _dismissDialog();
         }
+        if (state is GameBidding) {
+          final gameState = state.gameState;
+          if (gameState.phase == GamePhase.trumpBidding) {
+            final bidState = gameState.trumpBidState;
+            if (bidState.highestBidderId != null && bidState.highestBidderId != _lastTrumpBidderId) {
+              _lastTrumpBidderId = bidState.highestBidderId;
+              
+              final player = gameState.players.firstWhere((p) => p.id == bidState.highestBidderId, orElse: () => gameState.players.first);
+              final suit = bidState.proposedSuit ?? 'Spade';
+              final isMe = player.id == state.myPlayerId;
+              final namePrefix = isMe ? 'You' : player.name;
+              
+              String char = '♠';
+              Color suitColor = Colors.white;
+              if (suit.toUpperCase().contains('HEART')) { char = '♥'; suitColor = Colors.redAccent; }
+              else if (suit.toUpperCase().contains('DIAMOND')) { char = '♦'; suitColor = Colors.redAccent; }
+              else if (suit.toUpperCase().contains('CLUB')) { char = '♣'; suitColor = Colors.white; }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  duration: const Duration(seconds: 3),
+                  behavior: SnackBarBehavior.floating,
+                  margin: EdgeInsets.only(
+                    bottom: MediaQuery.sizeOf(context).height - 120, 
+                    left: 16, 
+                    right: 16
+                  ),
+                  content: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.notifications_active, color: AppColors.gold, size: 16),
+                          const SizedBox(width: 8),
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(text: '$namePrefix updated Trump to ', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                                TextSpan(text: char, style: TextStyle(color: suitColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+          } else {
+            _lastTrumpBidderId = null;
+          }
+        } else if (state is GameActive) {
+          _lastTrumpBidderId = null;
+        }
+
         if (state is GameInitial) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -331,6 +459,19 @@ class _GameScreenState extends State<GameScreen> {
               icon: const Icon(Icons.exit_to_app, color: Colors.white54),
               onPressed: () => _showLeaveMatchDialog(context),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.settings_outlined, color: Colors.white54),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (_) => const SettingsSheet(),
+                  );
+                },
+              ),
+            ],
           ),
           extendBodyBehindAppBar: true,
           body: Stack(
@@ -810,7 +951,8 @@ class _ScorePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          InkWell(
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () {
               showDialog(
                 context: context,
@@ -822,7 +964,7 @@ class _ScorePanel extends StatelessWidget {
               );
             },
             child: Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: AppColors.tableGreenLight,
                 borderRadius: BorderRadius.circular(8),
