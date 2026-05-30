@@ -67,6 +67,7 @@ class GameRoom(initialState: CallbreakState) {
     }
 
     suspend fun removeSession(playerId: PlayerId) {
+        var forceTakeover = false
         mutex.withLock {
             sessions.remove(playerId)
 
@@ -82,8 +83,13 @@ class GameRoom(initialState: CallbreakState) {
                 // If it is currently this player's turn, start the 60-second timer
                 if (state.currentTurn == playerId) {
                     startTakeoverTimer(playerId)
+                    cancelTurnTimer(playerId)
+                    forceTakeover = true
                 }
             }
+        }
+        if (forceTakeover) {
+            triggerBotActionsIfNeeded()
         }
     }
 
@@ -245,7 +251,10 @@ class GameRoom(initialState: CallbreakState) {
             val newBids = state.bids + (playerId to bid)
             
             val allBid = newBids.size == state.players.size
-            val firstPlayer = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
+            var firstPlayer = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
+            if (state.trumpBidState.highestBidderId != null) {
+                firstPlayer = state.trumpBidState.highestBidderId!!
+            }
 
             var nextTurn: String? = null
             if (!allBid) {
@@ -528,7 +537,16 @@ class GameRoom(initialState: CallbreakState) {
         }
 
         val player = turnPlayer ?: return
-        if (!player.isBot) {
+        if (!player.isBot && !player.isOnline) {
+            // Human is offline. Keep takeover timer running, but play immediately.
+            mutex.withLock {
+                if (state.currentTurn == player.id && !offlineTimers.containsKey(player.id)) {
+                    startTakeoverTimer(player.id)
+                }
+            }
+        }
+
+        if (!player.isBot && player.isOnline) {
             // Start 10-second turn timer for human player
             var startedTimer = false
             mutex.withLock {
@@ -545,19 +563,10 @@ class GameRoom(initialState: CallbreakState) {
                     startedTimer = true
                 }
             }
-
-            // If human is offline and has no active takeover timer, start one
-            if (!player.isOnline) {
-                mutex.withLock {
-                    if (state.currentTurn == player.id && !offlineTimers.containsKey(player.id)) {
-                        startTakeoverTimer(player.id)
-                    }
-                }
-            }
             return
         }
 
-        // Player is a bot, execute bot action
+        // Player is a bot, or offline human. Execute bot action
         delay(1000)
 
         // Verify phase and turn have not shifted during delay

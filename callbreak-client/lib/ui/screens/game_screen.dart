@@ -106,82 +106,142 @@ class _GameScreenState extends State<GameScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        contentPadding: EdgeInsets.zero,
-        content: RepaintBoundary(
-          key: screenshotKey,
-          child: Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: const EdgeInsets.all(24),
             child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    state.isGameOver ? '🏆 Game Over!' : 'Round ${gameState.currentRound} Over!',
-                    style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 20),
-                  ),
-                  const SizedBox(height: 16),
-                  ScoreBoardWidget(gameState: gameState),
-                ],
+              child: Builder(
+                builder: (context) {
+                  final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+                  
+                  final myPlayer = gameState.players.firstWhere((p) => p.id == state.myPlayerId, orElse: () => gameState.players.first);
+                  final bool isWinner = state.isGameOver && myPlayer.rank == 1;
+
+                  final titleWidget = Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        state.isGameOver ? '🏆 Game Over!' : 'Round ${gameState.currentRound} Over!',
+                        style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 24),
+                        textAlign: TextAlign.center,
+                      ),
+                      if (isWinner)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 12.0),
+                          child: Text(
+                            '🎉 Congratulations!\nYou Won! 🎉',
+                            style: TextStyle(color: AppColors.successGreen, fontWeight: FontWeight.bold, fontSize: 18),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                    ],
+                  );
+
+                  Widget actionWidget;
+                  if (!state.isGameOver) {
+                    actionWidget = const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Text('Next round starting in 5s...', style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic)),
+                    );
+                  } else {
+                    actionWidget = Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextButton.icon(
+                            icon: const Icon(Icons.share, color: AppColors.gold),
+                            onPressed: () async {
+                              try {
+                                final boundary = screenshotKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+                                if (boundary == null) return;
+                                final image = await boundary.toImage(pixelRatio: 2.0);
+                                final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+                                if (byteData == null) return;
+                                final pngBytes = byteData.buffer.asUint8List();
+                                
+                                final xFile = XFile.fromData(
+                                  pngBytes,
+                                  mimeType: 'image/png',
+                                  name: 'callbreak_result.png',
+                                );
+                                // ignore: deprecated_member_use
+                                await Share.shareXFiles(
+                                  [xFile],
+                                  text: 'I just finished a game of Callbreak! Check out the results!',
+                                );
+                              } catch (e) {
+                                debugPrint('Failed to share screenshot: $e');
+                              }
+                            },
+                            label: const Text('Share Result', style: TextStyle(color: AppColors.gold)),
+                          ),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.home_rounded),
+                            onPressed: () {
+                              _dismissDialog();
+                              context.read<GameBloc>().add(const DisconnectRequested());
+                            },
+                            label: const Text('Back to Home'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (isLandscape) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              titleWidget,
+                              const SizedBox(height: 24),
+                              actionWidget,
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          flex: 3,
+                          child: RepaintBoundary(
+                            key: screenshotKey,
+                            child: ScoreBoardWidget(gameState: gameState, hideTitle: false),
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        titleWidget,
+                        const SizedBox(height: 16),
+                        RepaintBoundary(
+                          key: screenshotKey,
+                          child: ScoreBoardWidget(gameState: gameState, hideTitle: true),
+                        ),
+                        actionWidget,
+                      ],
+                    );
+                  }
+                }
               ),
             ),
           ),
         ),
-        actions: [
-          if (!state.isGameOver)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.only(bottom: 16),
-                child: Text(
-                  'Next round starting in 5s...',
-                  style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-                ),
-              ),
-            )
-          else ...[
-            TextButton.icon(
-              icon: const Icon(Icons.share, color: AppColors.gold),
-              onPressed: () async {
-                try {
-                  final boundary = screenshotKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-                  if (boundary == null) return;
-                  final image = await boundary.toImage(pixelRatio: 2.0);
-                  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-                  if (byteData == null) return;
-                  final pngBytes = byteData.buffer.asUint8List();
-                  
-                  final xFile = XFile.fromData(
-                    pngBytes,
-                    mimeType: 'image/png',
-                    name: 'callbreak_result.png',
-                  );
-                  // ignore: deprecated_member_use
-                  await Share.shareXFiles(
-                    [xFile],
-                    text: 'I just finished a game of Callbreak! Check out the results!',
-                  );
-                } catch (e) {
-                  debugPrint('Failed to share screenshot: $e');
-                }
-              },
-              label: const Text('Share Result', style: TextStyle(color: AppColors.gold)),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.home_rounded),
-              onPressed: () {
-                _dismissDialog();
-                context
-                    .read<GameBloc>()
-                    .add(const DisconnectRequested());
-              },
-              label: const Text('Back to Home'),
-            ),
-          ]
-        ],
-      ),
-    ).then((_) {
+      ).then((_) {
       _isDialogOpen = false;
     });
   }
@@ -713,39 +773,42 @@ class _ScorePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          if (gameState.allowCustomTrump)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
-              ),
-              child: Builder(
-                builder: (context) {
-                  final s = (gameState.currentTrumpSuit ?? 'Spade').toUpperCase();
-                  String char = '♠';
-                  Color suitColor = Colors.white;
-                  if (s.contains('HEART')) { char = '♥'; suitColor = Colors.redAccent; }
-                  else if (s.contains('DIAMOND')) { char = '♦'; suitColor = Colors.redAccent; }
-                  else if (s.contains('CLUB')) { char = '♣'; suitColor = Colors.white; }
-                  return RichText(
-                    text: TextSpan(
-                      children: [
-                        const TextSpan(
-                          text: 'Trump: ',
-                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                        TextSpan(
-                          text: char,
-                          style: TextStyle(color: suitColor, fontSize: 13, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
             ),
+            child: Builder(
+              builder: (context) {
+                String trump = gameState.currentTrumpSuit ?? 'Spade';
+                if (gameState.phase == GamePhase.trumpBidding && gameState.trumpBidState.proposedSuit != null) {
+                  trump = gameState.trumpBidState.proposedSuit!;
+                }
+                final s = trump.toUpperCase();
+                String char = '♠';
+                Color suitColor = Colors.white;
+                if (s.contains('HEART')) { char = '♥'; suitColor = Colors.redAccent; }
+                else if (s.contains('DIAMOND')) { char = '♦'; suitColor = Colors.redAccent; }
+                else if (s.contains('CLUB')) { char = '♣'; suitColor = Colors.white; }
+                return RichText(
+                  text: TextSpan(
+                    children: [
+                      const TextSpan(
+                        text: 'Trump: ',
+                        style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: char,
+                        style: TextStyle(color: suitColor, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            ),
+          ),
           const SizedBox(width: 8),
           InkWell(
             onTap: () {

@@ -4,8 +4,9 @@ import '../../core/theme.dart';
 
 class ScoreBoardWidget extends StatelessWidget {
   final GameState gameState;
+  final bool hideTitle;
 
-  const ScoreBoardWidget({super.key, required this.gameState});
+  const ScoreBoardWidget({super.key, required this.gameState, this.hideTitle = false});
 
   @override
   Widget build(BuildContext context) {
@@ -21,22 +22,29 @@ class ScoreBoardWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Scoreboard',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          if (!hideTitle) ...[
+            const Text(
+              'Scoreboard',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+            const SizedBox(height: 16),
+          ],
+          FittedBox(
+            fit: BoxFit.scaleDown,
             child: DataTable(
+              columnSpacing: 16,
+              horizontalMargin: 12,
+              headingRowHeight: 40,
+              dataRowMinHeight: 36,
+              dataRowMaxHeight: 36,
               headingRowColor: WidgetStateProperty.all(AppColors.tableGreenLight),
               dataRowColor: WidgetStateProperty.all(Colors.black12),
               columns: [
-                const DataColumn(label: Text('Round', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                const DataColumn(label: Text('Round', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
                 ...players.map((p) {
                   final name = p.name.split(' ').first;
                   String rankStr = '';
@@ -47,9 +55,16 @@ class ScoreBoardWidget extends StatelessWidget {
                     else { rankStr = '🤡 '; }
                   }
                   return DataColumn(
-                    label: Text(
-                      '$rankStr$name',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    label: Container(
+                      constraints: const BoxConstraints(minWidth: 45),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '$rankStr$name',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
                     ),
                   );
                 }),
@@ -62,15 +77,24 @@ class ScoreBoardWidget extends StatelessWidget {
                   
                   return DataRow(
                     cells: [
-                      DataCell(Text('R$roundIndex', style: const TextStyle(color: Colors.white70))),
+                      DataCell(
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('R$roundIndex', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        ),
+                      ),
                       ...players.map((p) {
                         final score = scoresForRound[p.id] ?? 0.0;
                         return DataCell(
-                          Text(
-                            score.toStringAsFixed(1),
-                            style: TextStyle(
-                              color: score < 0 ? AppColors.errorRed : Colors.white,
-                              fontWeight: score < 0 ? FontWeight.bold : FontWeight.normal,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              score.toStringAsFixed(1),
+                              style: TextStyle(
+                                color: score < 0 ? AppColors.errorRed : Colors.white,
+                                fontWeight: score < 0 ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         );
@@ -82,15 +106,24 @@ class ScoreBoardWidget extends StatelessWidget {
                 DataRow(
                   color: WidgetStateProperty.all(Colors.black38),
                   cells: [
-                    const DataCell(Text('Total', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold))),
+                    DataCell(
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Total', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ),
+                    ),
                     ...players.map((p) {
                       final score = p.cumulativeScore;
                       return DataCell(
-                        Text(
-                          score.toStringAsFixed(1),
-                          style: TextStyle(
-                            color: score < 0 ? AppColors.errorRed : AppColors.gold,
-                            fontWeight: FontWeight.bold,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            score.toStringAsFixed(1),
+                            style: TextStyle(
+                              color: score < 0 ? AppColors.errorRed : AppColors.gold,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       );
