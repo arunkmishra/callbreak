@@ -514,7 +514,11 @@ class GameRoom(initialState: CallbreakState) {
         
         if (phase == GamePhase.REGULAR_BIDDING) {
             val botHand = stateCopy.hands[playerId] ?: emptyList()
-            val bid = calculateBotBid(botHand, stateCopy.minBid, stateCopy.currentTrumpSuit)
+            var minBidAllowed = stateCopy.minBid ?: 1
+            if (stateCopy.trumpBidState.highestBidderId == playerId && stateCopy.trumpBidState.highestBid > 0) {
+                minBidAllowed = maxOf(minBidAllowed, stateCopy.trumpBidState.highestBid)
+            }
+            val bid = calculateBotBid(botHand, minBidAllowed, stateCopy.currentTrumpSuit)
             placeBid(playerId, bid)
         } else if (phase == GamePhase.TRUMP_BIDDING) {
             placeTrumpBid(playerId, null, null)
@@ -581,7 +585,11 @@ class GameRoom(initialState: CallbreakState) {
 
         if (phase == GamePhase.REGULAR_BIDDING) {
             val botHand = state.hands[player.id] ?: emptyList()
-            val bid = calculateBotBid(botHand, state.minBid, state.currentTrumpSuit)
+            var minBidAllowed = state.minBid ?: 1
+            if (state.trumpBidState.highestBidderId == player.id && state.trumpBidState.highestBid > 0) {
+                minBidAllowed = maxOf(minBidAllowed, state.trumpBidState.highestBid)
+            }
+            val bid = calculateBotBid(botHand, minBidAllowed, state.currentTrumpSuit)
             placeBid(player.id, bid)
         } else if (phase == GamePhase.TRUMP_BIDDING) {
             // Bots simply pass during custom trump bidding for now
