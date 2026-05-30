@@ -232,7 +232,7 @@ class GameRoom(initialState: CallbreakState) {
      * Records a player's bid during BIDDING phase.
      * Once all 4 players have bid, transitions to PLAYING phase.
      */
-    suspend fun placeBid(playerId: PlayerId, bid: Int): Result<Unit> {
+    suspend fun placeBid(playerId: PlayerId, bid: Int, isAutoPlay: Boolean = false): Result<Unit> {
         val bidResult = mutex.withLock {
             if (state.phase != GamePhase.REGULAR_BIDDING) {
                 return@withLock Result.failure(Exception("Not in bidding phase"))
@@ -276,7 +276,10 @@ class GameRoom(initialState: CallbreakState) {
                 currentTurn = if (allBid) firstPlayer else nextTurn,
                 turnEndTime = null,
                 players = state.players.map { p ->
-                    if (p.id == playerId) p.copy(bid = bid) else p
+                    if (p.id == playerId) p.copy(
+                        bid = bid,
+                        consecutiveBotMoves = if (isAutoPlay) p.consecutiveBotMoves + 1 else 0
+                    ) else p
                 }
             )
 
@@ -296,7 +299,7 @@ class GameRoom(initialState: CallbreakState) {
     /**
      * Processes a bid or pass during TRUMP_BIDDING phase.
      */
-    suspend fun placeTrumpBid(playerId: PlayerId, bid: Int?, suit: Suit?): Result<Unit> {
+    suspend fun placeTrumpBid(playerId: PlayerId, bid: Int?, suit: Suit?, isAutoPlay: Boolean = false): Result<Unit> {
         val result = mutex.withLock {
             val nextStateResult = processTrumpBid(state, playerId, bid, suit)
             if (nextStateResult.isFailure) return@withLock nextStateResult.map { Unit }
@@ -306,7 +309,14 @@ class GameRoom(initialState: CallbreakState) {
             if (nextState.phase == GamePhase.DEALING_PHASE_2) {
                 nextState = startDealPhase2(nextState)
             }
-            state = nextState.copy(turnEndTime = null)
+            state = nextState.copy(
+                turnEndTime = null,
+                players = nextState.players.map { p ->
+                    if (p.id == playerId) p.copy(
+                        consecutiveBotMoves = if (isAutoPlay) p.consecutiveBotMoves + 1 else 0
+                    ) else p
+                }
+            )
             cancelTurnTimer(oldTurn)
             broadcastState()
             Result.success(Unit)
@@ -324,7 +334,7 @@ class GameRoom(initialState: CallbreakState) {
      * Validates and applies a card play. Evaluates trick winner when 4 cards played.
      * Tallies round scores when all 13 tricks are done.
      */
-    suspend fun playCard(playerId: PlayerId, card: PlayingCard): Result<Unit> {
+    suspend fun playCard(playerId: PlayerId, card: PlayingCard, isAutoPlay: Boolean = false): Result<Unit> {
         val playResult = mutex.withLock {
             val validation = validateMove(state, playerId, card)
             if (validation.isFailure) return@withLock validation
@@ -336,7 +346,10 @@ class GameRoom(initialState: CallbreakState) {
 
             // Update player card count
             val updatedPlayers = state.players.map { p ->
-                if (p.id == playerId) p.copy(cardCount = updatedHand.size) else p
+                if (p.id == playerId) p.copy(
+                    cardCount = updatedHand.size,
+                    consecutiveBotMoves = if (isAutoPlay) p.consecutiveBotMoves + 1 else 0
+                ) else p
             }
 
             if (newTrickCards.size == CallbreakState.PLAYERS_REQUIRED) {
@@ -519,12 +532,12 @@ class GameRoom(initialState: CallbreakState) {
                 minBidAllowed = maxOf(minBidAllowed, stateCopy.trumpBidState.highestBid)
             }
             val bid = calculateBotBid(botHand, minBidAllowed, stateCopy.currentTrumpSuit)
-            placeBid(playerId, bid)
+            placeBid(playerId, bid, isAutoPlay = true)
         } else if (phase == GamePhase.TRUMP_BIDDING) {
-            placeTrumpBid(playerId, null, null)
+            placeTrumpBid(playerId, null, null, isAutoPlay = true)
         } else if (phase == GamePhase.PLAYING) {
             val card = selectBotCard(stateCopy, playerId)
-            playCard(playerId, card)
+            playCard(playerId, card, isAutoPlay = true)
         }
     }
 
@@ -555,12 +568,13 @@ class GameRoom(initialState: CallbreakState) {
             var startedTimer = false
             mutex.withLock {
                 if (state.currentTurn == player.id && !turnTimers.containsKey(player.id)) {
-                    val turnEnd = System.currentTimeMillis() + 10_000
+                    val waitTime = if (player.consecutiveBotMoves >= 2) 3_000L else 10_000L
+                    val turnEnd = System.currentTimeMillis() + waitTime
                     state = state.copy(turnEndTime = turnEnd)
                     broadcastState()
                     
                     val job = CoroutineScope(Dispatchers.Default).launch {
-                        delay(10_000)
+                        delay(waitTime)
                         forceBotMove(player.id)
                     }
                     turnTimers[player.id] = job
@@ -590,13 +604,13 @@ class GameRoom(initialState: CallbreakState) {
                 minBidAllowed = maxOf(minBidAllowed, state.trumpBidState.highestBid)
             }
             val bid = calculateBotBid(botHand, minBidAllowed, state.currentTrumpSuit)
-            placeBid(player.id, bid)
+            placeBid(player.id, bid, isAutoPlay = true)
         } else if (phase == GamePhase.TRUMP_BIDDING) {
             // Bots simply pass during custom trump bidding for now
-            placeTrumpBid(player.id, null, null)
+            placeTrumpBid(player.id, null, null, isAutoPlay = true)
         } else if (phase == GamePhase.PLAYING) {
             val card = selectBotCard(state, player.id)
-            playCard(player.id, card)
+            playCard(player.id, card, isAutoPlay = true)
         }
     }
 

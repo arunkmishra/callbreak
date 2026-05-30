@@ -8,6 +8,7 @@ class AudioService {
   static AudioPlayer? _sequencePlayer;
 
   static Uint8List? _tingBytes;
+  static Uint8List? _tickBytes;
   static Uint8List? _sequenceBytes;
 
   static Future<void> playTurnAlert() async {
@@ -24,6 +25,23 @@ class AudioService {
       }
     } catch (e) {
       print('AudioService: ERROR playing sound: $e');
+    }
+  }
+
+  static Future<void> playTickAlert() async {
+    if (!_isEnabled) return;
+    try {
+      _player ??= AudioPlayer();
+      if (_player!.state == PlayerState.playing) {
+        await _player!.stop();
+      }
+      if (kIsWeb && _tickBytes != null) {
+        await _player!.play(BytesSource(_tickBytes!));
+      } else if (!kIsWeb) {
+        await _player!.play(AssetSource('sounds/tick.wav'));
+      }
+    } catch (e) {
+      print('AudioService: ERROR playing tick sound: $e');
     }
   }
 
@@ -63,6 +81,9 @@ class AudioService {
         _tingBytes = tingData.buffer.asUint8List();
         await _player!.setSource(BytesSource(_tingBytes!));
 
+        final tickData = await rootBundle.load('assets/sounds/tick.wav');
+        _tickBytes = tickData.buffer.asUint8List();
+
         final seqData = await rootBundle.load('assets/sounds/card_deal_sequence.wav');
         _sequenceBytes = seqData.buffer.asUint8List();
         await _sequencePlayer!.setSource(BytesSource(_sequenceBytes!));
@@ -70,7 +91,7 @@ class AudioService {
         await _player!.setSource(AssetSource('sounds/ting.wav'));
         await _sequencePlayer!.setSource(AssetSource('sounds/card_deal_sequence.wav'));
       }
-      print('AudioService: preloaded ting.wav and card_deal_sequence.wav');
+      print('AudioService: preloaded sounds');
     } catch (e) {
       print('AudioService: ERROR preloading sound: $e');
     }

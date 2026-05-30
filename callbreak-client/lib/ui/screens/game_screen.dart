@@ -15,6 +15,7 @@ import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
 import '../../bloc/settings_cubit.dart';
 import '../../core/audio_service.dart';
+import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../data/models/game_state.dart';
 import '../../data/models/player.dart';
@@ -314,6 +315,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     return BlocConsumer<GameBloc, GameBlocState>(
       listener: (context, state) {
+        if (!context.mounted) return;
         if (state is GameRoundOver) {
           _showRoundOverDialog(context, state);
         } else {
@@ -337,7 +339,7 @@ class _GameScreenState extends State<GameScreen> {
               else if (suit.toUpperCase().contains('DIAMOND')) { char = '♦'; suitColor = Colors.redAccent; }
               else if (suit.toUpperCase().contains('CLUB')) { char = '♣'; suitColor = Colors.white; }
 
-              ScaffoldMessenger.of(context).showSnackBar(
+              rootScaffoldMessengerKey.currentState?.showSnackBar(
                 SnackBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
@@ -390,7 +392,7 @@ class _GameScreenState extends State<GameScreen> {
           );
         }
         if (state is GameError) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          rootScaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
               content: Text(state.message),
               backgroundColor: AppColors.errorRed,

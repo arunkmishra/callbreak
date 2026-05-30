@@ -50,6 +50,7 @@ class CallbreakApp extends StatelessWidget {
           ),
         ],
         child: MaterialApp(
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
           title: 'Callbreak',
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(),

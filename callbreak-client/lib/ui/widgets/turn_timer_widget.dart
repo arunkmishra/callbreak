@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../core/audio_service.dart';
 
 class TurnTimerWidget extends StatefulWidget {
   final int turnEndTime;
@@ -22,6 +23,7 @@ class TurnTimerWidget extends StatefulWidget {
 class _TurnTimerWidgetState extends State<TurnTimerWidget> {
   late Timer _timer;
   int _remainingSeconds = 0;
+  int _lastTickTime = 0;
 
   @override
   void initState() {
@@ -45,6 +47,13 @@ class _TurnTimerWidgetState extends State<TurnTimerWidget> {
     final remaining = widget.turnEndTime - now;
     final seconds = (remaining / 1000).ceil();
     
+    if (widget.isMyTurn && remaining > 0 && remaining <= 3000) {
+      if (now - _lastTickTime >= 400) {
+        AudioService.playTickAlert();
+        _lastTickTime = now;
+      }
+    }
+
     if (seconds != _remainingSeconds) {
       setState(() {
         _remainingSeconds = seconds > 0 ? seconds : 0;
