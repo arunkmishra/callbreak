@@ -114,25 +114,58 @@ class _LoginScreenState extends State<LoginScreen>
               curve: Curves.easeOut,
             ),
             child: SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // ── Animated card fan ──────────────────────────
-                      _buildCardFan(),
-                      const SizedBox(height: 12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth > 600) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Center(
+                            child: Transform.scale(
+                              scale: 1.5,
+                              child: _buildCardFan(),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _buildBranding(),
+                                  const SizedBox(height: 32),
+                                  _buildSignInCard(),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // ── Animated card fan ──────────────────────────
+                          _buildCardFan(),
+                          const SizedBox(height: 12),
 
-                      // ── Branding ───────────────────────────────────
-                      _buildBranding(),
-                      const SizedBox(height: 20),
+                          // ── Branding ───────────────────────────────────
+                          _buildBranding(),
+                          const SizedBox(height: 20),
 
-                      // ── Sign In Card ───────────────────────────────
-                      _buildSignInCard(),
-                    ],
-                  ),
-                ),
+                          // ── Sign In Card ───────────────────────────────
+                          _buildSignInCard(),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -289,7 +322,12 @@ class _LoginScreenState extends State<LoginScreen>
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: const Text('Guest Login', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.2)),
+                          child: const Text(
+                            'Guest Login',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
                     ],
@@ -415,13 +453,16 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton>
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
-                'Google Login',
-                style: TextStyle(
-                  color: Color(0xFF1F2937),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
+              const Flexible(
+                child: Text(
+                  'Google Login',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFF1F2937),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
             ],

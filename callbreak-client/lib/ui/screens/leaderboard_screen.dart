@@ -12,7 +12,7 @@ class _LeaderboardEntry {
   final String username;
   final int totalWins;
   final int totalGames;
-  final int totalScore;
+  final double totalScore;
 
   const _LeaderboardEntry({
     required this.id,
@@ -26,9 +26,9 @@ class _LeaderboardEntry {
     return _LeaderboardEntry(
       id: (map['id'] as String?) ?? '',
       username: (map['username'] as String?) ?? 'Player',
-      totalWins: (map['total_wins'] as int?) ?? 0,
-      totalGames: (map['total_games'] as int?) ?? 0,
-      totalScore: (map['total_score'] as int?) ?? 0,
+      totalWins: (map['total_wins'] as num?)?.toInt() ?? 0,
+      totalGames: (map['total_games'] as num?)?.toInt() ?? 0,
+      totalScore: (map['total_score'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -46,6 +46,8 @@ class LeaderboardScreen extends StatefulWidget {
 class _LeaderboardScreenState extends State<LeaderboardScreen>
     with SingleTickerProviderStateMixin {
   List<_LeaderboardEntry> _entries = [];
+  _LeaderboardEntry? _userEntry;
+  int? _userRank;
   bool _isLoading = true;
   String? _error;
 
@@ -79,6 +81,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     setState(() {
       _isLoading = true;
       _error = null;
+      _userEntry = null;
+      _userRank = null;
     });
 
     try {
@@ -86,13 +90,60 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           .from('profiles')
           .select('id, username, total_wins, total_games, total_score')
           .order('total_wins', ascending: false)
+          .order('total_score', ascending: false)
+          .order('total_games', ascending: true)
           .limit(100);
 
       if (!mounted) return;
+      
+      final allEntries = (data as List<dynamic>)
+          .map((e) => _LeaderboardEntry.fromMap(e as Map<String, dynamic>))
+          .toList();
+
+      final top5 = allEntries.take(5).toList();
+      
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      _LeaderboardEntry? currentUserEntry;
+      int? currentUserRank;
+
+      if (userId != null) {
+        final userIndex = allEntries.indexWhere((e) => e.id == userId);
+        if (userIndex != -1) {
+          if (userIndex >= 5) {
+            currentUserEntry = allEntries[userIndex];
+            currentUserRank = userIndex + 1;
+          }
+        } else {
+          // User not in top 100, fetch specifically
+          final userData = await Supabase.instance.client
+              .from('profiles')
+              .select('id, username, total_wins, total_games, total_score')
+              .eq('id', userId)
+              .maybeSingle();
+
+          if (userData != null) {
+            currentUserEntry = _LeaderboardEntry.fromMap(userData);
+            
+            // Calculate rank using the same logic: wins > OR (wins == and score >) OR (wins == and score == and games <)
+            final w = currentUserEntry.totalWins;
+            final s = currentUserEntry.totalScore;
+            final g = currentUserEntry.totalGames;
+            
+            final betterPlayers = await Supabase.instance.client
+                .from('profiles')
+                .select('id')
+                .or('total_wins.gt.$w,and(total_wins.eq.$w,total_score.gt.$s),and(total_wins.eq.$w,total_score.eq.$s,total_games.lt.$g)');
+                
+            currentUserRank = (betterPlayers as List).length + 1;
+            if (currentUserRank <= 5) currentUserRank = 6;
+          }
+        }
+      }
+
       setState(() {
-        _entries = (data as List<dynamic>)
-            .map((e) => _LeaderboardEntry.fromMap(e as Map<String, dynamic>))
-            .toList();
+        _entries = top5;
+        _userEntry = currentUserEntry;
+        _userRank = currentUserRank;
         _isLoading = false;
       });
     } catch (e) {
@@ -194,27 +245,32 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           ),
 
           // Column labels
-          Padding(
-            padding:
-                const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: Row(
-              children: [
-                const SizedBox(width: 44), // rank column
-                const Expanded(
-                  child: Text(
-                    'PLAYER',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 10,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.w600,
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 700),
+              child: Padding(
+                padding:
+                    const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 44), // rank column
+                    const Expanded(
+                      child: Text(
+                        'PLAYER',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                          letterSpacing: 1.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
+                    _HeaderCell('WINS', width: 52),
+                    _HeaderCell('GAMES', width: 52),
+                    _HeaderCell('SCORE', width: 60),
+                  ],
                 ),
-                _HeaderCell('WINS', width: 52),
-                _HeaderCell('GAMES', width: 52),
-                _HeaderCell('SCORE', width: 60),
-              ],
+              ),
             ),
           ),
 
@@ -254,12 +310,33 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
       backgroundColor: const Color(0xFF111827),
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 4, bottom: 24),
-        itemCount: _entries.length,
+        itemCount: _entries.length + (_userEntry != null ? 2 : 0),
         itemBuilder: (context, index) {
-          return _LeaderboardRow(
-            rank: index + 1,
-            entry: _entries[index],
-          );
+          if (index < _entries.length) {
+            return _LeaderboardRow(
+              rank: index + 1,
+              entry: _entries[index],
+            );
+          } else if (index == _entries.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Icon(Icons.more_vert, color: Colors.white.withValues(alpha: 0.2), size: 20),
+                  ),
+                  Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.1))),
+                ],
+              ),
+            );
+          } else {
+            return _LeaderboardRow(
+              rank: _userRank ?? 0,
+              entry: _userEntry!,
+            );
+          }
         },
       ),
     );
@@ -426,21 +503,24 @@ class _LeaderboardRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isTop3 = rank <= 3;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      decoration: BoxDecoration(
-        color: isTop3
-            ? _top3Background(rank).withValues(alpha: 0.08)
-            : const Color(0xFF111827).withValues(alpha: 0.60),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isTop3
-              ? _medalColor(rank).withValues(alpha: 0.35)
-              : Colors.white.withValues(alpha: 0.04),
-          width: isTop3 ? 1.5 : 1.0,
-        ),
-      ),
-      child: Padding(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 700),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+          decoration: BoxDecoration(
+            color: isTop3
+                ? _top3Background(rank).withValues(alpha: 0.08)
+                : const Color(0xFF111827).withValues(alpha: 0.60),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isTop3
+                  ? _medalColor(rank).withValues(alpha: 0.35)
+                  : Colors.white.withValues(alpha: 0.04),
+              width: isTop3 ? 1.5 : 1.0,
+            ),
+          ),
+          child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
@@ -510,11 +590,13 @@ class _LeaderboardRow extends StatelessWidget {
               width: 52,
             ),
             _StatCell(
-              value: entry.totalScore.toString(),
+              value: entry.totalScore.toStringAsFixed(1),
               width: 60,
             ),
           ],
         ),
+      ),
+    ),
       ),
     );
   }
