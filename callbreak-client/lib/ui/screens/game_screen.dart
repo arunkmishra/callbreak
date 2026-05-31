@@ -88,8 +88,9 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.warning_rounded, color: AppColors.errorRed, size: 48),
               const SizedBox(height: 16),
@@ -143,7 +144,8 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ],
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -313,8 +315,14 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<GameBloc, GameBlocState>(
-      listener: (context, state) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _showLeaveMatchDialog(context);
+      },
+      child: BlocConsumer<GameBloc, GameBlocState>(
+        listener: (context, state) {
         if (!context.mounted) return;
         if (state is GameRoundOver) {
           _showRoundOverDialog(context, state);
@@ -649,7 +657,8 @@ class _GameScreenState extends State<GameScreen> {
         );
       },
     );
-      },
+        },
+      ),
     );
   }
 }

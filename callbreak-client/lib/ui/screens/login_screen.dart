@@ -100,6 +100,7 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF080B14),
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -121,11 +122,11 @@ class _LoginScreenState extends State<LoginScreen>
                     children: [
                       // ── Animated card fan ──────────────────────────
                       _buildCardFan(),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 12),
 
                       // ── Branding ───────────────────────────────────
                       _buildBranding(),
-                      const SizedBox(height: 60),
+                      const SizedBox(height: 20),
 
                       // ── Sign In Card ───────────────────────────────
                       _buildSignInCard(),
@@ -151,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen>
     const offsets = [-68.0, -23.0, 23.0, 68.0];
 
     return SizedBox(
-      height: 160,
+      height: 120,
       child: AnimatedBuilder(
         animation: _fanController,
         builder: (context, _) {
@@ -227,9 +228,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildSignInCard() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: const Color(0xFF111827),
           borderRadius: BorderRadius.circular(24),
@@ -251,27 +252,17 @@ class _LoginScreenState extends State<LoginScreen>
               'Sign in to play',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Save your progress, join leaderboards,\nand challenge friends.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // Google Sign In Button
             _isLoading
                 ? const SizedBox(
-                    height: 56,
+                    height: 48,
                     child: Center(
                       child: CircularProgressIndicator(
                         color: AppColors.gold,
@@ -279,24 +270,41 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                   )
-                : Column(
+                : Row(
                     children: [
-                      _GoogleSignInButton(onTap: _signInWithGoogle),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: _signInAsGuest,
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          textStyle: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.0,
+                      Expanded(
+                        child: _GoogleSignInButton(onTap: _signInWithGoogle),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _signInAsGuest,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white10,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 0),
+                            minimumSize: const Size(0, 48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
+                          child: const Text('Guest Login', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.2)),
                         ),
-                        child: const Text('PLAY AS GUEST'),
                       ),
                     ],
                   ),
+
+            const SizedBox(height: 16),
+            const Text(
+              'Save your progress, join leaderboards,\nand challenge friends.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
 
             // Error message
             if (_errorMessage != null) ...[
@@ -374,8 +382,8 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
-          width: double.infinity,
-          height: 56,
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -392,26 +400,26 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton>
             children: [
               // Google "G" icon using a simple colored shape
               Container(
-                width: 24,
-                height: 24,
+                width: 20,
+                height: 20,
                 decoration: const BoxDecoration(shape: BoxShape.circle),
                 child: const Text(
                   'G',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF4285F4),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
                     height: 1.3,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               const Text(
-                'Continue with Google',
+                'Google Login',
                 style: TextStyle(
                   color: Color(0xFF1F2937),
-                  fontSize: 16,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.2,
                 ),

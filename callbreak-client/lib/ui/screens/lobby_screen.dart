@@ -23,7 +23,13 @@ class LobbyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<GameBloc, GameBlocState>(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.read<GameBloc>().add(const DisconnectRequested());
+      },
+      child: BlocConsumer<GameBloc, GameBlocState>(
       listener: (context, state) {
         if (state is GameBidding || state is GameActive || state is GameRoundOver || state is GameOver) {
           Navigator.of(context).pushReplacement(
@@ -84,7 +90,7 @@ class LobbyScreen extends StatelessWidget {
           ),
         );
       },
-    );
+    ));
   }
 
   // ─── Portrait layout ───────────────────────────────────────────────────────

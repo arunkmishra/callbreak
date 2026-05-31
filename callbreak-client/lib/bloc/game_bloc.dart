@@ -354,9 +354,9 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     _socketRepository.sendAction('START_GAME');
   }
 
-  void _onDisconnect(DisconnectRequested event, Emitter<GameBlocState> emit) {
+  Future<void> _onDisconnect(DisconnectRequested event, Emitter<GameBlocState> emit) async {
     _socketRepository.sendAction('LEAVE_ROOM');
-    _sessionStorage.clear(); // Intentional — clear saved session
+    await _sessionStorage.clear(); // Intentional — clear saved session
     _cleanUp();
     emit(const GameInitial());
   }
