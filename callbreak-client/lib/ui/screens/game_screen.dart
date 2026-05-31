@@ -457,23 +457,26 @@ class _GameScreenState extends State<GameScreen> {
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.exit_to_app, color: Colors.white54),
-              onPressed: () => _showLeaveMatchDialog(context),
+            leadingWidth: 100,
+            leading: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.exit_to_app, color: Colors.white54),
+                  onPressed: () => _showLeaveMatchDialog(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined, color: Colors.white54),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (_) => const SettingsSheet(),
+                    );
+                  },
+                ),
+              ],
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings_outlined, color: Colors.white54),
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    backgroundColor: Colors.transparent,
-                    isScrollControlled: true,
-                    builder: (_) => const SettingsSheet(),
-                  );
-                },
-              ),
-            ],
           ),
           extendBodyBehindAppBar: true,
           body: Stack(
@@ -1171,7 +1174,16 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
           SizedBox(height: isCompact ? 12 : 24),
           Row(
             children: [
-              Text('$minBid', style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.remove, color: AppColors.gold),
+                onPressed: _sliderBid > minBid
+                    ? () {
+                        setState(() {
+                          _sliderBid--;
+                        });
+                      }
+                    : null,
+              ),
               Expanded(
                 child: Slider(
                   value: _sliderBid.toDouble(),
@@ -1188,7 +1200,16 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
                   },
                 ),
               ),
-              const Text('13', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.add, color: AppColors.gold),
+                onPressed: _sliderBid < 13
+                    ? () {
+                        setState(() {
+                          _sliderBid++;
+                        });
+                      }
+                    : null,
+              ),
             ],
           ),
           SizedBox(height: isCompact ? 12 : 16),

@@ -92,7 +92,15 @@ fun validateMove(
                 if (card.suit != trump || (winningCard.suit == trump && card.rank.value <= winningCard.rank.value)) {
                     return Result.failure(
                         IllegalMoveException(
-                            "Must play a ${trump.displayName} that beats the current winning card."
+                            "Must play a ${trump?.displayName ?: "Spade"} that beats the current winning card."
+                        )
+                    )
+                }
+            } else if (hasTrump) {
+                if (card.suit != trump) {
+                    return Result.failure(
+                        IllegalMoveException(
+                            "Must play a ${trump?.displayName ?: "Spade"} if void in led suit."
                         )
                     )
                 }

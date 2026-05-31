@@ -565,11 +565,17 @@ class GameRoom(initialState: CallbreakState) {
         }
 
         if (!player.isBot && player.isOnline) {
-            // Start 10-second turn timer for human player
+            // Start turn timer for human player
             var startedTimer = false
             mutex.withLock {
                 if (state.currentTurn == player.id && !turnTimers.containsKey(player.id)) {
-                    val waitTime = if (player.consecutiveBotMoves >= 2) 3_000L else 10_000L
+                    val waitTime = if (player.consecutiveBotMoves >= 2) {
+                        3_000L
+                    } else if (state.phase == GamePhase.TRUMP_BIDDING) {
+                        15_000L
+                    } else {
+                        10_000L
+                    }
                     val turnEnd = System.currentTimeMillis() + waitTime
                     state = state.copy(turnEndTime = turnEnd)
                     broadcastState()
