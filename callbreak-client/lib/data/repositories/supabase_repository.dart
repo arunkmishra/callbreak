@@ -71,28 +71,49 @@ class SupabaseRepository {
 
   // ── Friends ───────────────────────────────────────────────────────────────
 
-  /// Returns all accepted friendships for the current user, with profiles.
   Future<List<Friendship>> getFriends() async {
     final myId = _myUserId;
     if (myId == null) return [];
 
-    final data = await _client
+    final asRequester = await _client
         .from('friendships')
-        .select('id, requester_id, addressee_id, status, profiles!friendships_addressee_id_fkey(id, username, avatar_url)')
-        .or('requester_id.eq.$myId,addressee_id.eq.$myId')
+        .select('id, requester_id, addressee_id, status, addressee:profiles!friendships_addressee_id_fkey(id, username, avatar_url)')
+        .eq('requester_id', myId)
         .eq('status', 'accepted');
 
-    return (data as List<dynamic>).map((e) {
-      final json = e as Map<String, dynamic>;
-      final otherProfile = json['profiles'] as Map<String, dynamic>?;
-      return Friendship(
+    final asAddressee = await _client
+        .from('friendships')
+        .select('id, requester_id, addressee_id, status, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url)')
+        .eq('addressee_id', myId)
+        .eq('status', 'accepted');
+
+    final List<Friendship> friends = [];
+
+    for (final row in asRequester as List<dynamic>) {
+      final json = row as Map<String, dynamic>;
+      final profileData = json['addressee'];
+      friends.add(Friendship(
         id: json['id'] as String,
         requesterId: json['requester_id'] as String,
         addresseeId: json['addressee_id'] as String,
         status: json['status'] as String,
-        profile: otherProfile != null ? UserProfile.fromJson(otherProfile) : null,
-      );
-    }).toList();
+        profile: profileData != null ? UserProfile.fromJson(profileData as Map<String, dynamic>) : null,
+      ));
+    }
+
+    for (final row in asAddressee as List<dynamic>) {
+      final json = row as Map<String, dynamic>;
+      final profileData = json['requester'];
+      friends.add(Friendship(
+        id: json['id'] as String,
+        requesterId: json['requester_id'] as String,
+        addresseeId: json['addressee_id'] as String,
+        status: json['status'] as String,
+        profile: profileData != null ? UserProfile.fromJson(profileData as Map<String, dynamic>) : null,
+      ));
+    }
+
+    return friends;
   }
 
   /// Returns incoming pending friend requests (where current user is addressee).

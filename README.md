@@ -15,6 +15,9 @@ A real-time multiplayer Callbreak card game. It features a Kotlin Ktor backend a
 
 * **Backend**: Kotlin with Ktor, utilizing WebSockets for real-time state synchronization.
 * **Frontend**: Flutter using BLoC for state management.
+* **Database Layer**:
+  * **PostgreSQL (Supabase)**: Handles JWT Authentication (ECDSA256), User Profiles, Friendships, and Global Leaderboard data.
+  * **Redis (Upstash)**: Used as a fast, ephemeral persistence layer for active game states. This ensures that if the Ktor server restarts or goes to sleep (e.g., due to Render's free tier sleep cycles), all active games are automatically restored from Redis upon boot, preventing match loss.
 
 ## Prerequisites
 

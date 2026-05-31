@@ -79,16 +79,26 @@ object RedisService {
     // ── Online Status ─────────────────────────────────────────────────────────
 
     /** Marks [userId] as online with a [ttlSeconds] TTL. */
-    fun setOnline(userId: String, ttlSeconds: Long = 35) {
-        commands.setex("online:$userId", ttlSeconds, "1")
+    fun setOnline(userId: String, status: String = "available", ttlSeconds: Long = 35) {
+        commands.setex("online:$userId", ttlSeconds, status)
     }
 
-    /** Returns all currently online user IDs. */
-    fun getOnlineUserIds(): List<String> {
+    /** Returns all currently online user IDs and their statuses. */
+    fun getOnlineUsers(): Map<String, String> {
         return try {
-            commands.keys("online:*").map { it.removePrefix("online:") }
+            val keys = commands.keys("online:*")
+            if (keys.isEmpty()) return emptyMap()
+            
+            val values = commands.mget(*keys.toTypedArray())
+            val map = mutableMapOf<String, String>()
+            for (i in keys.indices) {
+                val userId = keys[i].removePrefix("online:")
+                val status = values[i].value ?: "available"
+                map[userId] = status
+            }
+            map
         } catch (e: Exception) {
-            emptyList()
+            emptyMap()
         }
     }
 }

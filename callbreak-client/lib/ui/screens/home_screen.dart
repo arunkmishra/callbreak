@@ -10,6 +10,8 @@ import '../../bloc/game_state.dart';
 import '../../core/audio_service.dart';
 import '../../core/theme.dart';
 import '../../data/repositories/supabase_repository.dart';
+import '../../data/services/heartbeat_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/settings_sheet.dart';
 import 'friends_screen.dart';
 import 'game_screen.dart';
@@ -31,6 +33,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _fanController;
   late AnimationController _pulseController;
   late AnimationController _fadeController;
+
+  RealtimeChannel? _invitesChannel;
 
   /// True when the user entered via "Play vs Bot" — skips the lobby and
   /// auto-starts the game as soon as the room is created.
@@ -57,7 +61,62 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkDeepLink();
+      _listenForInvites();
     });
+  }
+
+  Future<void> _listenForInvites() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    
+    _invitesChannel = Supabase.instance.client.channel('system_invites');
+    _invitesChannel!
+      .onBroadcast(
+        event: 'invite',
+        callback: (payload) {
+          if (HeartbeatService.currentStatus != 'available') return;
+          
+          final inviteeId = payload['inviteeId'] as String?;
+          if (inviteeId != userId) return;
+
+          final roomId = payload['roomId'] as String?;
+          final inviterName = payload['inviterName'] as String?;
+          if (roomId != null && inviterName != null) {
+            _showInviteDialog(inviterName, roomId);
+          }
+        }
+      )
+      .subscribe();
+  }
+
+  void _showInviteDialog(String inviterName, String roomId) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        title: const Text('Game Invite', style: TextStyle(color: Colors.white)),
+        content: Text('$inviterName has invited you to join a game!', style: const TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Decline', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.successGreen),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              final profile = await SupabaseRepository().getMyProfile();
+              final playerName = profile?.username ?? 'Player';
+              if (mounted) {
+                context.read<GameBloc>().add(JoinRoomRequested(roomId, playerName));
+              }
+            },
+            child: const Text('Accept', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _checkDeepLink() {
@@ -86,6 +145,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _invitesChannel?.unsubscribe();
     _fadeController.dispose();
     _fanController.dispose();
     _pulseController.dispose();

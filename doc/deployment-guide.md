@@ -2,13 +2,31 @@
 
 This document outlines how the Callbreak application is deployed for production. 
 
-The application consists of two main components:
+The application consists of three main components:
 1. **Backend:** A Kotlin Ktor WebSocket server deployed on [Render](https://render.com).
 2. **Frontend:** A Flutter Web application deployed on [GitHub Pages](https://pages.github.com).
+3. **Database Layer:** Fully managed cloud databases via Supabase (PostgreSQL) and Upstash (Redis).
 
 ---
 
-## 1. Backend Deployment (Render)
+## 1. Database Dependencies
+
+Before deploying the backend, you must configure the cloud database providers:
+
+### PostgreSQL (via Supabase)
+Supabase provides the core database and authentication layer.
+* **Usage:** Handles user registration, JWT minting (ECDSA256), global leaderboards (`profiles` table), and social features (`friendships` table).
+* **Setup:** Create a new project on Supabase and run the provided `supabase_migration.sql` in the SQL Editor to generate the tables.
+* **Keys Required:** `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+
+### Redis (via Upstash)
+Upstash provides serverless Redis for active game state persistence.
+* **Usage:** The backend pushes the live `CallbreakState` for every active game room to Redis on every move. Because Render Web Services can go to sleep, storing state in-memory would result in abrupt match cancellations on spin-down. Redis ensures that any active game is instantly restored back to memory upon server boot.
+* **Keys Required:** `REDIS_URL` (in the `rediss://...` format).
+
+---
+
+## 2. Backend Deployment (Render)
 
 The backend is containerized using Docker and hosted as a Web Service on Render's free tier. 
 

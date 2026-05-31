@@ -13,8 +13,24 @@ import '../../core/constants.dart';
 /// When the app closes and heartbeats stop, Redis automatically expires
 /// the key, marking the user as offline.
 class HeartbeatService {
+  static final HeartbeatService _instance = HeartbeatService._internal();
+  factory HeartbeatService() => _instance;
+  HeartbeatService._internal();
+
   Timer? _timer;
   static const _intervalSeconds = 20;
+  static String currentStatus = 'available';
+
+  /// Initializes the heartbeat listener to start/stop automatically on auth changes.
+  static void initialize() {
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.session != null) {
+        if (!_instance.isRunning) _instance.start();
+      } else {
+        _instance.stop();
+      }
+    });
+  }
 
   /// Starts the heartbeat. Call this when the user is authenticated.
   void start() {
@@ -51,6 +67,7 @@ class HeartbeatService {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
+        body: jsonEncode({'status': currentStatus}),
       );
       if (response.statusCode != 200) {
         debugPrint('💓 Heartbeat failed: ${response.statusCode}. Response: ${response.body}');
@@ -60,20 +77,25 @@ class HeartbeatService {
     }
   }
 
-  /// Fetches the list of currently online user IDs from the backend.
-  static Future<List<String>> getOnlineUserIds() async {
+  /// Fetches the list of currently online user IDs and their statuses from the backend.
+  static Future<Map<String, String>> getOnlineUsers() async {
     try {
+      final ts = DateTime.now().millisecondsSinceEpoch;
       final response = await http.get(
-        Uri.parse('$kHttpBaseUrl/api/users/online'),
+        Uri.parse('$kHttpBaseUrl/api/users/online?_t=$ts'),
       );
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final statuses = json['userStatuses'] as Map<String, dynamic>?;
+        if (statuses != null) {
+          return statuses.map((k, v) => MapEntry(k, v.toString()));
+        }
         final ids = json['onlineUserIds'] as List<dynamic>?;
-        return ids?.map((e) => e.toString()).toList() ?? [];
+        return { for (var id in ids ?? []) id.toString(): 'available' };
       }
     } catch (e) {
       debugPrint('Failed to fetch online users: $e');
     }
-    return [];
+    return {};
   }
 }

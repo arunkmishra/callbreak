@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,14 +22,31 @@ import 'ui/screens/username_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Globally catch and ignore the Supabase PKCE async crash
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (error.toString().contains('Code verifier could not be found')) {
+      debugPrint('Ignored Supabase code verifier error.');
+      return true; // Prevent the app from crashing
+    }
+    return false;
+  };
+
   // Load .env file before anything else
   await dotenv.load(fileName: '.env');
 
   // Initialize Supabase
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    anonKey: SupabaseConfig.anonKey,
-  );
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+  } catch (e) {
+    // Ignore PKCE code verifier errors caused by refreshing the page with an auth code in the URL.
+    debugPrint('Supabase init caught error: $e');
+  }
+
+  // Initialize Heartbeat
+  HeartbeatService.initialize();
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
@@ -92,14 +110,6 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
-  final _heartbeat = HeartbeatService();
-
-  @override
-  void dispose() {
-    _heartbeat.stop();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AuthState>(
@@ -117,12 +127,10 @@ class _AuthGateState extends State<_AuthGate> {
 
         final session = Supabase.instance.client.auth.currentSession;
         if (session != null) {
-          // Authenticated — start heartbeat and check profile
-          if (!_heartbeat.isRunning) _heartbeat.start();
+          // Authenticated — show profile gate
           return const _ProfileGate();
         } else {
-          // Not authenticated — stop heartbeat and show login
-          _heartbeat.stop();
+          // Not authenticated — show login
           return const LoginScreen();
         }
       },

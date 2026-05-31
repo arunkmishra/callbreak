@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../data/repositories/supabase_repository.dart';
+import '../../data/services/heartbeat_service.dart';
 import 'game_screen.dart';
 import 'home_screen.dart';
 
@@ -52,6 +57,8 @@ class LobbyScreen extends StatelessWidget {
         final canStart = players.isNotEmpty;
         final isHost = players.isNotEmpty && players.first.id == myPlayerId;
 
+        final myName = players.firstWhere((p) => p.id == myPlayerId, orElse: () => players.first).name;
+
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
@@ -69,10 +76,10 @@ class LobbyScreen extends StatelessWidget {
             builder: (context, orientation) {
               if (orientation == Orientation.landscape) {
                 return _buildLandscapeBody(
-                    context, gameState, myPlayerId, players, canStart, isHost);
+                    context, gameState, myPlayerId, myName, players, canStart, isHost);
               }
               return _buildPortraitBody(
-                  context, gameState, myPlayerId, players, canStart, isHost);
+                  context, gameState, myPlayerId, myName, players, canStart, isHost);
             },
           ),
         );
@@ -86,6 +93,7 @@ class LobbyScreen extends StatelessWidget {
     BuildContext context,
     dynamic gameState,
     String myPlayerId,
+    String myName,
     List<dynamic> players,
     bool canStart,
     bool isHost,
@@ -96,7 +104,7 @@ class LobbyScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Room Code Display ──────────────────────────────────────────
-          _RoomCodeCard(gameState: gameState),
+          _RoomCodeCard(gameState: gameState, myName: myName),
           const SizedBox(height: 32),
 
           // ── Player Slots ───────────────────────────────────────────────
@@ -126,6 +134,7 @@ class LobbyScreen extends StatelessWidget {
     BuildContext context,
     dynamic gameState,
     String myPlayerId,
+    String myName,
     List<dynamic> players,
     bool canStart,
     bool isHost,
@@ -139,7 +148,7 @@ class LobbyScreen extends StatelessWidget {
           Expanded(
             flex: 4,
             child: SingleChildScrollView(
-              child: _RoomCodeCard(gameState: gameState),
+              child: _RoomCodeCard(gameState: gameState, myName: myName),
             ),
           ),
           const SizedBox(width: 16),
@@ -173,12 +182,95 @@ class LobbyScreen extends StatelessWidget {
 
 // ─── Extracted sub-widgets ─────────────────────────────────────────────────────
 
-class _RoomCodeCard extends StatelessWidget {
+class _RoomCodeCard extends StatefulWidget {
   final dynamic gameState;
-  const _RoomCodeCard({required this.gameState});
+  final String myName;
+  const _RoomCodeCard({required this.gameState, required this.myName});
+
+  @override
+  State<_RoomCodeCard> createState() => _RoomCodeCardState();
+}
+
+class _RoomCodeCardState extends State<_RoomCodeCard> {
+  final _supabaseRepo = SupabaseRepository();
+  List<Friendship> _friends = [];
+  Map<String, String> _onlineUserStatuses = {};
+  Timer? _onlineTimer;
+  bool _isLoadingFriends = true;
+  RealtimeChannel? _invitesChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFriends();
+    _fetchOnlineUsers();
+    _onlineTimer = Timer.periodic(const Duration(seconds: 15), (_) => _fetchOnlineUsers());
+    
+    _invitesChannel = Supabase.instance.client.channel('system_invites');
+    _invitesChannel!.subscribe();
+  }
+
+  @override
+  void dispose() {
+    _invitesChannel?.unsubscribe();
+    _onlineTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadFriends() async {
+    try {
+      final friends = await _supabaseRepo.getFriends();
+      if (mounted) {
+        setState(() {
+          _friends = friends;
+          _isLoadingFriends = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingFriends = false);
+    }
+  }
+
+  Future<void> _fetchOnlineUsers() async {
+    final statuses = await HeartbeatService.getOnlineUsers();
+    if (mounted) {
+      setState(() {
+        _onlineUserStatuses = statuses;
+      });
+    }
+  }
+
+  Future<void> _sendInvite(String friendId, String friendName) async {
+    try {
+      await _invitesChannel!.sendBroadcastMessage(
+        event: 'invite',
+        payload: {
+          'inviteeId': friendId,
+          'roomId': widget.gameState.roomId,
+          'inviterName': widget.myName,
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invite sent to $friendName!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to send invite.')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final myId = Supabase.instance.client.auth.currentUser?.id;
+    final onlineFriends = _friends
+        .where((f) => f.profile != null && f.profile!.id != myId && _onlineUserStatuses.containsKey(f.profile!.id))
+        .toList();
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
       decoration: BoxDecoration(
@@ -211,7 +303,7 @@ class _RoomCodeCard extends StatelessWidget {
           const SizedBox(height: 12),
           GestureDetector(
             onTap: () {
-              Clipboard.setData(ClipboardData(text: gameState.roomId));
+              Clipboard.setData(ClipboardData(text: widget.gameState.roomId));
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Room code copied!')),
               );
@@ -220,7 +312,7 @@ class _RoomCodeCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  gameState.roomId,
+                  widget.gameState.roomId,
                   style: const TextStyle(
                     color: AppColors.gold,
                     fontSize: 42,
@@ -256,15 +348,108 @@ class _RoomCodeCard extends StatelessWidget {
             onPressed: () {
               final url = kIsWeb
                   ? Uri.base
-                      .replace(queryParameters: {'room': gameState.roomId})
+                      .replace(queryParameters: {'room': widget.gameState.roomId})
                       .toString()
-                  : 'https://arunkumarmishra.github.io/callbreak/?room=${gameState.roomId}';
+                  : 'https://arunkumarmishra.github.io/callbreak/?room=${widget.gameState.roomId}';
               // ignore: deprecated_member_use
               Share.share('Join my Callbreak room! Tap here to join: $url');
             },
             icon: const Icon(Icons.share_outlined, size: 18),
             label: const Text('Share Link'),
           ),
+          
+          if (!_isLoadingFriends && onlineFriends.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Divider(color: Colors.white10),
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Online Friends',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: onlineFriends.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final friend = onlineFriends[index];
+                final friendName = friend.profile!.username;
+                final status = _onlineUserStatuses[friend.profile!.id] ?? 'available';
+                final isAvailable = status == 'available';
+
+                return Row(
+                  children: [
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: AppColors.surface,
+                          child: Text(
+                            friendName[0].toUpperCase(),
+                            style: const TextStyle(fontSize: 12, color: Colors.white),
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: isAvailable ? AppColors.successGreen : AppColors.errorRed,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.surfaceElevated, width: 1.5),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        friendName,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isAvailable)
+                      SizedBox(
+                        height: 28,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            side: BorderSide(color: AppColors.gold.withValues(alpha: 0.5)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () => _sendInvite(friend.profile!.id, friendName),
+                          child: const Text('Invite', style: TextStyle(fontSize: 11, color: AppColors.gold)),
+                        ),
+                      )
+                    else
+                      const Padding(
+                        padding: EdgeInsets.only(right: 8.0),
+                        child: Text(
+                          'Playing',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -486,7 +671,7 @@ class _GridEmptySlot extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white24, width: 1.5),
       ),
-      child: Row(
+      child: const Row(
         children: [
           CircleAvatar(
             backgroundColor: AppColors.surfaceElevated,

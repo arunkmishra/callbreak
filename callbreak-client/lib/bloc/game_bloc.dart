@@ -8,6 +8,7 @@ import '../core/stats_prefs.dart';
 import '../data/models/game_state.dart';
 import '../data/repositories/api_repository.dart';
 import '../data/repositories/socket_repository.dart';
+import '../data/services/heartbeat_service.dart';
 import 'game_event.dart';
 import 'game_state.dart';
 
@@ -53,6 +54,17 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
   }
 
   // ─── App Lifecycle ────────────────────────────────────────────────────────
+
+  @override
+  void onChange(Change<GameBlocState> change) {
+    super.onChange(change);
+    final nextState = change.nextState;
+    if (nextState is GameInitial || nextState is GameError) {
+      HeartbeatService.currentStatus = 'available';
+    } else {
+      HeartbeatService.currentStatus = 'playing';
+    }
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {

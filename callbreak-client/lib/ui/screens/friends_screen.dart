@@ -1,18 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme.dart';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const _kBaseUrl = kReleaseMode
-    ? 'https://callbreak-1.onrender.com'
-    : 'http://localhost:8080';
+import '../../data/services/heartbeat_service.dart';
 
 // ─── Data Models ─────────────────────────────────────────────────────────────
 
@@ -75,7 +67,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   List<_FriendEntry> _friends = [];
   List<_RequestEntry> _requests = [];
   List<_FriendProfile> _searchResults = [];
-  Set<String> _onlineUserIds = {};
+  Map<String, String> _onlineUserStatuses = {};
 
   /// IDs of users the current user has already sent a request to (in-session
   /// cache so we can disable the "Send" button immediately after tapping).
@@ -235,19 +227,9 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Future<void> _fetchOnlineUsers() async {
     try {
-      final response = await http
-          .get(Uri.parse('$_kBaseUrl/api/users/online'))
-          .timeout(const Duration(seconds: 5));
-
+      final statuses = await HeartbeatService.getOnlineUsers();
       if (!mounted) return;
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        final ids = (body['onlineUserIds'] as List<dynamic>?)
-                ?.map((e) => e as String)
-                .toSet() ??
-            {};
-        setState(() => _onlineUserIds = ids);
-      }
+      setState(() => _onlineUserStatuses = statuses);
     } catch (_) {
       // Online status is non-critical — fail silently
     }
@@ -689,7 +671,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         itemCount: _friends.length,
         itemBuilder: (context, index) {
           final entry = _friends[index];
-          final isOnline = _onlineUserIds.contains(entry.profile.id);
+          final isOnline = _onlineUserStatuses.containsKey(entry.profile.id);
           return _FriendTile(
             profile: entry.profile,
             isOnline: isOnline,

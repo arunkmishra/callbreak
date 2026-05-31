@@ -13,8 +13,16 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import kotlinx.serialization.Serializable
 
+import io.ktor.server.request.receive
+
 @Serializable
-data class OnlineUsersResponse(val onlineUserIds: List<String>)
+data class HeartbeatRequest(val status: String = "available")
+
+@Serializable
+data class OnlineUsersResponse(
+    val onlineUserIds: List<String>,
+    val userStatuses: Map<String, String>? = null
+)
 
 fun Route.userRoutes() {
     route("/api/users") {
@@ -32,8 +40,13 @@ fun Route.userRoutes() {
                 val userId = principal?.payload?.subject
                     ?: return@post call.respond(HttpStatusCode.Unauthorized)
 
+                val request = try {
+                    call.receive<HeartbeatRequest>()
+                } catch (e: Exception) {
+                    HeartbeatRequest()
+                }
                 // TTL = 35 seconds (slightly more than the 20s heartbeat interval)
-                RedisService.commands.setex("online:$userId", 35, "1")
+                RedisService.setOnline(userId, request.status, 35)
                 call.respond(HttpStatusCode.OK)
             }
         }
@@ -45,13 +58,9 @@ fun Route.userRoutes() {
          * The Flutter client uses this to show green dots next to friends.
          */
         get("/online") {
-            val keys = try {
-                RedisService.commands.keys("online:*")
-            } catch (e: Exception) {
-                emptyList()
-            }
-            val userIds = keys.map { it.removePrefix("online:") }
-            call.respond(OnlineUsersResponse(userIds))
+            val statuses = RedisService.getOnlineUsers()
+            val userIds = statuses.keys.toList()
+            call.respond(OnlineUsersResponse(userIds, statuses))
         }
     }
 }
