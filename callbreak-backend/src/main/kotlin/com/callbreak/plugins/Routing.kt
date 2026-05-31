@@ -1,6 +1,7 @@
 package com.callbreak.plugins
 
 import com.callbreak.api.rest.roomRoutes
+import com.callbreak.api.rest.userRoutes
 import com.callbreak.api.ws.ClientMessage
 import com.callbreak.api.ws.ServerMessage
 import com.callbreak.domain.models.PlayingCard
@@ -24,6 +25,7 @@ fun Application.configureRouting() {
     routing {
         // ─── REST Routes ─────────────────────────────────────────────────────
         roomRoutes()
+        userRoutes()
 
         // ─── WebSocket Route ─────────────────────────────────────────────────
         /**

@@ -100,6 +100,14 @@ object GameRoomManager {
         rooms.remove(roomId.uppercase())
     }
 
+    /**
+     * Restores a previously persisted [GameRoom] into the manager.
+     * Called on server startup when rehydrating from Redis.
+     */
+    fun restoreRoom(roomId: String, room: GameRoom) {
+        rooms[roomId.uppercase()] = room
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private fun generateUniqueRoomId(): String {

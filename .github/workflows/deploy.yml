@@ -29,6 +29,12 @@ jobs:
         working-directory: ./callbreak-client
         run: flutter pub get
 
+      - name: Create .env file from secrets
+        working-directory: ./callbreak-client
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+
       - name: Build Web App
         working-directory: ./callbreak-client
         run: flutter build web --release --base-href /callbreak/

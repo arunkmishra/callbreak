@@ -19,6 +19,7 @@ import com.callbreak.domain.rules.startDealPhase2
 import com.callbreak.domain.rules.processTrumpBid
 import com.callbreak.domain.rules.resolveRound
 import com.callbreak.config.appJson
+import com.callbreak.plugins.RedisService
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.send
 import java.util.concurrent.ConcurrentHashMap
@@ -629,10 +630,20 @@ class GameRoom(initialState: CallbreakState) {
     /**
      * Broadcasts the current state to all connected sessions.
      * Each player receives a tailored [GameStateDto] with only their own hand.
+     * Also persists state to Redis for crash recovery.
      * Must be called inside [mutex].
      */
     private suspend fun broadcastState() {
         val snapshot = state
+
+        // Persist to Redis after every state change (crash recovery)
+        if (snapshot.phase != GamePhase.LOBBY && snapshot.phase != GamePhase.GAME_OVER) {
+            RedisService.saveGameState(snapshot.roomId, snapshot)
+        } else if (snapshot.phase == GamePhase.GAME_OVER) {
+            // Game ended — clean up the Redis entry
+            RedisService.deleteGameState(snapshot.roomId)
+        }
+
         sessions.forEach { (playerId, session) ->
             val dto = toDto(snapshot, playerId)
             val message = ServerMessage.StateUpdate(dto)

@@ -8,13 +8,14 @@ import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
 import '../../core/audio_service.dart';
-import '../../core/player_prefs.dart';
-import '../../core/stats_prefs.dart';
 import '../../core/theme.dart';
+import '../../data/repositories/supabase_repository.dart';
 import '../widgets/settings_sheet.dart';
-import '../widgets/stats_dialog.dart';
+import 'friends_screen.dart';
 import 'game_screen.dart';
+import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
+import 'profile_screen.dart';
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 
@@ -457,23 +458,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           _ActionButton(
             icon: Icons.person_outline,
-            label: 'Stats',
-            onTap: () async {
-              final stats = await StatsPrefs.loadStats();
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  builder: (_) => StatsDialog(stats: stats),
-                );
-              }
+            label: 'Profile',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
             },
           ),
           _ActionButton(
-            icon: Icons.menu_book_rounded,
-            label: 'Rules',
+            icon: Icons.leaderboard_rounded,
+            label: 'Leaders',
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('How to Play coming soon!')),
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+              );
+            },
+          ),
+          _ActionButton(
+            icon: Icons.people_outline_rounded,
+            label: 'Friends',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const FriendsScreen()),
               );
             },
           ),
@@ -940,33 +946,27 @@ class _BotGameSheet extends StatefulWidget {
 }
 
 class _BotGameSheetState extends State<_BotGameSheet> {
-  final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   int _rounds = 5;
-  bool _nameLoaded = false;
+  String _username = 'Player';
 
   @override
   void initState() {
     super.initState();
-    _loadSavedName();
+    _loadUsername();
   }
 
-  Future<void> _loadSavedName() async {
-    final saved = await PlayerPrefs.loadName();
-    if (mounted) {
-      setState(() {
-        if (saved != null) {
-          _nameController.text = saved;
-        }
-        _nameLoaded = true;
-      });
+  Future<void> _loadUsername() async {
+    try {
+      final profile = await SupabaseRepository().getMyProfile();
+      if (mounted && profile != null) {
+        setState(() {
+          _username = profile.username;
+        });
+      }
+    } catch (_) {
+      // ignore
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
   }
 
   @override
@@ -1034,15 +1034,6 @@ class _BotGameSheetState extends State<_BotGameSheet> {
                   ),
                   const SizedBox(height: 28),
 
-                  // ── Name field ─────────────────────────────────────────
-                  _NameField(
-                    controller: _nameController,
-                    accentColor: const Color(0xFF42A5F5),
-                    enabled: !isLoading && _nameLoaded,
-                    isLoaded: _nameLoaded,
-                  ),
-                  const SizedBox(height: 16),
-
                   // ── Rounds ─────────────────────────────────────────────
                   DropdownButtonFormField<int>(
                     initialValue: _rounds,
@@ -1107,11 +1098,9 @@ class _BotGameSheetState extends State<_BotGameSheet> {
 
   void _startBotGame() {
     if (!_formKey.currentState!.validate()) return;
-    final name = _nameController.text.trim();
-    PlayerPrefs.saveName(name); // persist for next session
     context.read<GameBloc>().add(
           CreateRoomRequested(
-            name,
+            _username,
             totalRounds: _rounds,
           ),
         );
@@ -1129,7 +1118,6 @@ class _MultiplayerSheet extends StatefulWidget {
 }
 
 class _MultiplayerSheetState extends State<_MultiplayerSheet> {
-  final _nameController = TextEditingController();
   final _roomCodeController = TextEditingController();
   final _createFormKey = GlobalKey<FormState>();
   final _joinFormKey = GlobalKey<FormState>();
@@ -1138,6 +1126,7 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
   bool _greedPenalty = false;
   bool _allowCustomTrump = false;
   bool _isCreateMode = true;
+  String _username = 'Player';
   bool _nameLoaded = false;
 
   @override
@@ -1147,24 +1136,25 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
       _isCreateMode = false;
       _roomCodeController.text = widget.initialRoomCode!;
     }
-    _loadSavedName();
+    _loadUsername();
   }
 
-  Future<void> _loadSavedName() async {
-    final saved = await PlayerPrefs.loadName();
-    if (mounted) {
-      setState(() {
-        if (saved != null) {
-          _nameController.text = saved;
-        }
-        _nameLoaded = true;
-      });
+  Future<void> _loadUsername() async {
+    try {
+      final profile = await SupabaseRepository().getMyProfile();
+      if (mounted && profile != null) {
+        setState(() {
+          _username = profile.username;
+          _nameLoaded = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _nameLoaded = true);
     }
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _roomCodeController.dispose();
     super.dispose();
   }
@@ -1270,14 +1260,12 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
                   child: _isCreateMode
                       ? _CreateRoomForm(
                           key: const ValueKey('create'),
-                          nameController: _nameController,
-                          nameLoaded: _nameLoaded,
                           formKey: _createFormKey,
                           rounds: _rounds,
                           minBid: _minBid,
                           greedPenalty: _greedPenalty,
                           allowCustomTrump: _allowCustomTrump,
-                          isLoading: isLoading,
+                          isLoading: isLoading || !_nameLoaded,
                           onRoundsChanged: (v) => setState(() => _rounds = v),
                           onMinBidChanged: (v) => setState(() => _minBid = v),
                           onGreedPenaltyChanged: (v) => setState(() => _greedPenalty = v),
@@ -1286,11 +1274,9 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
                         )
                       : _JoinRoomForm(
                           key: const ValueKey('join'),
-                          nameController: _nameController,
-                          nameLoaded: _nameLoaded,
                           roomCodeController: _roomCodeController,
                           formKey: _joinFormKey,
-                          isLoading: isLoading,
+                          isLoading: isLoading || !_nameLoaded,
                           onSubmit: _joinRoom,
                         ),
                 ),
@@ -1305,11 +1291,9 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
 
   void _createRoom() {
     if (!_createFormKey.currentState!.validate()) return;
-    final name = _nameController.text.trim();
-    PlayerPrefs.saveName(name);
     context.read<GameBloc>().add(
           CreateRoomRequested(
-            name,
+            _username,
             totalRounds: _rounds,
             minBid: _minBid,
             greedPenalty: _greedPenalty,
@@ -1320,18 +1304,14 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
 
   void _joinRoom() {
     if (!_joinFormKey.currentState!.validate()) return;
-    final name = _nameController.text.trim();
-    PlayerPrefs.saveName(name);
     final code = _roomCodeController.text.trim().toUpperCase();
-    context.read<GameBloc>().add(JoinRoomRequested(code, name));
+    context.read<GameBloc>().add(JoinRoomRequested(code, _username));
   }
 }
 
 // ─── Create Room Form ─────────────────────────────────────────────────────────
 
 class _CreateRoomForm extends StatelessWidget {
-  final TextEditingController nameController;
-  final bool nameLoaded;
   final GlobalKey<FormState> formKey;
   final int rounds;
   final int? minBid;
@@ -1346,8 +1326,6 @@ class _CreateRoomForm extends StatelessWidget {
 
   const _CreateRoomForm({
     super.key,
-    required this.nameController,
-    required this.nameLoaded,
     required this.formKey,
     required this.rounds,
     required this.minBid,
@@ -1368,19 +1346,6 @@ class _CreateRoomForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
-            controller: nameController,
-            decoration: const InputDecoration(
-              labelText: 'Your Name',
-              prefixIcon: Icon(Icons.person_outline, color: Color(0xFFBA68C8)),
-            ),
-            style: const TextStyle(color: AppColors.textPrimary),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
-            textCapitalization: TextCapitalization.words,
-            enabled: !isLoading,
-          ),
-          const SizedBox(height: 16),
           DropdownButtonFormField<int>(
             initialValue: rounds,
             decoration: const InputDecoration(
@@ -1478,8 +1443,6 @@ class _CreateRoomForm extends StatelessWidget {
 // ─── Join Room Form ───────────────────────────────────────────────────────────
 
 class _JoinRoomForm extends StatelessWidget {
-  final TextEditingController nameController;
-  final bool nameLoaded;
   final TextEditingController roomCodeController;
   final GlobalKey<FormState> formKey;
   final bool isLoading;
@@ -1487,8 +1450,6 @@ class _JoinRoomForm extends StatelessWidget {
 
   const _JoinRoomForm({
     super.key,
-    required this.nameController,
-    required this.nameLoaded,
     required this.roomCodeController,
     required this.formKey,
     required this.isLoading,
@@ -1502,13 +1463,6 @@ class _JoinRoomForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _NameField(
-            controller: nameController,
-            accentColor: const Color(0xFFBA68C8),
-            enabled: !isLoading && nameLoaded,
-            isLoaded: nameLoaded,
-          ),
-          const SizedBox(height: 16),
           TextFormField(
             controller: roomCodeController,
             decoration: const InputDecoration(
@@ -1562,43 +1516,6 @@ class _JoinRoomForm extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-// ─── Shared Name Field ────────────────────────────────────────────────────────
-//
-// Pure StatelessWidget: shows the name field pre-filled with the loaded name.
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _NameField extends StatelessWidget {
-  final TextEditingController controller;
-  final Color accentColor;
-  final bool enabled;
-  /// True while SharedPreferences load is pending (shows "Loading…" hint).
-  final bool isLoaded;
-
-  const _NameField({
-    required this.controller,
-    required this.accentColor,
-    required this.enabled,
-    required this.isLoaded,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: 'Your Name',
-        prefixIcon: Icon(Icons.person_outline, color: accentColor),
-        hintText: isLoaded ? null : 'Loading…',
-      ),
-      style: const TextStyle(color: AppColors.textPrimary),
-      validator: (v) =>
-          (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
-      textCapitalization: TextCapitalization.words,
-      enabled: enabled,
     );
   }
 }
