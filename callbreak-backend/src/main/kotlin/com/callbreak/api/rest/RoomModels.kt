@@ -16,6 +16,7 @@ data class CreateRoomRequest(
     val minBid: Int? = null,
     val greedPenalty: Boolean = false,
     val allowCustomTrump: Boolean = false,
+    val playerId: String? = null,
 )
 
 /**
@@ -42,6 +43,7 @@ data class CreateRoomResponse(
 data class JoinRoomRequest(
     val roomId: String,
     val playerName: String,
+    val playerId: String? = null,
 )
 
 /**

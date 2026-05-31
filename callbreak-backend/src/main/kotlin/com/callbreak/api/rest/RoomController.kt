@@ -30,7 +30,8 @@ fun Route.roomRoutes() {
                 totalRounds = request.totalRounds,
                 minBid = request.minBid,
                 greedPenalty = request.greedPenalty,
-                allowCustomTrump = request.allowCustomTrump
+                allowCustomTrump = request.allowCustomTrump,
+                playerId = request.playerId
             )
             call.respond(HttpStatusCode.Created, CreateRoomResponse(roomId, playerId, sessionToken))
         }
@@ -48,7 +49,7 @@ fun Route.roomRoutes() {
                 call.respond(HttpStatusCode.BadRequest, ApiError("roomId and playerName must not be blank"))
                 return@post
             }
-            GameRoomManager.joinRoom(request.roomId.trim().uppercase(), request.playerName.trim())
+            GameRoomManager.joinRoom(request.roomId.trim().uppercase(), request.playerName.trim(), request.playerId)
                 .fold(
                     onSuccess = { (playerId, sessionToken) ->
                         call.respond(HttpStatusCode.OK, JoinRoomResponse(request.roomId.uppercase(), playerId, sessionToken))

@@ -26,13 +26,16 @@ class ApiRepository {
   ///
   /// Creates a new room and returns the room code + host player ID.
   /// Throws [ApiException] on non-2xx response or network error.
-  Future<RoomJoinResult> createRoom(String playerName, {int totalRounds = 5, int? minBid, bool greedPenalty = false, bool allowCustomTrump = false}) async {
+  Future<RoomJoinResult> createRoom(String playerName, String? playerId, {int totalRounds = 5, int? minBid, bool greedPenalty = false, bool allowCustomTrump = false}) async {
     final body = {
       'playerName': playerName,
       'totalRounds': totalRounds,
       'greedPenalty': greedPenalty,
       'allowCustomTrump': allowCustomTrump,
     };
+    if (playerId != null) {
+      body['playerId'] = playerId;
+    }
     if (minBid != null) {
       body['minBid'] = minBid;
     }
@@ -56,11 +59,19 @@ class ApiRepository {
   ///
   /// Joins an existing room by its 5-letter code.
   /// Throws [ApiException] on non-2xx response or network error.
-  Future<RoomJoinResult> joinRoom(String roomId, String playerName) async {
+  Future<RoomJoinResult> joinRoom(String roomId, String playerName, String? playerId) async {
+    final body = {
+      'roomId': roomId.toUpperCase(),
+      'playerName': playerName,
+    };
+    if (playerId != null) {
+      body['playerId'] = playerId;
+    }
+    
     final response = await _client.post(
       Uri.parse('$baseUrl/api/rooms/join'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'roomId': roomId.toUpperCase(), 'playerName': playerName}),
+      body: jsonEncode(body),
     );
 
     _assertSuccess(response, 'Join room');

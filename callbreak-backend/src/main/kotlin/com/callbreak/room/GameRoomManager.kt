@@ -28,16 +28,16 @@ object GameRoomManager {
      * @param playerName Display name of the host player.
      * @return Pair of (roomId, playerId).
      */
-    fun createRoom(playerName: String, totalRounds: Int = 5, minBid: Int? = null, greedPenalty: Boolean = false, allowCustomTrump: Boolean = false): Triple<String, String, String> {
+    fun createRoom(playerName: String, totalRounds: Int = 5, minBid: Int? = null, greedPenalty: Boolean = false, allowCustomTrump: Boolean = false, playerId: String? = null): Triple<String, String, String> {
         val roomId = generateUniqueRoomId()
-        val playerId = UUID.randomUUID().toString()
+        val finalPlayerId = playerId ?: UUID.randomUUID().toString()
         val sessionToken = UUID.randomUUID().toString()
-        val host = Player(id = playerId, name = playerName)
+        val host = Player(id = finalPlayerId, name = playerName)
         val initialState = CallbreakState(roomId = roomId, players = listOf(host), totalRounds = totalRounds, minBid = minBid, greedPenalty = greedPenalty, allowCustomTrump = allowCustomTrump)
         val room = GameRoom(initialState)
-        room.registerSessionToken(playerId, sessionToken)
+        room.registerSessionToken(finalPlayerId, sessionToken)
         rooms[roomId] = room
-        return Triple(roomId, playerId, sessionToken)
+        return Triple(roomId, finalPlayerId, sessionToken)
     }
 
     // ─── Room Joining ────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ object GameRoomManager {
      * @param playerName Display name for the joining player.
      * @return [Result] of Pair(playerId, sessionToken) on success, or failure with a reason.
      */
-    suspend fun joinRoom(roomId: String, playerName: String): Result<Pair<String, String>> {
+    suspend fun joinRoom(roomId: String, playerName: String, playerId: String? = null): Result<Pair<String, String>> {
         val room = rooms[roomId.uppercase()]
             ?: return Result.failure(Exception("Room '$roomId' not found"))
 
@@ -76,16 +76,16 @@ object GameRoomManager {
             return Result.failure(Exception("Name '$playerName' is already taken in this room"))
         }
 
-        val playerId = UUID.randomUUID().toString()
+        val finalPlayerId = playerId ?: UUID.randomUUID().toString()
         val sessionToken = UUID.randomUUID().toString()
-        val newPlayer = Player(id = playerId, name = playerName)
+        val newPlayer = Player(id = finalPlayerId, name = playerName)
 
         // Since we need to mutate state via the room, we delegate to an internal fn.
         // The room's Mutex guards mutations and broadcasts the updated state.
         room.addPlayer(newPlayer)
-        room.registerSessionToken(playerId, sessionToken)
+        room.registerSessionToken(finalPlayerId, sessionToken)
 
-        return Result.success(playerId to sessionToken)
+        return Result.success(finalPlayerId to sessionToken)
     }
 
     // ─── Lookup ──────────────────────────────────────────────────────────────

@@ -158,7 +158,7 @@ class MoveValidatorTest {
     }
 
     @Test
-    fun testTrumpForcedLoss() {
+    fun testTrumpLossNotForced() {
         // Player is void in Diamond, but has Spades and Hearts.
         val hand = listOf(
             PlayingCard(Suit.SPADE, Rank.FIVE),
@@ -177,11 +177,10 @@ class MoveValidatorTest {
             ledSuit = Suit.DIAMOND
         )
 
-        // Player cannot beat Spade Jack, but must still play a Spade
+        // Player cannot beat Spade Jack, so they can play ANY card.
         assertTrue(validateMove(state, player1, hand[0]).isSuccess)
         assertTrue(validateMove(state, player1, hand[1]).isSuccess)
-        // Heart 5 is rejected because player has Spades
-        assertTrue(validateMove(state, player1, hand[2]).isFailure)
+        assertTrue(validateMove(state, player1, hand[2]).isSuccess)
     }
 
     @Test

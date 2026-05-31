@@ -20,6 +20,7 @@ import com.callbreak.domain.rules.processTrumpBid
 import com.callbreak.domain.rules.resolveRound
 import com.callbreak.config.appJson
 import com.callbreak.plugins.RedisService
+import com.callbreak.services.SupabaseService
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.send
 import java.util.concurrent.ConcurrentHashMap
@@ -391,6 +392,8 @@ class GameRoom(initialState: CallbreakState) {
                             broadcastState()
                             if (state.phase == GamePhase.ROUND_OVER) {
                                 startIntermission()
+                            } else if (state.phase == GamePhase.GAME_OVER) {
+                                saveResultsToSupabase(state)
                             }
                         }
                     }
@@ -657,6 +660,22 @@ class GameRoom(initialState: CallbreakState) {
                 session.send(appJson.encodeToString<ServerMessage>(message))
             } catch (e: Exception) {
                 // Session likely disconnected; will be cleaned up on close
+            }
+        }
+    }
+
+    private fun saveResultsToSupabase(finalState: CallbreakState) {
+        CoroutineScope(Dispatchers.IO).launch {
+            finalState.players.forEach { player ->
+                if (!player.isBot) {
+                    SupabaseService.saveMatchResult(
+                        supabaseUserId = player.id,
+                        playerName = player.name,
+                        roomId = finalState.roomId,
+                        score = player.cumulativeScore,
+                        rank = player.rank ?: 4
+                    )
+                }
             }
         }
     }

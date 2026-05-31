@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/audio_service.dart';
 import '../core/session_storage.dart';
@@ -109,8 +110,10 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
 
     emit(const GameLoading());
     try {
+      final supabaseId = Supabase.instance.client.auth.currentUser?.id;
       final result = await _apiRepository.createRoom(
         event.playerName,
+        supabaseId,
         totalRounds: event.totalRounds,
         minBid: event.minBid,
         greedPenalty: event.greedPenalty,
@@ -140,7 +143,8 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
 
     emit(const GameLoading());
     try {
-      final result = await _apiRepository.joinRoom(event.roomId, event.playerName);
+      final supabaseId = Supabase.instance.client.auth.currentUser?.id;
+      final result = await _apiRepository.joinRoom(event.roomId, event.playerName, supabaseId);
       _myPlayerId = result.playerId;
       await _sessionStorage.save(
         roomId: result.roomId,

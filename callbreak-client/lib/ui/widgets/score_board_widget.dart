@@ -55,9 +55,12 @@ class ScoreBoardWidget extends StatelessWidget {
                     else { rankStr = '🤡 '; }
                   }
                   return DataColumn(
-                    label: Text(
-                      '$rankStr$name',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    label: Flexible(
+                      child: Text(
+                        '$rankStr$name',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   );
                 }),
