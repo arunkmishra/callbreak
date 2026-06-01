@@ -10,7 +10,7 @@ class SettingsState {
   final bool isLoaded;
 
   const SettingsState({
-    this.tableColor = TableColor.green,
+    this.tableColor = TableColor.blue,
     this.soundEnabled = true,
     this.isLoaded = false,
   });
@@ -39,7 +39,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final colorIndex = prefs.getInt(_colorKey) ?? 0;
+      final colorIndex = prefs.getInt(_colorKey) ?? TableColor.blue.index;
       final soundEnabled = prefs.getBool(_soundKey) ?? true;
       
       final color = TableColor.values.length > colorIndex 

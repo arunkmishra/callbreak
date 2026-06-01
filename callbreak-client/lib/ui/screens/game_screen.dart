@@ -1,11 +1,9 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -23,7 +21,6 @@ import '../widgets/opponent_widget.dart';
 import '../widgets/playing_card_widget.dart';
 import '../widgets/score_board_widget.dart';
 import '../widgets/settings_sheet.dart';
-import '../widgets/tech_background.dart';
 import '../widgets/trick_zone_widget.dart';
 import '../widgets/turn_timer_widget.dart';
 import 'home_screen.dart';
@@ -67,85 +64,209 @@ class _GameScreenState extends State<GameScreen> {
   void _showLeaveMatchDialog(BuildContext context) {
     if (_isDialogOpen) return;
     _isDialogOpen = true;
-    
+
     showDialog(
       context: context,
       barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         child: Container(
-          width: 320,
-          padding: const EdgeInsets.all(24),
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.3)),
+            color: const Color(0xFF0E1830),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: const Color(0xFF2A3A5C),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
+                color: Colors.black.withValues(alpha: 0.6),
+                blurRadius: 32,
+                offset: const Offset(0, 12),
+              ),
+              BoxShadow(
+                color: AppColors.errorRed.withValues(alpha: 0.08),
+                blurRadius: 40,
+                spreadRadius: 4,
               ),
             ],
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.warning_rounded, color: AppColors.errorRed, size: 48),
-              const SizedBox(height: 16),
+              // ── Warning icon with glow ───────────────────────────────
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.errorRed.withValues(alpha: 0.12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.errorRed.withValues(alpha: 0.25),
+                      blurRadius: 20,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppColors.errorRed,
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // ── Title ────────────────────────────────────────────────
               const Text(
                 'Leave Match?',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 0.2,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+
+              // ── Subtitle ─────────────────────────────────────────────
               const Text(
-                'Are you sure you want to leave?\n\nA bot will take over your seat, and you may lose points.',
+                'Are you sure you want to leave?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 15,
+                  color: Colors.white60,
+                  fontSize: 14,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
+
+              // ── Info box ──────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0A1220),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.errorRed.withValues(alpha: 0.18),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 1),
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.errorRed.withValues(alpha: 0.7),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '!',
+                          style: TextStyle(
+                            color: AppColors.errorRed,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: RichText(
+                        text: const TextSpan(
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                          children: [
+                            TextSpan(text: 'A bot will take over your seat, and you may '),
+                            TextSpan(
+                              text: 'lose points.',
+                              style: TextStyle(
+                                color: AppColors.errorRed,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+
+              // ── Buttons ───────────────────────────────────────────────
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.5)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          width: 1.2,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        backgroundColor: Colors.white.withValues(alpha: 0.04),
                       ),
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 18),
                       onPressed: () => _dismissDialog(),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                      label: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.errorRed,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
+                        shadowColor: Colors.transparent,
                       ),
+                      icon: const Icon(Icons.exit_to_app, color: Colors.white, size: 18),
                       onPressed: () {
                         _dismissDialog();
                         context.read<GameBloc>().add(const DisconnectRequested());
                       },
-                      child: const Text('Leave', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Leave',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
@@ -153,6 +274,7 @@ class _GameScreenState extends State<GameScreen> {
       _isDialogOpen = false;
     });
   }
+
 
   void _showRoundOverDialog(BuildContext context, GameRoundOver state) {
     if (_isDialogOpen) return;
@@ -169,8 +291,9 @@ class _GameScreenState extends State<GameScreen> {
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Container(
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: const Color(0xFF0F1B33),
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
             ),
             padding: const EdgeInsets.all(24),
             child: SingleChildScrollView(
@@ -412,20 +535,29 @@ class _GameScreenState extends State<GameScreen> {
       builder: (context, state) {
         return BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, settingsState) {
-            Color getTableColor(bool isLight) {
-              switch (settingsState.tableColor) {
-                case TableColor.red:
-                  return isLight ? AppColors.tableRedLight : AppColors.tableRed;
-                case TableColor.blue:
-                  return isLight ? AppColors.tableBlueLight : AppColors.tableBlue;
-                case TableColor.green:
-                  return isLight ? AppColors.tableGreenLight : AppColors.tableGreen;
-              }
+            // Derive accent color from the chosen table-color scheme.
+            // The base is always dark navy; the scheme adds a subtle tint.
+            final Color schemeAccent;
+            final Color bgDark;
+            final Color bgLight;
+            switch (settingsState.tableColor) {
+              case TableColor.green:
+                schemeAccent = const Color(0xFF1DB954); // emerald green
+                bgDark  = const Color(0xFF060F17);
+                bgLight = const Color(0xFF0A1F18);
+              case TableColor.red:
+                schemeAccent = const Color(0xFFE53935); // crimson red
+                bgDark  = const Color(0xFF130608);
+                bgLight = const Color(0xFF1F0A0A);
+              case TableColor.blue:
+                schemeAccent = const Color(0xFF2563EB); // cobalt blue (default)
+                bgDark  = const Color(0xFF08122A);
+                bgLight = const Color(0xFF0D1F45);
             }
 
             if (state is! GameActive && state is! GameBidding) {
               return Scaffold(
-                backgroundColor: getTableColor(false),
+                backgroundColor: bgDark,
                 body: const Center(child: CircularProgressIndicator(color: AppColors.gold)),
               );
             }
@@ -451,52 +583,32 @@ class _GameScreenState extends State<GameScreen> {
 
         final myPlayer = gameState.players[myIndex];
 
-        // Assign opponents to positions in a clockwise layout around the table:
-        // Bottom: Me (index: myIndex)
-        // Left:   Opponent next to me (index: myIndex + 1)
-        // Top:    Opponent opposite to me (index: myIndex + 2)
-        // Right:  Opponent preceding me (index: myIndex + 3)
+        // Assign opponents to positions in a clockwise layout:
+        // Bottom: Me, Left: +1, Top: +2, Right: +3
         final leftOpponent = numPlayers > 1 ? gameState.players[(myIndex + 1) % numPlayers] : null;
         final topOpponent = numPlayers > 2 ? gameState.players[(myIndex + 2) % numPlayers] : null;
         final rightOpponent = numPlayers > 3 ? gameState.players[(myIndex + 3) % numPlayers] : null;
 
         return Scaffold(
-          backgroundColor: getTableColor(false),
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leadingWidth: 100,
-            leading: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.exit_to_app, color: Colors.white54),
-                  onPressed: () => _showLeaveMatchDialog(context),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined, color: Colors.white54),
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (_) => const SettingsSheet(),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          extendBodyBehindAppBar: true,
+          backgroundColor: bgDark,
           body: Stack(
             fit: StackFit.expand,
             children: [
-              // ── Table background texture ───────────────────────────────
-              TechBackground(
-                color: getTableColor(false),
-                lightColor: getTableColor(true),
+              // ── Dark tinted gradient background ────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 1.3,
+                    colors: [bgLight, bgDark],
+                  ),
+                ),
+                child: CustomPaint(
+                  painter: _NavyBackgroundPainter(accentColor: schemeAccent),
+                ),
               ),
 
-              // ── Reconnecting banner ────────────────────────────────────
+              // ── Reconnecting banner ──────────────────────────────────
               if (isReconnecting)
                 Positioned(
                   top: 0,
@@ -505,60 +617,116 @@ class _GameScreenState extends State<GameScreen> {
                   child: _ReconnectingBanner(),
                 ),
 
-              // ── Top Opponent ───────────────────────────────────────────
-              if (topOpponent != null)
-                Align(
-                  alignment: const Alignment(0, -0.95),
-                  child: OpponentWidget(
-                    player: topOpponent,
-                    isCurrentTurn: gameState.currentTurn == topOpponent.id,
-                    turnEndTime: gameState.currentTurn == topOpponent.id ? gameState.turnEndTime : null,
-                    position: OpponentPosition.top,
-                  ),
+              // ── Top App Bar (Exit + Settings) ─────────────────────────
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 4,
+                left: 8,
+                child: Row(
+                  children: [
+                    _IconBtn(
+                      icon: Icons.exit_to_app,
+                      onTap: () => _showLeaveMatchDialog(context),
+                    ),
+                    const SizedBox(width: 4),
+                    _IconBtn(
+                      icon: Icons.settings_outlined,
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (_) => const SettingsSheet(),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-
-              // ── Left Opponent ──────────────────────────────────────────
-              if (leftOpponent != null)
-                Align(
-                  alignment: const Alignment(-0.9, 0),
-                  child: OpponentWidget(
-                    player: leftOpponent,
-                    isCurrentTurn: gameState.currentTurn == leftOpponent.id,
-                    turnEndTime: gameState.currentTurn == leftOpponent.id ? gameState.turnEndTime : null,
-                    position: OpponentPosition.left,
-                  ),
-                ),
-
-              // ── Right Opponent ─────────────────────────────────────────
-              if (rightOpponent != null)
-                Align(
-                  alignment: const Alignment(0.9, 0),
-                  child: OpponentWidget(
-                    player: rightOpponent,
-                    isCurrentTurn: gameState.currentTurn == rightOpponent.id,
-                    turnEndTime: gameState.currentTurn == rightOpponent.id ? gameState.turnEndTime : null,
-                    position: OpponentPosition.right,
-                  ),
-                ),
-
-              // ── Center Area (Trick Zone or Bidding Overlay) ──────────────
-              Align(
-                alignment: state is GameBidding ? const Alignment(0, -0.3) : Alignment.center,
-                child: state is GameBidding
-                    ? _BiddingOverlay(
-                        gameState: gameState,
-                        myPlayerId: myPlayerId,
-                      )
-                    : TrickZoneWidget(
-                        trick: gameState.currentTrick,
-                        players: gameState.players,
-                        myPlayerId: myPlayerId,
-                      ),
               ),
 
-              // ── Turn indicator & Timer ─────────────────────────────────
-              Align(
-                alignment: const Alignment(0, 0.4),
+              // ── Top Opponent (horizontal card, top center) ─────────────
+              if (topOpponent != null)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 6,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: OpponentWidget(
+                      player: topOpponent,
+                      isCurrentTurn: gameState.currentTurn == topOpponent.id,
+                      turnEndTime: gameState.currentTurn == topOpponent.id ? gameState.turnEndTime : null,
+                      position: OpponentPosition.top,
+                      accentColor: schemeAccent,
+                    ),
+                  ),
+                ),
+
+              // ── Score panel (top right) ───────────────────────────────
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 10,
+                right: 12,
+                child: _ScorePanel(gameState: gameState),
+              ),
+
+              // ── Left Opponent (vertical card) ─────────────────────────
+              if (leftOpponent != null)
+                Positioned(
+                  left: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: OpponentWidget(
+                      player: leftOpponent,
+                      isCurrentTurn: gameState.currentTurn == leftOpponent.id,
+                      turnEndTime: gameState.currentTurn == leftOpponent.id ? gameState.turnEndTime : null,
+                      position: OpponentPosition.left,
+                      accentColor: schemeAccent,
+                    ),
+                  ),
+                ),
+
+              // ── Right Opponent (vertical card) ────────────────────────
+              if (rightOpponent != null)
+                Positioned(
+                  right: 8,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: OpponentWidget(
+                      player: rightOpponent,
+                      isCurrentTurn: gameState.currentTurn == rightOpponent.id,
+                      turnEndTime: gameState.currentTurn == rightOpponent.id ? gameState.turnEndTime : null,
+                      position: OpponentPosition.right,
+                      accentColor: schemeAccent,
+                    ),
+                  ),
+                ),
+
+              // ── Center Area (Trick Zone or Bidding Overlay) ────────────
+              Positioned(
+                left: 80,
+                right: 80,
+                top: 40,
+                bottom: 160,
+                child: Center(
+                  child: state is GameBidding
+                      ? _BiddingOverlay(
+                          gameState: gameState,
+                          myPlayerId: myPlayerId,
+                        )
+                      : TrickZoneWidget(
+                          trick: gameState.currentTrick,
+                          players: gameState.players,
+                          myPlayerId: myPlayerId,
+                          accentColor: schemeAccent,
+                        ),
+                ),
+              ),
+
+              // ── Timer + Turn indicator ─────────────────────────────────
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 158,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -567,23 +735,26 @@ class _GameScreenState extends State<GameScreen> {
                         turnEndTime: gameState.turnEndTime!,
                         isMyTurn: true,
                       ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     AnimatedOpacity(
                       opacity: (isMyTurn && state is GameActive) ? 1.0 : 0.0,
                       duration: const Duration(milliseconds: 500),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
                         decoration: BoxDecoration(
-                          color: AppColors.gold.withValues(alpha: 0.9),
+                          color: const Color(0xFF1A1A1A).withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            width: 1,
+                          ),
                         ),
                         child: const Text(
                           'Your turn — play a card',
                           style: TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
                           ),
                         ),
                       ),
@@ -592,37 +763,15 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
 
-              // ── My player stats ────────────────────────────────────────
-              Align(
-                alignment: const Alignment(0, 0.5),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        myPlayer.name,
-                        style: TextStyle(
-                          color: isMyTurn ? AppColors.gold : Colors.white,
-                          fontWeight: FontWeight.bold,
-                          shadows: isMyTurn
-                              ? [const Shadow(color: AppColors.gold, blurRadius: 8)]
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _StatBadge(
-                        label: 'Bid',
-                        value: '${myPlayer.bid ?? "-"}',
-                        color: AppColors.gold,
-                      ),
-                      const SizedBox(width: 4),
-                      _StatBadge(
-                        label: 'Won',
-                        value: '${myPlayer.tricksWon}',
-                        color: AppColors.successGreen,
-                      ),
-                    ],
+              // ── My player stats bar ────────────────────────────────────
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 110,
+                child: Center(
+                  child: _MyStatsBar(
+                    player: myPlayer,
+                    isMyTurn: isMyTurn,
                   ),
                 ),
               ),
@@ -645,19 +794,150 @@ class _GameScreenState extends State<GameScreen> {
                   },
                 ),
               ),
-
-              // ── Score overlay (round info) ─────────────────────────────
-              Positioned(
-                top: 40,
-                right: 16,
-                child: _ScorePanel(gameState: gameState),
-              ),
             ],
           ),
         );
       },
     );
         },
+      ),
+    );
+  }
+}
+
+// ── Navy background painter with subtle grid + center rings ────────────────
+class _NavyBackgroundPainter extends CustomPainter {
+  final Color accentColor;
+  const _NavyBackgroundPainter({required this.accentColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.03)
+      ..strokeWidth = 1.0;
+
+    const double gridSize = 80.0;
+    for (double i = 0; i <= size.width; i += gridSize) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (double i = 0; i <= size.height; i += gridSize) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+
+    final center = Offset(size.width / 2, size.height / 2 - 40);
+
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = accentColor.withValues(alpha: 0.08)
+      ..strokeWidth = 1.5;
+
+    // Oval rings around center play area
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: size.width * 0.55, height: size.height * 0.38),
+      ringPaint,
+    );
+
+    final outerRingPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = accentColor.withValues(alpha: 0.05)
+      ..strokeWidth = 1.0;
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: size.width * 0.75, height: size.height * 0.55),
+      outerRingPaint,
+    );
+
+    // Small dot indicators on sides
+    final dotPaint = Paint()
+      ..color = accentColor.withValues(alpha: 0.30)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(size.width * 0.08, center.dy), 5, dotPaint);
+    canvas.drawCircle(Offset(size.width * 0.92, center.dy), 5, dotPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _NavyBackgroundPainter oldDelegate) =>
+      oldDelegate.accentColor != accentColor;
+}
+
+// ── Small icon button ────────────────────────────────────────────────────────
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _IconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Icon(icon, color: Colors.white54, size: 18),
+      ),
+    );
+  }
+}
+
+// ── My player stats bar (Shared | Bid | Won) ────────────────────────────────
+class _MyStatsBar extends StatelessWidget {
+  final Player player;
+  final bool isMyTurn;
+
+  const _MyStatsBar({required this.player, required this.isMyTurn});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _statItem('Bid', '${player.bid ?? "-"}', highlight: true),
+          _divider(),
+          _statItem('Won', '${player.tricksWon}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value, {bool highlight = false}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$label: ',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.6),
+            fontSize: 12,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: highlight ? const Color(0xFF5B9BF5) : Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _divider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Text(
+        '|',
+        style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 12),
       ),
     );
   }
@@ -693,7 +973,7 @@ class _FannedHandState extends State<_FannedHand> with SingleTickerProviderState
     super.initState();
     _dealController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200), // Total deal time
+      duration: const Duration(milliseconds: 1200),
     );
     if (widget.cards.isNotEmpty) {
       _dealController.forward();
@@ -770,7 +1050,7 @@ class _FannedHandState extends State<_FannedHand> with SingleTickerProviderState
   Widget build(BuildContext context) {
     if (widget.cards.isEmpty) {
       return const SizedBox(
-        height: 100,
+        height: 120,
         child: Center(
           child: Text('No cards', style: TextStyle(color: Colors.white54)),
         ),
@@ -779,30 +1059,25 @@ class _FannedHandState extends State<_FannedHand> with SingleTickerProviderState
 
     final sortedCards = List<dynamic>.from(widget.cards)..sort();
     final int count = sortedCards.length;
-    // Base the stagger on 13 cards so timing is consistent
-    const double staggerStep = 1.0 / 13; 
+    const double staggerStep = 1.0 / 13;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // In landscape the available width is wider; compute a card width
-        // that lets all 13 cards fan with overlap and still shows the full
-        // last card.  Card ratio ≈ 2:3.
-        const double cardH = 90.0;
-        const double cardW = 60.0;
-        // Overlap so all cards fit: total width = (n-1)*step + cardW
-        // We want total <= availableWidth with some padding.
-        final double availW = constraints.maxWidth - 24;
+        const double cardH = 100.0;
+        const double cardW = 65.0;
+
+        final double availW = constraints.maxWidth - 32;
         final double step = count > 1
-            ? ((availW - cardW) / (count - 1)).clamp(15.0, 54.0)
+            ? ((availW - cardW) / (count - 1)).clamp(16.0, 58.0)
             : 0.0;
         final double totalW = (count - 1) * step + cardW;
 
         return Container(
-          height: cardH + 20, // extra for lift animation
+          height: cardH + 28,
           alignment: Alignment.center,
           child: SizedBox(
             width: totalW,
-            height: cardH + 20,
+            height: cardH + 28,
             child: Stack(
               clipBehavior: Clip.none,
               children: sortedCards.asMap().entries.map((entry) {
@@ -810,7 +1085,6 @@ class _FannedHandState extends State<_FannedHand> with SingleTickerProviderState
                 final card = entry.value;
                 final canPlay = _canPlayCard(card);
 
-                // Calculate staggered animation for this specific card
                 final start = (i * staggerStep).clamp(0.0, 1.0);
                 final end = (start + 0.2).clamp(0.0, 1.0);
                 final animation = CurvedAnimation(
@@ -821,8 +1095,7 @@ class _FannedHandState extends State<_FannedHand> with SingleTickerProviderState
                 return AnimatedBuilder(
                   animation: animation,
                   builder: (context, child) {
-                    // Fly in from bottom (offset dx=0, dy=cardH + 50) and fade in
-                    final dy = (1.0 - animation.value) * (cardH + 50);
+                    final dy = (1.0 - animation.value) * (cardH + 60);
                     final opacity = animation.value.clamp(0.0, 1.0);
                     
                     return Positioned(
@@ -840,18 +1113,15 @@ class _FannedHandState extends State<_FannedHand> with SingleTickerProviderState
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     transform: Matrix4.translationValues(
-                        0, canPlay ? -10 : 0, 0),
+                        0, canPlay ? -14 : 0, 0),
                     child: GestureDetector(
                       onTap: canPlay ? () => widget.onCardTap(card) : null,
-                      child: SizedBox(
-                        width: cardW,
-                        height: cardH,
-                        child: PlayingCardWidget(
-                          card: card,
-                          isPlayable: canPlay,
-                          isSmall: true,
-                          onTap: canPlay ? () => widget.onCardTap(card) : null,
-                        ),
+                      child: _HandCard(
+                        card: card,
+                        canPlay: canPlay,
+                        cardW: cardW,
+                        cardH: cardH,
+                        onTap: canPlay ? () => widget.onCardTap(card) : null,
                       ),
                     ),
                   ),
@@ -865,39 +1135,48 @@ class _FannedHandState extends State<_FannedHand> with SingleTickerProviderState
   }
 }
 
-class _StatBadge extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
+/// A hand card with gold border highlight when playable (matching screenshot).
+class _HandCard extends StatelessWidget {
+  final dynamic card;
+  final bool canPlay;
+  final double cardW;
+  final double cardH;
+  final VoidCallback? onTap;
 
-  const _StatBadge(
-      {required this.label, required this.value, required this.color});
+  const _HandCard({
+    required this.card,
+    required this.canPlay,
+    required this.cardW,
+    required this.cardH,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: RichText(
-        text: TextSpan(
-          children: [
-            TextSpan(
-              text: '$label: ',
-              style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 11),
-            ),
-            TextSpan(
-              text: value,
-              style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13),
-            ),
-          ],
-        ),
+      width: cardW,
+      height: cardH,
+      decoration: canPlay
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.gold,
+                width: 2.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.gold.withValues(alpha: 0.4),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+              ],
+            )
+          : null,
+      child: PlayingCardWidget(
+        card: card,
+        isPlayable: canPlay,
+        isSmall: false,
+        onTap: onTap,
       ),
     );
   }
@@ -911,10 +1190,11 @@ class _ScorePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black45,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -928,42 +1208,7 @@ class _ScorePanel extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.black87,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
-            ),
-            child: Builder(
-              builder: (context) {
-                String trump = gameState.currentTrumpSuit ?? 'Spade';
-                if (gameState.phase == GamePhase.trumpBidding && gameState.trumpBidState.proposedSuit != null) {
-                  trump = gameState.trumpBidState.proposedSuit!;
-                }
-                final s = trump.toUpperCase();
-                String char = '♠';
-                Color suitColor = Colors.white;
-                if (s.contains('HEART')) { char = '♥'; suitColor = Colors.redAccent; }
-                else if (s.contains('DIAMOND')) { char = '♦'; suitColor = Colors.redAccent; }
-                else if (s.contains('CLUB')) { char = '♣'; suitColor = Colors.white; }
-                return RichText(
-                  text: TextSpan(
-                    children: [
-                      const TextSpan(
-                        text: 'Trump: ',
-                        style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                      TextSpan(
-                        text: char,
-                        style: TextStyle(color: suitColor, fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                );
-              }
-            ),
-          ),
+          _TrumpBadge(gameState: gameState),
           const SizedBox(width: 8),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -978,13 +1223,57 @@ class _ScorePanel extends StatelessWidget {
               );
             },
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppColors.tableGreenLight,
+                color: const Color(0xFF1E3A6E),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                ),
               ),
-              child: const Icon(Icons.leaderboard, color: AppColors.gold, size: 20),
+              child: const Icon(Icons.bar_chart_rounded, color: AppColors.gold, size: 18),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrumpBadge extends StatelessWidget {
+  final dynamic gameState;
+  const _TrumpBadge({required this.gameState});
+
+  @override
+  Widget build(BuildContext context) {
+    String trump = gameState.currentTrumpSuit ?? 'Spade';
+    if (gameState.phase == GamePhase.trumpBidding && gameState.trumpBidState.proposedSuit != null) {
+      trump = gameState.trumpBidState.proposedSuit!;
+    }
+    final s = trump.toUpperCase();
+    String char = '♠';
+    Color suitColor = Colors.white;
+    if (s.contains('HEART')) { char = '♥'; suitColor = Colors.redAccent; }
+    else if (s.contains('DIAMOND')) { char = '♦'; suitColor = Colors.redAccent; }
+    else if (s.contains('CLUB')) { char = '♣'; suitColor = Colors.white; }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Trump: ',
+            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            char,
+            style: TextStyle(color: suitColor, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -1131,7 +1420,7 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.7),
+        color: const Color(0xFF0F1B33).withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
@@ -1161,7 +1450,7 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
       width: isCompact ? 300 : 320,
       padding: EdgeInsets.all(isCompact ? 12 : 20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated.withValues(alpha: 0.95),
+        color: const Color(0xFF0F1B33).withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.gold.withValues(alpha: 0.5), width: 2),
         boxShadow: [
@@ -1258,7 +1547,7 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
       width: isCompact ? 300 : 320,
       padding: EdgeInsets.all(isCompact ? 12 : 20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevated.withValues(alpha: 0.95),
+        color: const Color(0xFF0F1B33).withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFBA68C8).withValues(alpha: 0.5), width: 2),
         boxShadow: [
@@ -1287,7 +1576,7 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
               const SizedBox(width: 8),
               DropdownButton<int>(
                 value: validBids.contains(_trumpBid) ? _trumpBid : (validBids.isNotEmpty ? validBids.first : null),
-                dropdownColor: AppColors.surfaceElevated,
+                dropdownColor: const Color(0xFF0F1B33),
                 items: validBids.map((b) => DropdownMenuItem(value: b, child: Text('$b', style: const TextStyle(color: Colors.white)))).toList(),
                 onChanged: (v) {
                   if (v != null) setState(() => _trumpBid = v);
@@ -1296,7 +1585,7 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
               const SizedBox(width: 16),
               DropdownButton<String>(
                 value: _trumpSuit,
-                dropdownColor: AppColors.surfaceElevated,
+                dropdownColor: const Color(0xFF0F1B33),
                 items: ['Spade', 'Heart', 'Diamond', 'Club'].map((s) {
                   final String symbol = s == 'Spade' ? '♠' : s == 'Heart' ? '♥' : s == 'Diamond' ? '♦' : '♣';
                   final Color color = (s == 'Heart' || s == 'Diamond') ? AppColors.rankRed : Colors.white;
@@ -1345,4 +1634,3 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
     );
   }
 }
-

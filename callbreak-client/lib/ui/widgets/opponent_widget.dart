@@ -13,6 +13,7 @@ class OpponentWidget extends StatelessWidget {
   final bool isCurrentTurn;
   final int? turnEndTime;
   final OpponentPosition position;
+  final Color accentColor;
 
   const OpponentWidget({
     super.key,
@@ -20,39 +21,44 @@ class OpponentWidget extends StatelessWidget {
     required this.isCurrentTurn,
     this.turnEndTime,
     required this.position,
+    this.accentColor = const Color(0xFF2563EB),
   });
 
   @override
   Widget build(BuildContext context) {
-    // Top opponent should be horizontal to save vertical space.
-    // Left and Right opponents should be vertical to save horizontal space.
     final isVertical = position == OpponentPosition.left || position == OpponentPosition.right;
 
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: isCurrentTurn
-            ? AppColors.gold.withValues(alpha: 0.15)
-            : Colors.black38,
-        borderRadius: BorderRadius.circular(16),
+            ? Color.lerp(const Color(0xFF0F1B33), accentColor, 0.12)!
+            : const Color(0xFF0F1B33),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isCurrentTurn ? AppColors.gold : Colors.transparent,
-          width: 1.5,
+          color: isCurrentTurn
+              ? accentColor.withValues(alpha: 0.8)
+              : Colors.white.withValues(alpha: 0.08),
+          width: isCurrentTurn ? 1.5 : 1,
         ),
         boxShadow: isCurrentTurn
             ? [
                 BoxShadow(
-                  color: AppColors.gold.withValues(alpha: 0.3),
-                  blurRadius: 16,
+                  color: accentColor.withValues(alpha: 0.25),
+                  blurRadius: 14,
                   spreadRadius: 2,
                 )
               ]
-            : [],
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                )
+              ],
       ),
-      child: isVertical
-          ? _buildVertical()
-          : _buildHorizontal(),
+      child: isVertical ? _buildVertical() : _buildHorizontal(),
     );
 
     return AnimatedOpacity(
@@ -71,13 +77,15 @@ class OpponentWidget extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 4),
             child: TurnTimerWidget(turnEndTime: turnEndTime!, compact: true),
           ),
-        _Avatar(player: player, isCurrentTurn: isCurrentTurn),
+        _Avatar(player: player, isCurrentTurn: isCurrentTurn, accentColor: accentColor),
         const SizedBox(height: 6),
         _Name(player: player),
         const SizedBox(height: 4),
         _Stats(player: player),
         const SizedBox(height: 4),
         _CardCount(cardCount: player.cardCount),
+        const SizedBox(height: 6),
+        _FannedBackCards(cardCount: player.cardCount, accentColor: accentColor),
       ],
     );
   }
@@ -86,8 +94,8 @@ class OpponentWidget extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _Avatar(player: player, isCurrentTurn: isCurrentTurn),
-        const SizedBox(width: 8),
+        _Avatar(player: player, isCurrentTurn: isCurrentTurn, accentColor: accentColor),
+        const SizedBox(width: 10),
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +110,7 @@ class OpponentWidget extends StatelessWidget {
                 ]
               ],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -121,21 +129,39 @@ class OpponentWidget extends StatelessWidget {
 class _Avatar extends StatelessWidget {
   final Player player;
   final bool isCurrentTurn;
+  final Color accentColor;
 
-  const _Avatar({required this.player, required this.isCurrentTurn});
+  const _Avatar({required this.player, required this.isCurrentTurn, required this.accentColor});
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: 24,
-      backgroundColor:
-          isCurrentTurn ? AppColors.gold : AppColors.tableGreenLight,
-      child: Text(
-        player.name[0].toUpperCase(),
-        style: TextStyle(
-          color: isCurrentTurn ? Colors.black87 : Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: isCurrentTurn
+              ? [AppColors.gold, AppColors.goldDark]
+              : [accentColor, Color.lerp(accentColor, Colors.black, 0.45)!],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (isCurrentTurn ? AppColors.gold : accentColor)
+                .withValues(alpha: 0.4),
+            blurRadius: 8,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          player.name[0].toUpperCase(),
+          style: TextStyle(
+            color: isCurrentTurn ? Colors.black87 : Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
       ),
     );
@@ -171,13 +197,17 @@ class _Name extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
-                  color: AppColors.gold.withValues(alpha: 0.2),
+                  color: const Color(0xFF3B6CC7).withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppColors.gold, width: 0.5),
+                  border: Border.all(color: const Color(0xFF3B6CC7), width: 0.8),
                 ),
                 child: const Text(
                   'BOT',
-                  style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Color(0xFF6FA3F7),
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -209,8 +239,8 @@ class _Stats extends StatelessWidget {
     return Text(
       '${player.tricksWon} / ${player.bid ?? "?"}',
       style: const TextStyle(
-        color: AppColors.gold,
-        fontSize: 12,
+        color: Color(0xFF5B9BF5),
+        fontSize: 13,
         fontWeight: FontWeight.bold,
       ),
     );
@@ -226,13 +256,77 @@ class _CardCount extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.style, color: Colors.white54, size: 12),
+        const Icon(Icons.style, color: Colors.white38, size: 12),
         const SizedBox(width: 3),
         Text(
           '$cardCount',
           style: const TextStyle(color: Colors.white54, fontSize: 11),
         ),
       ],
+    );
+  }
+}
+
+/// Shows small fanned face-down cards for side opponents.
+class _FannedBackCards extends StatelessWidget {
+  final int cardCount;
+  final Color accentColor;
+  const _FannedBackCards({required this.cardCount, required this.accentColor});
+
+  @override
+  Widget build(BuildContext context) {
+    if (cardCount <= 0) return const SizedBox.shrink();
+    final show = cardCount.clamp(1, 5);
+    const cardW = 22.0;
+    const cardH = 32.0;
+    const overlap = 10.0;
+    final totalW = (show - 1) * overlap + cardW;
+    // Derive a dark shade of the accent for the card back
+    final cardDark = Color.lerp(accentColor, Colors.black, 0.65)!;
+    final cardLight = Color.lerp(accentColor, Colors.black, 0.45)!;
+
+    return SizedBox(
+      width: totalW,
+      height: cardH,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: List.generate(show, (i) {
+          return Positioned(
+            left: i * overlap.toDouble(),
+            top: 0,
+            child: Container(
+              width: cardW,
+              height: cardH,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [cardLight, cardDark],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 0.8,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 3,
+                    offset: const Offset(1, 1),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.shield,
+                  size: 10,
+                  color: Colors.white.withValues(alpha: 0.15),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
     );
   }
 }
