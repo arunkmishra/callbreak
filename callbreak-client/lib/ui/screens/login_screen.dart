@@ -5,10 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 
 /// Login screen shown to unauthenticated users.
-///
-/// Uses Supabase Google OAuth. On success, Supabase stores the session
-/// locally, and the [_AuthGate] in main.dart automatically navigates
-/// the user to [HomeScreen].
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -23,7 +19,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   late AnimationController _fadeController;
   late AnimationController _pulseController;
-  late AnimationController _fanController;
+
+  // Simulated online count (replace with real data if available)
+  final int _playersOnline = 1248;
 
   @override
   void initState() {
@@ -31,25 +29,19 @@ class _LoginScreenState extends State<LoginScreen>
 
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
     )..forward();
 
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
-
-    _fanController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..forward();
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
     _pulseController.dispose();
-    _fanController.dispose();
     super.dispose();
   }
 
@@ -58,19 +50,14 @@ class _LoginScreenState extends State<LoginScreen>
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
-      // On web: redirect back to the current page URL (e.g. http://localhost:52345)
-      // On mobile: use the custom deep link scheme
       final redirectTo = kIsWeb
           ? (kReleaseMode ? 'https://arunkmishra.github.io/callbreak/' : Uri.base.origin)
           : 'io.supabase.callbreak://login-callback/';
-
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirectTo,
       );
-      // Auth state listener in main.dart handles navigation after success.
     } on AuthException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (e) {
@@ -99,15 +86,69 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF080B14),
+      backgroundColor: const Color(0xFF0A0C0E),
       resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background
-          CustomPaint(painter: _LoginBackgroundPainter()),
+          // ── Full-screen dark base ──────────────────────────────────────
+          Container(color: const Color(0xFF080A0D)),
 
-          // Content
+          // ── Casino image: full brightness left, fades right ────────────
+          // ShaderMask with dstIn keeps pixels where gradient is opaque.
+          // Gradient: fully opaque on left → transparent on right ≈ 55%.
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: 0.62,
+              heightFactor: 1.0,
+              child: ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Colors.white, Colors.white, Colors.transparent],
+                  stops: [0.0, 0.55, 1.0],
+                ).createShader(bounds),
+                blendMode: BlendMode.dstIn,
+                child: Image.asset(
+                  'assets/casino_bg.png',
+                  fit: BoxFit.cover,
+                  height: double.infinity,
+                  width: double.infinity,
+                ),
+              ),
+            ),
+          ),
+
+          // ── Right-side dark panel for readability ──────────────────────
+          // Only darkens the right content half, leaving image area clean.
+          Align(
+            alignment: Alignment.centerRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.55,
+              heightFactor: 1.0,
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [Colors.transparent, Color(0xF0080A0D)],
+                    stops: [0.0, 0.4],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+
+          // ── Players Online badge (top-right) ───────────────────────────
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            right: 20,
+            child: _PlayersOnlineBadge(count: _playersOnline),
+          ),
+
+          // ── Main content ───────────────────────────────────────────────
           FadeTransition(
             opacity: CurvedAnimation(
               parent: _fadeController,
@@ -116,55 +157,11 @@ class _LoginScreenState extends State<LoginScreen>
             child: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  if (constraints.maxWidth > 600) {
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: Center(
-                            child: Transform.scale(
-                              scale: 1.5,
-                              child: _buildCardFan(),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _buildBranding(),
-                                  const SizedBox(height: 32),
-                                  _buildSignInCard(),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
+                  final isWide = constraints.maxWidth > 700;
+                  if (isWide) {
+                    return _buildWideLayout();
                   }
-                  return Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // ── Animated card fan ──────────────────────────
-                          _buildCardFan(),
-                          const SizedBox(height: 12),
-
-                          // ── Branding ───────────────────────────────────
-                          _buildBranding(),
-                          const SizedBox(height: 20),
-
-                          // ── Sign In Card ───────────────────────────────
-                          _buildSignInCard(),
-                        ],
-                      ),
-                    ),
-                  );
+                  return _buildNarrowLayout();
                 },
               ),
             ),
@@ -174,221 +171,370 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildCardFan() {
-    const fanCards = [
-      (rank: 'A', suit: '♠', isRed: false),
-      (rank: 'K', suit: '♥', isRed: true),
-      (rank: 'Q', suit: '♦', isRed: true),
-      (rank: 'J', suit: '♣', isRed: false),
-    ];
-    const angles = [-0.42, -0.14, 0.14, 0.42];
-    const offsets = [-68.0, -23.0, 23.0, 68.0];
+  // ── Wide (landscape / tablet) layout ──────────────────────────────────────
+  Widget _buildWideLayout() {
+    return Row(
+      children: [
+        // Left spacer for background image
+        const Expanded(flex: 4, child: SizedBox()),
+        // Right: all UI content
+        Expanded(
+          flex: 6,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+              child: _buildRightPanel(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-    return SizedBox(
-      height: 120,
-      child: AnimatedBuilder(
-        animation: _fanController,
-        builder: (context, _) {
-          final t = CurvedAnimation(
-            parent: _fanController,
-            curve: Curves.elasticOut,
-          ).value.clamp(0.0, 1.0);
-          return Stack(
-            alignment: Alignment.bottomCenter,
-            children: List.generate(fanCards.length, (i) {
-              return Transform.translate(
-                offset: Offset(offsets[i] * t, 0),
-                child: Transform.rotate(
-                  angle: angles[i] * t,
-                  alignment: Alignment.bottomCenter,
-                  child: _LoginFanCard(
-                    rank: fanCards[i].rank,
-                    suit: fanCards[i].suit,
-                    isRed: fanCards[i].isRed,
-                  ),
-                ),
-              );
-            }),
-          );
-        },
+  // ── Narrow (portrait / phone) layout ──────────────────────────────────────
+  Widget _buildNarrowLayout() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        children: [
+          const SizedBox(height: 32),
+          _buildRightPanel(),
+        ],
       ),
     );
   }
 
-  Widget _buildBranding() {
+  // ── Shared right-panel content ─────────────────────────────────────────────
+  Widget _buildRightPanel() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Crown icon
+        _buildCrown(),
+        const SizedBox(height: 8),
+
+        // CALLBREAK title
+        _buildTitle(),
+        const SizedBox(height: 8),
+
+        // Tagline
+        const Text(
+          'PLAY.  BID.  OUTSMART.  WIN.',
+          style: TextStyle(
+            color: Colors.white54,
+            fontSize: 12,
+            letterSpacing: 3,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Feature icons row
+        _buildFeatureIcons(),
+        const SizedBox(height: 32),
+
+        // Buttons
+        if (_isLoading)
+          const SizedBox(
+            height: 56,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.gold,
+                strokeWidth: 2.5,
+              ),
+            ),
+          )
+        else ...[
+          // Google button
+          _GoldGoogleButton(onTap: _signInWithGoogle),
+          const SizedBox(height: 12),
+
+          // Guest button
+          _GuestButton(onTap: _signInAsGuest),
+          const SizedBox(height: 14),
+
+          // No signup note
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.verified_user_outlined,
+                  size: 13, color: Colors.white.withValues(alpha: 0.35)),
+              const SizedBox(width: 6),
+              Text(
+                'No sign up required. Start playing instantly!',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ],
+
+        // Error message
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.errorRed.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.errorRed, fontSize: 13),
+            ),
+          ),
+        ],
+
+        const SizedBox(height: 28),
+
+        // Bottom stats bar
+        _buildStatsBar(),
+      ],
+    );
+  }
+
+  Widget _buildCrown() {
     return AnimatedBuilder(
       animation: _pulseController,
       builder: (context, child) {
-        final scale = 0.975 + 0.025 * _pulseController.value;
-        return Transform.scale(scale: scale, child: child);
+        final glow = 0.5 + 0.5 * _pulseController.value;
+        return ShaderMask(
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [
+              const Color(0xFFFFE082).withValues(alpha: glow),
+              const Color(0xFFFFC107),
+              const Color(0xFFFF8F00),
+            ],
+          ).createShader(bounds),
+          child: const Text('♛', style: TextStyle(fontSize: 36, color: Colors.white)),
+        );
       },
-      child: Column(
+    );
+  }
+
+  Widget _buildTitle() {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) => child!,
+      child: ShaderMask(
+        shaderCallback: (bounds) => const LinearGradient(
+          colors: [
+            Color(0xFFFFE082),
+            Color(0xFFFFD54F),
+            Color(0xFFFFC107),
+            Color(0xFFFF8F00),
+            Color(0xFFFFC107),
+            Color(0xFFFFE082),
+          ],
+          stops: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+        ).createShader(bounds),
+        child: const Text(
+          'CALLBREAK',
+          style: TextStyle(
+            fontSize: 52,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 10,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureIcons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const _FeatureIcon(
+          icon: Icons.emoji_events_outlined,
+          title: 'COMPETE',
+          subtitle: 'Climb the leaderboards',
+        ),
+        _VerticalDivider(),
+        const _FeatureIcon(
+          icon: Icons.group_outlined,
+          title: 'PLAY TOGETHER',
+          subtitle: 'Challenge your friends',
+        ),
+        _VerticalDivider(),
+        const _FeatureIcon(
+          icon: Icons.shield_outlined,
+          title: 'WIN REWARDS',
+          subtitle: 'Earn and unlock more',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [
-                Color(0xFFFFE082),
-                Color(0xFFFFC107),
-                Color(0xFFFF8F00),
-                Color(0xFFFFC107),
-                Color(0xFFFFE082),
+          const _StatItem(icon: Icons.group, value: '500K+', label: 'PLAYERS'),
+          _StatDivider(),
+          const _StatItem(icon: Icons.military_tech, value: 'DAILY', label: 'TOURNAMENTS'),
+          _StatDivider(),
+          const _StatItem(icon: Icons.bar_chart, value: 'GLOBAL', label: 'LEADERBOARDS'),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Players Online Badge ──────────────────────────────────────────────────────
+
+class _PlayersOnlineBadge extends StatelessWidget {
+  final int count;
+  const _PlayersOnlineBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF22C55E),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x6622C55E),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
               ],
-              stops: [0.0, 0.25, 0.5, 0.75, 1.0],
-            ).createShader(bounds),
-            child: const Text(
-              'CALLBREAK',
-              style: TextStyle(
-                fontSize: 38,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: 8,
-              ),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'T H E  C L A S S I C  C A R D  G A M E',
-            style: TextStyle(
-              fontSize: 9,
-              color: AppColors.textSecondary,
-              letterSpacing: 2.5,
-            ),
+          const SizedBox(width: 7),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _formatCount(count),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  height: 1.1,
+                ),
+              ),
+              const Text(
+                'PLAYERS ONLINE',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 9,
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSignInCard() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF111827),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: const Color(0xFFFFC107).withValues(alpha: 0.15),
-            width: 1.5,
+  String _formatCount(int n) {
+    if (n >= 1000) {
+      return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}K';
+    }
+    return '$n';
+  }
+}
+
+// ─── Feature Icon ──────────────────────────────────────────────────────────────
+
+class _FeatureIcon extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _FeatureIcon({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: AppColors.gold, size: 26),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.gold,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFFC107).withValues(alpha: 0.08),
-              blurRadius: 30,
-              spreadRadius: 0,
+          const SizedBox(height: 3),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.45),
+              fontSize: 10,
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            const Text(
-              'Sign in to play',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Google Sign In Button
-            _isLoading
-                ? const SizedBox(
-                    height: 48,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.gold,
-                        strokeWidth: 2.5,
-                      ),
-                    ),
-                  )
-                : Row(
-                    children: [
-                      Expanded(
-                        child: _GoogleSignInButton(onTap: _signInWithGoogle),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _signInAsGuest,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white10,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 0),
-                            minimumSize: const Size(0, 48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          child: const Text(
-                            'Guest Login',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.2),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-            const SizedBox(height: 16),
-            const Text(
-              'Save your progress, join leaderboards,\nand challenge friends.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-
-            // Error message
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.errorRed.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppColors.errorRed.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Text(
-                  _errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.errorRed,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ─── Google Sign In Button ────────────────────────────────────────────────────
-
-class _GoogleSignInButton extends StatefulWidget {
-  final VoidCallback onTap;
-
-  const _GoogleSignInButton({required this.onTap});
-
+class _VerticalDivider extends StatelessWidget {
   @override
-  State<_GoogleSignInButton> createState() => _GoogleSignInButtonState();
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 48,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: Colors.white.withValues(alpha: 0.1),
+    );
+  }
 }
 
-class _GoogleSignInButtonState extends State<_GoogleSignInButton>
+// ─── Gold Google Button ───────────────────────────────────────────────────────
+
+class _GoldGoogleButton extends StatefulWidget {
+  final VoidCallback onTap;
+  const _GoldGoogleButton({required this.onTap});
+
+  @override
+  State<_GoldGoogleButton> createState() => _GoldGoogleButtonState();
+}
+
+class _GoldGoogleButtonState extends State<_GoldGoogleButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _pressController;
-  late Animation<double> _scaleAnimation;
+  late Animation<double> _scale;
 
   @override
   void initState() {
@@ -397,7 +543,7 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton>
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
+    _scale = Tween<double>(begin: 1.0, end: 0.97).animate(
       CurvedAnimation(parent: _pressController, curve: Curves.easeInOut),
     );
   }
@@ -418,51 +564,56 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton>
       },
       onTapCancel: () => _pressController.reverse(),
       child: ScaleTransition(
-        scale: _scaleAnimation,
+        scale: _scale,
         child: Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          height: 56,
+          width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFD54F), Color(0xFFFFC107), Color(0xFFFFB300)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.20),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: const Color(0xFFFFC107).withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Google "G" icon using a simple colored shape
+              // Google multicolour "G"
               Container(
-                width: 20,
-                height: 20,
-                decoration: const BoxDecoration(shape: BoxShape.circle),
-                child: const Text(
-                  'G',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF4285F4),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    height: 1.3,
+                width: 28,
+                height: 28,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                ),
+                child: const Center(
+                  child: Text(
+                    'G',
+                    style: TextStyle(
+                      color: Color(0xFF4285F4),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 17,
+                      height: 1.2,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              const Flexible(
-                child: Text(
-                  'Google Login',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Color(0xFF1F2937),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
+              const SizedBox(width: 12),
+              const Text(
+                'Continue with Google',
+                style: TextStyle(
+                  color: Color(0xFF1A0F00),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.2,
                 ),
               ),
             ],
@@ -473,89 +624,144 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton>
   }
 }
 
-// ─── Background Painter ───────────────────────────────────────────────────────
+// ─── Guest Button ─────────────────────────────────────────────────────────────
 
-class _LoginBackgroundPainter extends CustomPainter {
+class _GuestButton extends StatefulWidget {
+  final VoidCallback onTap;
+  const _GuestButton({required this.onTap});
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()
-      ..shader = const RadialGradient(
-        center: Alignment(0, -0.35),
-        radius: 1.15,
-        colors: [Color(0xFF1A1F35), Color(0xFF080B14)],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, bgPaint);
+  State<_GuestButton> createState() => _GuestButtonState();
+}
 
-    final arcPaint = Paint()
-      ..shader = const RadialGradient(
-        center: Alignment(0, -1.2),
-        radius: 0.7,
-        colors: [Color(0x18FFC107), Colors.transparent],
-      ).createShader(Offset.zero & size)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 40);
-    canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.width, size.height * 0.4), arcPaint);
+class _GuestButtonState extends State<_GuestButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pressController;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.97).animate(
+      CurvedAnimation(parent: _pressController, curve: Curves.easeInOut),
+    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ─── Fan Card ─────────────────────────────────────────────────────────────────
-
-class _LoginFanCard extends StatelessWidget {
-  final String rank;
-  final String suit;
-  final bool isRed;
-
-  const _LoginFanCard(
-      {required this.rank, required this.suit, required this.isRed});
+  void dispose() {
+    _pressController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final color = isRed ? AppColors.rankRed : AppColors.rankBlack;
-    return Container(
-      width: 64,
-      height: 96,
-      decoration: BoxDecoration(
-        color: AppColors.cardWhite,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.50),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+    return GestureDetector(
+      onTapDown: (_) => _pressController.forward(),
+      onTapUp: (_) {
+        _pressController.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _pressController.reverse(),
+      child: ScaleTransition(
+        scale: _scale,
+        child: Container(
+          height: 56,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18),
+              width: 1.2,
+            ),
           ),
-          BoxShadow(
-            color: (isRed ? AppColors.rankRed : AppColors.spadeBlue)
-                .withValues(alpha: 0.15),
-            blurRadius: 18,
-            spreadRadius: 1,
-          ),
-        ],
-        border: Border.all(color: Colors.grey.shade200, width: 0.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(rank,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.person_outline_rounded,
+                color: Colors.white.withValues(alpha: 0.75),
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Continue as Guest',
                 style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                    height: 1)),
-            Text(suit,
-                style: TextStyle(color: color, fontSize: 11, height: 1)),
-            const Spacer(),
-            Center(
-                child: Text(suit,
-                    style: TextStyle(color: color, fontSize: 28))),
-            const Spacer(),
-          ],
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                Icons.arrow_forward,
+                color: Colors.white.withValues(alpha: 0.5),
+                size: 18,
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+// ─── Stats Bar Items ──────────────────────────────────────────────────────────
+
+class _StatItem extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  const _StatItem({required this.icon, required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: AppColors.gold, size: 20),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                height: 1.1,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.45),
+                fontSize: 9,
+                letterSpacing: 0.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 28,
+      color: Colors.white.withValues(alpha: 0.1),
     );
   }
 }

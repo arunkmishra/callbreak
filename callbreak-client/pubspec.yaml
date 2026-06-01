@@ -41,6 +41,7 @@ flutter:
   assets:
     - assets/face_cards/
     - assets/sounds/
+    - assets/casino_bg.png
     - .env
 
   fonts:
