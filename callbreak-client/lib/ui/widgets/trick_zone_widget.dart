@@ -87,13 +87,12 @@ class _TrickZoneWidgetState extends State<TrickZoneWidget>
   static const double _cw = 30;    // half card width (60/2)
   static const double _ch = 45;    // half card height (90/2)
 
-  /// Final resting offset (dx, dy) relative to the container's center.
   Offset _restOffsetForRelativeIndex(int relativeIndex) {
     switch (relativeIndex) {
-      case 0: return const Offset(15, 60);    // bottom-right (me)
-      case 1: return const Offset(-70, 5);   // left
-      case 2: return const Offset(-10, -55);  // top-left
-      case 3: return const Offset(70, -5);   // right
+      case 0: return const Offset(15, 75);    // bottom-right (me)
+      case 1: return const Offset(-55, 25);   // left
+      case 2: return const Offset(-10, -20);  // top-left (moved down significantly)
+      case 3: return const Offset(55, 15);    // right
       default: return Offset.zero;
     }
   }
@@ -217,11 +216,14 @@ class _TrickZoneWidgetState extends State<TrickZoneWidget>
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
                 opacity: hasArrived ? 1.0 : 0.0,
-                child: Transform.rotate(
-                  angle: _rotationForRelativeIndex(relativeIndex),
-                  child: PlayingCardWidget(
-                    card: trickCard.card,
-                    isSmall: false,
+                child: Transform.scale(
+                  scale: 0.85,
+                  child: Transform.rotate(
+                    angle: _rotationForRelativeIndex(relativeIndex),
+                    child: PlayingCardWidget(
+                      card: trickCard.card,
+                      isSmall: false,
+                    ),
                   ),
                 ),
               ),

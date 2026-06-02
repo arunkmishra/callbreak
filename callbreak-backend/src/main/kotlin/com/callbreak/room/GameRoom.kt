@@ -574,7 +574,7 @@ class GameRoom(initialState: CallbreakState) {
                 if (state.currentTurn == player.id && !turnTimers.containsKey(player.id)) {
                     val waitTime = if (player.consecutiveBotMoves >= 2) {
                         3_000L
-                    } else if (state.phase == GamePhase.TRUMP_BIDDING) {
+                    } else if (state.phase == GamePhase.TRUMP_BIDDING || state.phase == GamePhase.REGULAR_BIDDING) {
                         15_000L
                     } else {
                         10_000L

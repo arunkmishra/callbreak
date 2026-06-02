@@ -43,5 +43,12 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function(error) {
+        console.log('Orientation lock failed or not supported:', error);
+      });
+    }
+  </script>
 </body>
 </html>

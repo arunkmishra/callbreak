@@ -949,36 +949,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Expanded(
           child: _ModeTile(
-            icon: Icons.emoji_events_outlined,
-            iconColor: const Color(0xFFFFD700),
-            bgColor: const Color(0xFF1A1400),
-            borderColor: const Color(0xFFFFD700),
-            title: 'RANKED MATCH',
-            subtitle: 'Compete with players\nand climb the ranks',
-            badge: 'GOLD II',
-            badgeColor: const Color(0xFFFFD700),
-            comingSoon: true,
-            onTap: () => _showComingSoon(context, 'Ranked Match'),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: _ModeTile(
-            icon: Icons.military_tech_outlined,
-            iconColor: const Color(0xFFAB47BC),
-            bgColor: const Color(0xFF150E1A),
-            borderColor: const Color(0xFFAB47BC),
-            title: 'TOURNAMENT',
-            subtitle: 'Join exciting\ntournaments',
-            badge: 'Starts in 18m',
-            badgeColor: const Color(0xFFAB47BC),
-            comingSoon: true,
-            onTap: () => _showComingSoon(context, 'Tournament'),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: _ModeTile(
             icon: Icons.group_add_outlined,
             iconColor: const Color(0xFF34D399),
             bgColor: const Color(0xFF061511),
@@ -991,7 +961,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             onTap: () => _openMultiplayerSheet(context),
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 12),
         Expanded(
           child: _ModeTile(
             icon: Icons.track_changes_outlined,

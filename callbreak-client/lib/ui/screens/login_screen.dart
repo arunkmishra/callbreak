@@ -112,7 +112,8 @@ class _LoginScreenState extends State<LoginScreen>
                 blendMode: BlendMode.dstIn,
                 child: Image.asset(
                   'assets/casino_bg.png',
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
                   height: double.infinity,
                   width: double.infinity,
                 ),
@@ -245,12 +246,13 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           )
         else ...[
-          // Google button
-          _GoldGoogleButton(onTap: _signInWithGoogle),
-          const SizedBox(height: 12),
-
-          // Guest button
-          _GuestButton(onTap: _signInAsGuest),
+          Row(
+            children: [
+              Expanded(child: _GoldGoogleButton(onTap: _signInWithGoogle)),
+              const SizedBox(width: 12),
+              Expanded(child: _GuestButton(onTap: _signInAsGuest)),
+            ],
+          ),
           const SizedBox(height: 14),
 
           // No signup note
@@ -606,14 +608,18 @@ class _GoldGoogleButtonState extends State<_GoldGoogleButton>
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              const Text(
-                'Continue with Google',
-                style: TextStyle(
-                  color: Color(0xFF1A0F00),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.2,
+              const SizedBox(width: 8),
+              const Flexible(
+                child: Text(
+                  'Continue with Google',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFF1A0F00),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
             ],
@@ -687,17 +693,21 @@ class _GuestButtonState extends State<_GuestButton>
                 color: Colors.white.withValues(alpha: 0.75),
                 size: 22,
               ),
-              const SizedBox(width: 10),
-              Text(
-                'Continue as Guest',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Continue as Guest',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Icon(
                 Icons.arrow_forward,
                 color: Colors.white.withValues(alpha: 0.5),

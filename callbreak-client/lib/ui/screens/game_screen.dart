@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
@@ -47,10 +48,12 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    WakelockPlus.enable();
   }
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     super.dispose();
   }
 
@@ -73,8 +76,8 @@ class _GameScreenState extends State<GameScreen> {
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 380),
-          padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+          constraints: const BoxConstraints(maxWidth: 340),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
           decoration: BoxDecoration(
             color: const Color(0xFF0E1830),
             borderRadius: BorderRadius.circular(22),
@@ -95,13 +98,14 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               // ── Warning icon with glow ───────────────────────────────
               Container(
-                width: 64,
-                height: 64,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.errorRed.withValues(alpha: 0.12),
@@ -116,17 +120,17 @@ class _GameScreenState extends State<GameScreen> {
                 child: const Icon(
                   Icons.warning_amber_rounded,
                   color: AppColors.errorRed,
-                  size: 34,
+                  size: 28,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
 
               // ── Title ────────────────────────────────────────────────
               const Text(
                 'Leave Match?',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.2,
                 ),
@@ -143,7 +147,7 @@ class _GameScreenState extends State<GameScreen> {
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
 
               // ── Info box ──────────────────────────────────────────────
               Container(
@@ -207,7 +211,7 @@ class _GameScreenState extends State<GameScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 16),
 
               // ── Buttons ───────────────────────────────────────────────
               Row(
@@ -267,6 +271,7 @@ class _GameScreenState extends State<GameScreen> {
                 ],
               ),
             ],
+          ),
           ),
         ),
       ),
@@ -726,7 +731,7 @@ class _GameScreenState extends State<GameScreen> {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 158,
+                bottom: state is GameBidding ? 120 : 158,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [

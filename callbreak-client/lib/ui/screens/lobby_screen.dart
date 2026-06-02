@@ -62,7 +62,7 @@ class LobbyScreen extends StatelessWidget {
           final players = gameState.players;
           final canStart = players.isNotEmpty;
           final isHost = players.isNotEmpty && players.first.id == myPlayerId;
-          final myName = players.firstWhere((p) => p.id == myPlayerId, orElse: () => players.first).name;
+          final myName = players.isEmpty ? 'Guest' : players.firstWhere((p) => p.id == myPlayerId, orElse: () => players.first).name;
 
           return Scaffold(
             backgroundColor: const Color(0xFF050810),
@@ -96,7 +96,7 @@ class LobbyScreen extends StatelessWidget {
       child: Row(
         children: [
           _IconBtn(
-            icon: Icons.arrow_back,
+            icon: Icons.exit_to_app,
             onTap: () => context.read<GameBloc>().add(const DisconnectRequested()),
           ),
           const Spacer(),
@@ -129,16 +129,6 @@ class LobbyScreen extends StatelessWidget {
           ),
           const Spacer(),
           _StartGameSection(isHost: isHost, canStart: canStart),
-          const SizedBox(width: 24),
-          _IconBtn(
-            icon: Icons.exit_to_app,
-            onTap: () => context.read<GameBloc>().add(const DisconnectRequested()),
-          ),
-          const SizedBox(width: 12),
-          _IconBtn(
-            icon: Icons.settings,
-            onTap: () {},
-          ),
         ],
       ),
     );
@@ -158,19 +148,16 @@ class LobbyScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 340,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _RoomCodeSection(roomCode: gameState.roomId, myName: myName),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 400,
-                    child: _OnlineFriendsSection(roomId: gameState.roomId, myName: myName),
-                  ),
-                ],
-              ),
+            width: 320,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _RoomCodeSection(roomCode: gameState.roomId, myName: myName),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _OnlineFriendsSection(roomId: gameState.roomId, myName: myName),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 24),
@@ -253,7 +240,7 @@ class _RoomCodeSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0F1A),
         borderRadius: BorderRadius.circular(16),
@@ -264,9 +251,9 @@ class _RoomCodeSection extends StatelessWidget {
         children: [
           const Text(
             'ROOM CODE',
-            style: TextStyle(color: Color(0xFF7C3AED), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+            style: TextStyle(color: Color(0xFF7C3AED), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -274,7 +261,7 @@ class _RoomCodeSection extends StatelessWidget {
                 roomCode,
                 style: const TextStyle(
                   color: Color(0xFF7C3AED),
-                  fontSize: 34,
+                  fontSize: 28,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 8,
                 ),
@@ -289,14 +276,14 @@ class _RoomCodeSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2E1A5B),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
@@ -307,8 +294,8 @@ class _RoomCodeSection extends StatelessWidget {
                 // ignore: deprecated_member_use
                 Share.share('Join my Callbreak room! Tap here to join: $url');
               },
-              icon: const Icon(Icons.link_rounded, size: 16, color: Color(0xFFA78BFA)),
-              label: const Text('Share Room Link', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              icon: const Icon(Icons.link_rounded, size: 14, color: Color(0xFFA78BFA)),
+              label: const Text('Share Room Link', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
             ),
           ),
         ],
@@ -404,10 +391,10 @@ class _OnlineFriendsSectionState extends State<_OnlineFriendsSection> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
             child: Text(
               'ONLINE FRIENDS ($onlineCount)',
-              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
             ),
           ),
           const Divider(color: Colors.white10, height: 1),
@@ -513,11 +500,11 @@ class _PlayersHeader extends StatelessWidget {
       children: [
         Text(
           'PLAYERS (${players.length}/4)',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
         ),
         const Text(
           'Waiting for players to join...',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
+          style: TextStyle(color: Colors.white54, fontSize: 11),
         ),
       ],
     );
@@ -574,7 +561,7 @@ class _GridPlayerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(16),
@@ -590,8 +577,8 @@ class _GridPlayerCard extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 38,
+            height: 38,
             decoration: const BoxDecoration(
               color: Color(0xFF1D4ED8),
               shape: BoxShape.circle,
@@ -599,7 +586,7 @@ class _GridPlayerCard extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               isMe ? 'Y' : name[0].toUpperCase(),
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 16),
@@ -613,22 +600,22 @@ class _GridPlayerCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         isMe ? 'You' : name,
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (isHost) ...[
                       const SizedBox(width: 6),
-                      const Text('👑', style: TextStyle(fontSize: 14)),
+                      const Text('👑', style: TextStyle(fontSize: 12)),
                     ],
                   ],
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.successGreen, shape: BoxShape.circle)),
+                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.successGreen, shape: BoxShape.circle)),
                     const SizedBox(width: 6),
-                    const Text('Ready', style: TextStyle(color: AppColors.successGreen, fontSize: 13)),
+                    const Text('Ready', style: TextStyle(color: AppColors.successGreen, fontSize: 11)),
                   ],
                 ),
               ],
@@ -646,7 +633,7 @@ class _GridEmptySlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0F1A),
         borderRadius: BorderRadius.circular(16),
@@ -655,14 +642,14 @@ class _GridEmptySlot extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 38,
+            height: 38,
             decoration: const BoxDecoration(
               color: Color(0xFF1E293B),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: const Text('?', style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold)),
+            child: const Text('?', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 16),
           const Expanded(
@@ -670,9 +657,9 @@ class _GridEmptySlot extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Empty Seat', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Empty Seat', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
                 SizedBox(height: 6),
-                Text('Waiting...', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                Text('Waiting...', style: TextStyle(color: Colors.white54, fontSize: 11)),
               ],
             ),
           ),
@@ -689,7 +676,7 @@ class _GameSettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0F1A),
         borderRadius: BorderRadius.circular(12),
@@ -731,14 +718,14 @@ class _SettingItem extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: const Color(0xFF7C3AED), size: 24),
-          const SizedBox(width: 12),
+          Icon(icon, color: const Color(0xFF7C3AED), size: 20),
+          const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 10)),
+              Text(label, style: const TextStyle(color: Color(0xFF7C3AED), fontSize: 9)),
               const SizedBox(height: 2),
-              Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(value, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
             ],
           ),
         ],
