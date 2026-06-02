@@ -281,11 +281,35 @@ class _GameScreenState extends State<GameScreen> {
   }
 
 
+  Future<void> _shareScreenshot(GlobalKey key) async {
+    try {
+      final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+      final pngBytes = byteData.buffer.asUint8List();
+
+      late XFile xFile;
+      if (kIsWeb) {
+        xFile = XFile.fromData(pngBytes, mimeType: 'image/png', name: 'callbreak_result.png');
+      } else {
+        final tempDir = await getTemporaryDirectory();
+        final file = await File('${tempDir.path}/callbreak_result.png').create();
+        await file.writeAsBytes(pngBytes);
+        xFile = XFile(file.path);
+      }
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([xFile], text: 'I just finished a game of Callbreak! Check out the results!');
+    } catch (e) {
+      debugPrint('Failed to share screenshot: $e');
+    }
+  }
+
   void _showRoundOverDialog(BuildContext context, GameRoundOver state) {
     if (_isDialogOpen) return;
     _isDialogOpen = true;
     final gameState = state.gameState;
-    
     final screenshotKey = GlobalKey();
 
     showDialog(
@@ -293,150 +317,219 @@ class _GameScreenState extends State<GameScreen> {
       barrierDismissible: false,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Container(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+        child: Builder(builder: (context) {
+          final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+
+          final myPlayer = gameState.players.firstWhere(
+            (p) => p.id == state.myPlayerId,
+            orElse: () => gameState.players.first,
+          );
+          final bool isWinner = state.isGameOver && myPlayer.rank == 1;
+
+          // ── Left panel ──────────────────────────────────────────────────
+          final leftPanel = Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0F1B33),
+              color: const Color(0xFF0A1628),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+              border: Border.all(color: const Color(0xFF1E3A6E), width: 1.2),
             ),
-            padding: const EdgeInsets.all(24),
-            child: SingleChildScrollView(
-              child: Builder(
-                builder: (context) {
-                  final isLandscape = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
-                  
-                  final myPlayer = gameState.players.firstWhere((p) => p.id == state.myPlayerId, orElse: () => gameState.players.first);
-                  final bool isWinner = state.isGameOver && myPlayer.rank == 1;
-
-                  final titleWidget = Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        state.isGameOver ? '🏆 Game Over!' : 'Round ${gameState.currentRound} Over!',
-                        style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 24),
-                        textAlign: TextAlign.center,
-                      ),
-                      if (isWinner)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 12.0),
-                          child: Text(
-                            '🎉 Congratulations!\nYou Won! 🎉',
-                            style: TextStyle(color: AppColors.successGreen, fontWeight: FontWeight.bold, fontSize: 18),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                    ],
-                  );
-
-                  Widget actionWidget;
-                  if (!state.isGameOver) {
-                    actionWidget = const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: Text('Next round starting in 5s...', style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic)),
-                    );
-                  } else {
-                    actionWidget = Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextButton.icon(
-                            icon: const Icon(Icons.share, color: AppColors.gold),
-                            onPressed: () async {
-                              try {
-                                final boundary = screenshotKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-                                if (boundary == null) return;
-                                final image = await boundary.toImage(pixelRatio: 2.0);
-                                final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-                                if (byteData == null) return;
-                                final pngBytes = byteData.buffer.asUint8List();
-                                
-                                late XFile xFile;
-                                if (kIsWeb) {
-                                  xFile = XFile.fromData(
-                                    pngBytes,
-                                    mimeType: 'image/png',
-                                    name: 'callbreak_result.png',
-                                  );
-                                } else {
-                                  final tempDir = await getTemporaryDirectory();
-                                  final file = await File('${tempDir.path}/callbreak_result.png').create();
-                                  await file.writeAsBytes(pngBytes);
-                                  xFile = XFile(file.path);
-                                }
-                                
-                                // ignore: deprecated_member_use
-                                await Share.shareXFiles(
-                                  [xFile],
-                                  text: 'I just finished a game of Callbreak! Check out the results!',
-                                );
-                              } catch (e) {
-                                debugPrint('Failed to share screenshot: $e');
-                              }
-                            },
-                            label: const Text('Share Result', style: TextStyle(color: AppColors.gold)),
-                          ),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.home_rounded),
-                            onPressed: () {
-                              _dismissDialog();
-                              context.read<GameBloc>().add(const DisconnectRequested());
-                            },
-                            label: const Text('Back to Home'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  if (isLandscape) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              titleWidget,
-                              const SizedBox(height: 24),
-                              actionWidget,
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          flex: 3,
-                          child: RepaintBoundary(
-                            key: screenshotKey,
-                            child: ScoreBoardWidget(gameState: gameState, hideTitle: false),
-                          ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Trophy glow ──────────────────────────────────────────
+                Center(
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.gold.withValues(alpha: 0.35),
+                          blurRadius: 36,
+                          spreadRadius: 8,
                         ),
                       ],
-                    );
-                  } else {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        titleWidget,
-                        const SizedBox(height: 16),
-                        RepaintBoundary(
-                          key: screenshotKey,
-                          child: ScoreBoardWidget(gameState: gameState, hideTitle: true),
-                        ),
-                        actionWidget,
-                      ],
-                    );
-                  }
-                }
+                    ),
+                    alignment: Alignment.center,
+                    child: isWinner
+                        ? const Text('🏆', style: TextStyle(fontSize: 64))
+                        : Container(
+                            width: 54,
+                            height: 76,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'A',
+                                  style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold, height: 1.1),
+                                ),
+                                Text(
+                                  '♠',
+                                  style: TextStyle(color: Colors.black, fontSize: 28, height: 1.1),
+                                ),
+                              ],
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Headline ─────────────────────────────────────────────
+                if (state.isGameOver) ...[
+                  Text(
+                    isWinner ? 'YOU WON!' : 'GAME OVER',
+                    style: TextStyle(
+                      color: isWinner ? AppColors.gold : Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 28,
+                      letterSpacing: 1.2,
+                      shadows: isWinner
+                          ? [Shadow(color: AppColors.gold.withValues(alpha: 0.6), blurRadius: 16)]
+                          : null,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isWinner
+                        ? 'Great game! You outplayed everyone.'
+                        : 'Better luck next time!',
+                    style: const TextStyle(color: Colors.white60, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Share Result button (outlined purple) ───────────────
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        foregroundColor: const Color(0xFFA78BFA),
+                        backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                      ),
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      onPressed: () => _shareScreenshot(screenshotKey),
+                      label: const Text(
+                        'Share Result',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // ── Back to Lobby button (solid gold) ───────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF59E0B),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.home_rounded, size: 20),
+                      onPressed: () {
+                        _dismissDialog();
+                        context.read<GameBloc>().add(const DisconnectRequested());
+                      },
+                      label: const Text(
+                        'Back to Lobby',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // ── Round over (not game over) ──────────────────────────
+                  Text(
+                    'Round ${gameState.currentRound} Over!',
+                    style: const TextStyle(
+                      color: AppColors.gold,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Next round starting in 5s...',
+                    style: TextStyle(color: Colors.white60, fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ],
+            ),
+          );
+
+          // ── Right panel (scorecard) ──────────────────────────────────────
+          final rightPanel = RepaintBoundary(
+            key: screenshotKey,
+            child: ScoreBoardWidget(
+              gameState: gameState,
+              myPlayerId: state.myPlayerId,
+            ),
+          );
+
+          // ── Layout ───────────────────────────────────────────────────────
+          if (isLandscape) {
+            return SingleChildScrollView(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F1B33),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.25)),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 5, child: leftPanel),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 7, child: rightPanel),
+                  ],
+                ),
               ),
-            ),
-          ),
-        ),
-      ).then((_) {
+            );
+          } else {
+            return Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F1B33),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.25)),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    leftPanel,
+                    const SizedBox(height: 16),
+                    rightPanel,
+                  ],
+                ),
+              ),
+            );
+          }
+        }),
+      ),
+    ).then((_) {
       _isDialogOpen = false;
     });
   }
@@ -669,7 +762,7 @@ class _GameScreenState extends State<GameScreen> {
               Positioned(
                 top: MediaQuery.of(context).padding.top + 10,
                 right: 12,
-                child: _ScorePanel(gameState: gameState),
+                child: _ScorePanel(gameState: gameState, myPlayerId: myPlayerId),
               ),
 
               // ── Left Opponent (vertical card) ─────────────────────────
@@ -731,7 +824,7 @@ class _GameScreenState extends State<GameScreen> {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: state is GameBidding ? 120 : 158,
+                bottom: state is GameBidding ? 95 : 158,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1189,8 +1282,9 @@ class _HandCard extends StatelessWidget {
 
 class _ScorePanel extends StatelessWidget {
   final dynamic gameState;
+  final String myPlayerId;
 
-  const _ScorePanel({required this.gameState});
+  const _ScorePanel({required this.gameState, required this.myPlayerId});
 
   @override
   Widget build(BuildContext context) {
@@ -1223,7 +1317,7 @@ class _ScorePanel extends StatelessWidget {
                 builder: (_) => Dialog(
                   backgroundColor: Colors.transparent,
                   insetPadding: const EdgeInsets.all(16),
-                  child: ScoreBoardWidget(gameState: gameState),
+                  child: ScoreBoardWidget(gameState: gameState, myPlayerId: myPlayerId),
                 ),
               );
             },
@@ -1526,14 +1620,17 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
               SizedBox(width: isCompact ? 20 : 32),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  padding: isCompact ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8) : null,
-                  minimumSize: isCompact ? const Size(0, 36) : const Size(0, 52),
+                  padding: isCompact ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6) : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  minimumSize: isCompact ? const Size(0, 32) : const Size(0, 42),
                 ),
                 onPressed: () {
                   context.read<GameBloc>().add(PlaceBidAttempt(_sliderBid));
                 },
-                icon: Icon(Icons.check, size: isCompact ? 18 : 20),
-                label: Text(isCompact ? 'CONFIRM' : 'CONFIRM BID'),
+                icon: Icon(Icons.check, size: isCompact ? 16 : 18),
+                label: Text(
+                  isCompact ? 'CONFIRM' : 'CONFIRM BID',
+                  style: TextStyle(fontSize: isCompact ? 12 : 14),
+                ),
               ),
             ],
           ),
