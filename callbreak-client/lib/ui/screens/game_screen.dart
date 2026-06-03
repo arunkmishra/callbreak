@@ -21,7 +21,7 @@ import '../../data/models/player.dart';
 import '../widgets/opponent_widget.dart';
 import '../widgets/playing_card_widget.dart';
 import '../widgets/score_board_widget.dart';
-import '../widgets/settings_sheet.dart';
+import '../widgets/settings_dialog.dart';
 import '../widgets/trick_zone_widget.dart';
 import '../widgets/turn_timer_widget.dart';
 import 'home_screen.dart';
@@ -729,11 +729,12 @@ class _GameScreenState extends State<GameScreen> {
                     _IconBtn(
                       icon: Icons.settings_outlined,
                       onTap: () {
-                        showModalBottomSheet(
+                        showDialog(
                           context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (_) => const SettingsSheet(),
+                          builder: (_) => BlocProvider.value(
+                            value: context.read<SettingsCubit>(),
+                            child: const SettingsDialog(),
+                          ),
                         );
                       },
                     ),
@@ -1523,7 +1524,7 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
 
     return Container(
       width: isCompact ? 300 : 320,
-      padding: EdgeInsets.all(isCompact ? 12 : 20),
+      padding: EdgeInsets.all(isCompact ? 8 : 20),
       decoration: BoxDecoration(
         color: const Color(0xFF0F1B33).withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(20),
@@ -1532,85 +1533,87 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
           BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Place Your Bid',
-            style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: isCompact ? 16 : 18),
-          ),
-          SizedBox(height: isCompact ? 4 : 8),
-          Text(
-            'Select how many tricks you can win',
-            style: TextStyle(color: Colors.white70, fontSize: isCompact ? 11 : 13),
-          ),
-          SizedBox(height: isCompact ? 12 : 24),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.remove, color: AppColors.gold),
-                onPressed: _sliderBid > minBid
-                    ? () {
-                        setState(() {
-                          _sliderBid--;
-                        });
-                      }
-                    : null,
-              ),
-              Expanded(
-                child: Slider(
-                  value: _sliderBid.toDouble(),
-                  min: minBid.toDouble(),
-                  max: 13,
-                  divisions: 13 - minBid > 0 ? 13 - minBid : 1,
-                  activeColor: AppColors.gold,
-                  inactiveColor: Colors.white24,
-                  label: '$_sliderBid',
-                  onChanged: (val) {
-                    setState(() {
-                      _sliderBid = val.toInt();
-                    });
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Place Your Bid',
+              style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: isCompact ? 14 : 18),
+            ),
+            SizedBox(height: isCompact ? 2 : 8),
+            Text(
+              'Select how many tricks you can win',
+              style: TextStyle(color: Colors.white70, fontSize: isCompact ? 11 : 13),
+            ),
+            SizedBox(height: isCompact ? 4 : 24),
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove, color: AppColors.gold),
+                  onPressed: _sliderBid > minBid
+                      ? () {
+                          setState(() {
+                            _sliderBid--;
+                          });
+                        }
+                      : null,
+                ),
+                Expanded(
+                  child: Slider(
+                    value: _sliderBid.toDouble(),
+                    min: minBid.toDouble(),
+                    max: 13,
+                    divisions: 13 - minBid > 0 ? 13 - minBid : 1,
+                    activeColor: AppColors.gold,
+                    inactiveColor: Colors.white24,
+                    label: '$_sliderBid',
+                    onChanged: (val) {
+                      setState(() {
+                        _sliderBid = val.toInt();
+                      });
+                    },
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add, color: AppColors.gold),
+                  onPressed: _sliderBid < 13
+                      ? () {
+                          setState(() {
+                            _sliderBid++;
+                          });
+                        }
+                      : null,
+                ),
+              ],
+            ),
+            SizedBox(height: isCompact ? 4 : 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$_sliderBid',
+                  style: TextStyle(color: AppColors.gold, fontSize: isCompact ? 36 : 48, fontWeight: FontWeight.w900, height: 1),
+                ),
+                SizedBox(width: isCompact ? 20 : 32),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    padding: isCompact ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6) : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    minimumSize: isCompact ? const Size(0, 32) : const Size(0, 42),
+                  ),
+                  onPressed: () {
+                    context.read<GameBloc>().add(PlaceBidAttempt(_sliderBid));
                   },
+                  icon: Icon(Icons.check, size: isCompact ? 16 : 18),
+                  label: Text(
+                    isCompact ? 'CONFIRM' : 'CONFIRM BID',
+                    style: TextStyle(fontSize: isCompact ? 12 : 14),
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add, color: AppColors.gold),
-                onPressed: _sliderBid < 13
-                    ? () {
-                        setState(() {
-                          _sliderBid++;
-                        });
-                      }
-                    : null,
-              ),
-            ],
-          ),
-          SizedBox(height: isCompact ? 12 : 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '$_sliderBid',
-                style: TextStyle(color: AppColors.gold, fontSize: isCompact ? 36 : 48, fontWeight: FontWeight.w900, height: 1),
-              ),
-              SizedBox(width: isCompact ? 20 : 32),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  padding: isCompact ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6) : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  minimumSize: isCompact ? const Size(0, 32) : const Size(0, 42),
-                ),
-                onPressed: () {
-                  context.read<GameBloc>().add(PlaceBidAttempt(_sliderBid));
-                },
-                icon: Icon(Icons.check, size: isCompact ? 16 : 18),
-                label: Text(
-                  isCompact ? 'CONFIRM' : 'CONFIRM BID',
-                  style: TextStyle(fontSize: isCompact ? 12 : 14),
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1623,7 +1626,7 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
 
     return Container(
       width: isCompact ? 300 : 320,
-      padding: EdgeInsets.all(isCompact ? 12 : 20),
+      padding: EdgeInsets.all(isCompact ? 8 : 20),
       decoration: BoxDecoration(
         color: const Color(0xFF0F1B33).withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(20),
@@ -1632,82 +1635,84 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
           BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Set Trump Suit & Bid',
-            style: TextStyle(color: const Color(0xFFBA68C8), fontWeight: FontWeight.bold, fontSize: isCompact ? 16 : 18),
-          ),
-          if (!isCompact) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'Based on your first 5 cards',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Set Trump Suit & Bid',
+              style: TextStyle(color: const Color(0xFFBA68C8), fontWeight: FontWeight.bold, fontSize: isCompact ? 16 : 18),
+            ),
+            if (!isCompact) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Based on your first 5 cards',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ],
+            SizedBox(height: isCompact ? 8 : 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Bid:', style: TextStyle(color: Colors.white70)),
+                const SizedBox(width: 8),
+                DropdownButton<int>(
+                  value: validBids.contains(_trumpBid) ? _trumpBid : (validBids.isNotEmpty ? validBids.first : null),
+                  dropdownColor: const Color(0xFF0F1B33),
+                  items: validBids.map((b) => DropdownMenuItem(value: b, child: Text('$b', style: const TextStyle(color: Colors.white)))).toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _trumpBid = v);
+                  },
+                ),
+                const SizedBox(width: 16),
+                DropdownButton<String>(
+                  value: _trumpSuit,
+                  dropdownColor: const Color(0xFF0F1B33),
+                  items: ['Spade', 'Heart', 'Diamond', 'Club'].map((s) {
+                    final String symbol = s == 'Spade' ? '♠' : s == 'Heart' ? '♥' : s == 'Diamond' ? '♦' : '♣';
+                    final Color color = (s == 'Heart' || s == 'Diamond') ? AppColors.rankRed : Colors.white;
+                    return DropdownMenuItem(
+                      value: s,
+                      child: Text(symbol, style: TextStyle(color: color, fontSize: 18)),
+                    );
+                  }).toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _trumpSuit = v);
+                  },
+                ),
+              ],
+            ),
+            SizedBox(height: isCompact ? 8 : 24),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      context.read<GameBloc>().add(const PlaceTrumpBidAttempt(null, null));
+                    },
+                    child: const Text('PASS', style: TextStyle(color: Colors.white54)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFBA68C8),
+                      padding: isCompact ? const EdgeInsets.symmetric(horizontal: 8, vertical: 8) : null,
+                      minimumSize: isCompact ? const Size(0, 36) : const Size(0, 52),
+                    ),
+                    onPressed: () {
+                      context.read<GameBloc>().add(PlaceTrumpBidAttempt(_trumpBid, _trumpSuit));
+                    },
+                    icon: const Icon(Icons.check, size: 16, color: Colors.white),
+                    label: Text('BID & SET', style: TextStyle(color: Colors.white, fontSize: isCompact ? 12 : 13)),
+                  ),
+                ),
+              ],
             ),
           ],
-          SizedBox(height: isCompact ? 12 : 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Bid:', style: TextStyle(color: Colors.white70)),
-              const SizedBox(width: 8),
-              DropdownButton<int>(
-                value: validBids.contains(_trumpBid) ? _trumpBid : (validBids.isNotEmpty ? validBids.first : null),
-                dropdownColor: const Color(0xFF0F1B33),
-                items: validBids.map((b) => DropdownMenuItem(value: b, child: Text('$b', style: const TextStyle(color: Colors.white)))).toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _trumpBid = v);
-                },
-              ),
-              const SizedBox(width: 16),
-              DropdownButton<String>(
-                value: _trumpSuit,
-                dropdownColor: const Color(0xFF0F1B33),
-                items: ['Spade', 'Heart', 'Diamond', 'Club'].map((s) {
-                  final String symbol = s == 'Spade' ? '♠' : s == 'Heart' ? '♥' : s == 'Diamond' ? '♦' : '♣';
-                  final Color color = (s == 'Heart' || s == 'Diamond') ? AppColors.rankRed : Colors.white;
-                  return DropdownMenuItem(
-                    value: s,
-                    child: Text(symbol, style: TextStyle(color: color, fontSize: 22)),
-                  );
-                }).toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _trumpSuit = v);
-                },
-              ),
-            ],
-          ),
-          SizedBox(height: isCompact ? 12 : 24),
-          Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: () {
-                    context.read<GameBloc>().add(const PlaceTrumpBidAttempt(null, null));
-                  },
-                  child: const Text('PASS', style: TextStyle(color: Colors.white54)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFBA68C8),
-                    padding: isCompact ? const EdgeInsets.symmetric(horizontal: 8, vertical: 8) : null,
-                    minimumSize: isCompact ? const Size(0, 36) : const Size(0, 52),
-                  ),
-                  onPressed: () {
-                    context.read<GameBloc>().add(PlaceTrumpBidAttempt(_trumpBid, _trumpSuit));
-                  },
-                  icon: const Icon(Icons.check, size: 16, color: Colors.white),
-                  label: Text('BID & SET', style: TextStyle(color: Colors.white, fontSize: isCompact ? 12 : 13)),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

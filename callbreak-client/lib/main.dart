@@ -158,6 +158,7 @@ class _ProfileGateState extends State<_ProfileGate> {
 
   Future<void> _checkProfile() async {
     try {
+      await _repository.syncUserAvatarUrl();
       final profile = await _repository.getMyProfile();
       if (mounted) {
         setState(() {

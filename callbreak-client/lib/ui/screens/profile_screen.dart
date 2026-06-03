@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../widgets/user_avatar.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -146,31 +147,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           children: [
             // Avatar
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: _avatarColor(p.id),
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.gold, width: 3),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.gold.withValues(alpha: 0.2),
-                    blurRadius: 16,
-                    spreadRadius: 4,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  p.username.isNotEmpty ? p.username[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 48,
-                  ),
+            UserAvatar(
+              avatarUrl: p.avatarUrl,
+              username: p.username,
+              radius: 50,
+              backgroundColor: _avatarColor(p.id),
+              border: Border.all(color: AppColors.gold, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.gold.withValues(alpha: 0.2),
+                  blurRadius: 16,
+                  spreadRadius: 4,
                 ),
-              ),
+              ],
             ),
             const SizedBox(height: 32),
 

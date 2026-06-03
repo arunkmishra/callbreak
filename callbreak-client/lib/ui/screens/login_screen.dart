@@ -334,14 +334,17 @@ class _LoginScreenState extends State<LoginScreen>
           ],
           stops: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
         ).createShader(bounds),
-        child: const Text(
-          'CALLBREAK',
-          style: TextStyle(
-            fontSize: 52,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 10,
-            height: 1,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: const Text(
+            'CALLBREAK',
+            style: TextStyle(
+              fontSize: 52,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: 10,
+              height: 1,
+            ),
           ),
         ),
       ),

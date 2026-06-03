@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../widgets/user_avatar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
@@ -377,11 +378,19 @@ class _OnlineFriendsSectionState extends State<_OnlineFriendsSection> {
     
     // Sort online first
     allFriends.sort((a, b) {
-      final aOnline = _onlineUserStatuses.containsKey(a.profile!.id);
-      final bOnline = _onlineUserStatuses.containsKey(b.profile!.id);
-      if (aOnline && !bOnline) return -1;
-      if (!aOnline && bOnline) return 1;
-      return 0;
+      final statusA = _onlineUserStatuses[a.profile!.id] ?? 'offline';
+      final statusB = _onlineUserStatuses[b.profile!.id] ?? 'offline';
+      
+      int weight(String s) {
+        if (s == 'available') return 2;
+        if (s == 'playing') return 1;
+        return 0;
+      }
+      
+      final wA = weight(statusA);
+      final wB = weight(statusB);
+      if (wA != wB) return wB.compareTo(wA);
+      return a.profile!.username.toLowerCase().compareTo(b.profile!.username.toLowerCase());
     });
 
     final onlineCount = allFriends.where((f) => _onlineUserStatuses.containsKey(f.profile!.id)).length;
@@ -423,13 +432,11 @@ class _OnlineFriendsSectionState extends State<_OnlineFriendsSection> {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Row(
                           children: [
-                            CircleAvatar(
+                            UserAvatar(
+                              avatarUrl: f.profile!.avatarUrl,
+                              username: name,
                               radius: 18,
                               backgroundColor: const Color(0xFF3B82F6).withValues(alpha: 0.2),
-                              child: Text(
-                                name[0].toUpperCase(),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(

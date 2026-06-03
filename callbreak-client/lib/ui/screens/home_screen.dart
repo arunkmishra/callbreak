@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../widgets/user_avatar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -13,7 +14,9 @@ import '../../core/theme.dart';
 import '../../data/repositories/supabase_repository.dart';
 import '../../data/services/heartbeat_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../widgets/settings_sheet.dart';
+import '../widgets/game_invite_dialog.dart';
+import '../widgets/settings_dialog.dart';
+import '../../bloc/settings_cubit.dart';
 import 'friends_screen.dart';
 import 'game_screen.dart';
 import 'leaderboard_screen.dart';
@@ -82,10 +85,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     try {
       final statuses = await HeartbeatService.getOnlineUsers();
       if (!mounted) return;
-      setState(() => _onlineUserStatuses = statuses);
+      setState(() {
+        _onlineUserStatuses = statuses;
+        _sortFriendsList();
+      });
     } catch (_) {}
   }
 
+
+  void _sortFriendsList() {
+    _friends.sort((a, b) {
+      if (a.profile == null && b.profile == null) return 0;
+      if (a.profile == null) return 1;
+      if (b.profile == null) return -1;
+      
+      final statusA = _onlineUserStatuses[a.profile!.id] ?? 'offline';
+      final statusB = _onlineUserStatuses[b.profile!.id] ?? 'offline';
+      
+      int weight(String s) {
+        if (s == 'available') return 2;
+        if (s == 'playing') return 1;
+        return 0;
+      }
+      
+      final wA = weight(statusA);
+      final wB = weight(statusB);
+      if (wA != wB) return wB.compareTo(wA);
+      return a.profile!.username.toLowerCase().compareTo(b.profile!.username.toLowerCase());
+    });
+  }
 
   Future<void> _loadData() async {
     try {
@@ -111,7 +139,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     try {
       final friends = await SupabaseRepository().getFriends();
-      if (mounted) setState(() => _friends = friends);
+      if (mounted) {
+        setState(() {
+          _friends = friends;
+          _sortFriendsList();
+        });
+      }
     } catch (_) {}
   }
 
@@ -141,31 +174,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceElevated,
-        title: const Text('Game Invite', style: TextStyle(color: Colors.white)),
-        content: Text('$inviterName has invited you to join a game!',
-            style: const TextStyle(color: AppColors.textSecondary)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Decline',
-                style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.successGreen),
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              final profile = await SupabaseRepository().getMyProfile();
-              final playerName = profile?.username ?? 'Player';
-              if (mounted) {
-                context.read<GameBloc>().add(JoinRoomRequested(roomId, playerName));
-              }
-            },
-            child: const Text('Accept', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.8),
+      builder: (ctx) => GameInviteDialog(
+        inviterName: inviterName,
+        roomId: roomId,
+        onDecline: () {
+          if (Navigator.of(ctx).canPop()) {
+            Navigator.of(ctx).pop();
+          }
+        },
+        onAccept: () async {
+          if (Navigator.of(ctx).canPop()) {
+            Navigator.of(ctx).pop();
+          }
+          final profile = await SupabaseRepository().getMyProfile();
+          final playerName = profile?.username ?? 'Player';
+          if (mounted) {
+            context.read<GameBloc>().add(JoinRoomRequested(roomId, playerName));
+          }
+        },
       ),
     );
   }
@@ -382,26 +410,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Row(
               children: [
                 // Avatar
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF7C3AED), Color(0xFF4F46E5)],
-                    ),
-                    border: Border.all(color: AppColors.gold, width: 1.5),
-                  ),
-                  child: Center(
-                    child: Text(
-                      username.isNotEmpty ? username[0].toUpperCase() : 'P',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                UserAvatar(
+                  avatarUrl: _profile?.avatarUrl,
+                  username: username,
+                  radius: 21,
+                  backgroundColor: const Color(0xFF7C3AED),
+                  border: Border.all(color: AppColors.gold, width: 1.5),
                 ),
                 const SizedBox(width: 10),
                 Column(
@@ -565,11 +579,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 const SizedBox(width: 4),
                 _TopBarIcon(
                   icon: Icons.settings_outlined,
-                  onTap: () => showModalBottomSheet(
+                  onTap: () => showDialog(
                     context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => const SettingsSheet(),
+                    builder: (_) => BlocProvider.value(
+                      value: context.read<SettingsCubit>(),
+                      child: const SettingsDialog(),
+                    ),
                   ),
                 ),
               ],
@@ -828,7 +843,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Expanded(
             flex: 5,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(0, 16, 20, 16),
+              padding: const EdgeInsets.fromLTRB(28, 16, 16, 16),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
@@ -1037,27 +1052,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                       )
                     else
-                      ...(() {
-                        final onlineFriends = <Friendship>[];
-                        final offlineFriends = <Friendship>[];
-                        for (final f in _friends) {
-                          if (f.profile != null) {
-                            if (_onlineUserStatuses.containsKey(f.profile!.id)) {
-                              onlineFriends.add(f);
-                            } else {
-                              offlineFriends.add(f);
-                            }
-                          }
-                        }
-                        return [...onlineFriends, ...offlineFriends].map((f) {
-                          final isOnline = _onlineUserStatuses.containsKey(f.profile!.id);
-                          return _FriendRow(
-                            name: f.profile!.username,
-                            status: isOnline ? 'Online' : 'Offline',
-                            isOnline: isOnline,
-                          );
-                        });
-                      })(),
+                      ..._friends.map((f) {
+                        if (f.profile == null) return const SizedBox.shrink();
+                        final status = _onlineUserStatuses[f.profile!.id] ?? 'offline';
+                        final isOnline = status == 'available' || status == 'playing';
+                        return _FriendRow(
+                          name: f.profile!.username,
+                          status: status == 'playing' ? 'Playing' : (isOnline ? 'Online' : 'Offline'),
+                          isOnline: isOnline,
+                          avatarUrl: f.profile!.avatarUrl,
+                        );
+                      }),
                   ],
                 ),
               ),
@@ -1628,11 +1633,13 @@ class _FriendRow extends StatelessWidget {
   final String name;
   final String status;
   final bool isOnline;
+  final String? avatarUrl;
   
   const _FriendRow({
     required this.name,
     required this.status,
     required this.isOnline,
+    this.avatarUrl,
   });
 
   @override
@@ -1662,7 +1669,14 @@ class _FriendRow extends StatelessWidget {
               ] : null,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
+          UserAvatar(
+            avatarUrl: avatarUrl,
+            username: name,
+            radius: 8,
+            backgroundColor: const Color(0xFF374151),
+          ),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
               name,

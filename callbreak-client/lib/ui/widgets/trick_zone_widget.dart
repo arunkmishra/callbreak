@@ -89,10 +89,10 @@ class _TrickZoneWidgetState extends State<TrickZoneWidget>
 
   Offset _restOffsetForRelativeIndex(int relativeIndex) {
     switch (relativeIndex) {
-      case 0: return const Offset(15, 75);    // bottom-right (me)
-      case 1: return const Offset(-55, 25);   // left
-      case 2: return const Offset(-10, -20);  // top-left (moved down significantly)
-      case 3: return const Offset(55, 15);    // right
+      case 0: return const Offset(15, 40);    // bottom-right (me)
+      case 1: return const Offset(-55, -5);   // left
+      case 2: return const Offset(-10, -50);  // top-left
+      case 3: return const Offset(55, -15);   // right
       default: return Offset.zero;
     }
   }

@@ -201,4 +201,17 @@ class SupabaseRepository {
     if (myId == null) throw Exception('Not logged in');
     await _client.from('profiles').update({'username': newUsername}).eq('id', myId);
   }
+  /// Syncs the user's Google avatar URL to the profiles table if available.
+  Future<void> syncUserAvatarUrl() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    final String? picture = user.userMetadata?['picture'] ?? user.userMetadata?['avatar_url'];
+    if (picture != null) {
+      try {
+        await _client.from('profiles').update({'avatar_url': picture}).eq('id', user.id);
+      } catch (e) {
+        // Fail silently, this is a best-effort sync
+      }
+    }
+  }
 }

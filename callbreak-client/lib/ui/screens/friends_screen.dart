@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
+import '../widgets/user_avatar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme.dart';
@@ -11,13 +12,15 @@ import '../../data/services/heartbeat_service.dart';
 class _FriendProfile {
   final String id;
   final String username;
+  final String? avatarUrl;
 
-  const _FriendProfile({required this.id, required this.username});
+  const _FriendProfile({required this.id, required this.username, this.avatarUrl});
 
   factory _FriendProfile.fromMap(Map<String, dynamic> map) {
     return _FriendProfile(
       id: (map['id'] as String?) ?? '',
       username: (map['username'] as String?) ?? 'Player',
+      avatarUrl: map['avatar_url'] as String?,
     );
   }
 }
@@ -139,14 +142,14 @@ class _FriendsScreenState extends State<FriendsScreen>
       // Fetch accepted friendships where current user is requester
       final asRequester = await Supabase.instance.client
           .from('friendships')
-          .select('id, addressee:profiles!friendships_addressee_id_fkey(id, username)')
+          .select('id, addressee:profiles!friendships_addressee_id_fkey(id, username, avatar_url)')
           .eq('requester_id', uid)
           .eq('status', 'accepted');
 
       // Fetch accepted friendships where current user is addressee
       final asAddressee = await Supabase.instance.client
           .from('friendships')
-          .select('id, requester:profiles!friendships_requester_id_fkey(id, username)')
+          .select('id, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url)')
           .eq('addressee_id', uid)
           .eq('status', 'accepted');
 
@@ -178,6 +181,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
       setState(() {
         _friends = combined;
+        _sortFriendsList();
         _isLoadingFriends = false;
       });
     } catch (e) {
@@ -196,7 +200,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     try {
       final data = await Supabase.instance.client
           .from('friendships')
-          .select('id, requester:profiles!friendships_requester_id_fkey(id, username)')
+          .select('id, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url)')
           .eq('addressee_id', uid)
           .eq('status', 'pending');
 
@@ -229,10 +233,31 @@ class _FriendsScreenState extends State<FriendsScreen>
     try {
       final statuses = await HeartbeatService.getOnlineUsers();
       if (!mounted) return;
-      setState(() => _onlineUserStatuses = statuses);
+      setState(() {
+        _onlineUserStatuses = statuses;
+        _sortFriendsList();
+      });
     } catch (_) {
       // Online status is non-critical — fail silently
     }
+  }
+
+  void _sortFriendsList() {
+    _friends.sort((a, b) {
+      final statusA = _onlineUserStatuses[a.profile.id] ?? 'offline';
+      final statusB = _onlineUserStatuses[b.profile.id] ?? 'offline';
+      
+      int weight(String s) {
+        if (s == 'available') return 2;
+        if (s == 'playing') return 1;
+        return 0;
+      }
+      
+      final wA = weight(statusA);
+      final wB = weight(statusB);
+      if (wA != wB) return wB.compareTo(wA);
+      return a.profile.username.toLowerCase().compareTo(b.profile.username.toLowerCase());
+    });
   }
 
   Future<void> _searchUsers(String query) async {
@@ -250,7 +275,7 @@ class _FriendsScreenState extends State<FriendsScreen>
       final uid = _currentUserId;
       final data = await Supabase.instance.client
           .from('profiles')
-          .select('id, username')
+          .select('id, username, avatar_url')
           .ilike('username', '%${query.trim()}%')
           .limit(20);
 
@@ -847,25 +872,11 @@ class _FriendTile extends StatelessWidget {
           // Avatar with online indicator
           Stack(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: _avatarColor(),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    profile.username.isNotEmpty
-                        ? profile.username[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                    ),
-                  ),
-                ),
+              UserAvatar(
+                avatarUrl: profile.avatarUrl,
+                username: profile.username,
+                radius: 21,
+                backgroundColor: _avatarColor(),
               ),
               if (isOnline)
                 Positioned(
@@ -1004,25 +1015,11 @@ class _RequestTileState extends State<_RequestTile> {
       child: Row(
         children: [
           // Avatar
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: avatarColor,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                profile.username.isNotEmpty
-                    ? profile.username[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
-              ),
-            ),
+          UserAvatar(
+            avatarUrl: profile.avatarUrl,
+            username: profile.username,
+            radius: 21,
+            backgroundColor: avatarColor,
           ),
 
           const SizedBox(width: 14),
@@ -1164,25 +1161,11 @@ class _SearchResultTile extends StatelessWidget {
       child: Row(
         children: [
           // Avatar
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: _avatarColor(),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                profile.username.isNotEmpty
-                    ? profile.username[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
-              ),
-            ),
+          UserAvatar(
+            avatarUrl: profile.avatarUrl,
+            username: profile.username,
+            radius: 21,
+            backgroundColor: _avatarColor(),
           ),
 
           const SizedBox(width: 14),

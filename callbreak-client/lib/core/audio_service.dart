@@ -97,7 +97,19 @@ class AudioService {
     }
   }
 
+  static double _volume = 1.0;
+
   static void toggleSound(bool enable) {
     _isEnabled = enable;
+  }
+
+  static Future<void> setVolume(double volume) async {
+    _volume = volume;
+    try {
+      if (_player != null) await _player!.setVolume(volume);
+      if (_sequencePlayer != null) await _sequencePlayer!.setVolume(volume);
+    } catch (e) {
+      print('AudioService: ERROR setting volume: $e');
+    }
   }
 }
