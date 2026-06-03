@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class UserAvatar extends StatelessWidget {
   final String? avatarUrl;
@@ -27,12 +28,13 @@ class UserAvatar extends StatelessWidget {
       inner = _buildInitials(initials);
     } else {
       inner = ClipOval(
-        child: Image.network(
-          avatarUrl!,
+        child: CachedNetworkImage(
+          imageUrl: avatarUrl!,
           width: radius * 2,
           height: radius * 2,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _buildInitials(initials),
+          placeholder: (context, url) => _buildInitials(initials),
+          errorWidget: (context, url, error) => _buildInitials(initials),
         ),
       );
     }

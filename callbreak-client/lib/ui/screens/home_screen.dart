@@ -18,6 +18,7 @@ import '../widgets/game_invite_dialog.dart';
 import '../widgets/settings_dialog.dart';
 import '../../bloc/settings_cubit.dart';
 import 'friends_screen.dart';
+import 'game_history_screen.dart';
 import 'game_screen.dart';
 import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
@@ -1158,7 +1159,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       (icon: Icons.home_rounded, label: 'HOME'),
       (icon: Icons.emoji_events_outlined, label: 'RANK'),
       (icon: Icons.people_outline, label: 'FRIENDS'),
-      (icon: Icons.card_giftcard_outlined, label: 'REWARDS'),
+      (icon: Icons.history, label: 'HISTORY'),
       (icon: Icons.shield_outlined, label: 'CLUB'),
     ];
 
@@ -1179,14 +1180,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           final isActive = _selectedNavIndex == i;
           return Expanded(
             child: GestureDetector(
-              onTap: () {
-                setState(() => _selectedNavIndex = i);
+              onTap: () async {
                 if (i == 0) {
-                  // HOME — already here
+                  setState(() => _selectedNavIndex = i);
                 } else if (i == 2) {
-                  Navigator.of(context).push(
+                  setState(() => _selectedNavIndex = i);
+                  await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const FriendsScreen()),
                   );
+                  if (mounted) {
+                    setState(() => _selectedNavIndex = 0);
+                  }
+                } else if (i == 3) {
+                  setState(() => _selectedNavIndex = i);
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const GameHistoryScreen()),
+                  );
+                  if (mounted) {
+                    setState(() => _selectedNavIndex = 0);
+                  }
                 } else {
                   _showComingSoon(context, item.label);
                 }

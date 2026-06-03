@@ -160,11 +160,14 @@ class SupabaseRepository {
   Future<void> sendFriendRequest(String targetUserId) async {
     final myId = _myUserId;
     if (myId == null) return;
-    await _client.from('friendships').insert({
-      'requester_id': myId,
-      'addressee_id': targetUserId,
-      'status': 'pending',
-    });
+    await _client.from('friendships').upsert(
+      {
+        'requester_id': myId,
+        'addressee_id': targetUserId,
+        'status': 'pending',
+      },
+      onConflict: 'requester_id, addressee_id',
+    );
   }
 
   /// Accepts a pending friend request by [friendshipId].
@@ -175,9 +178,17 @@ class SupabaseRepository {
         .eq('id', friendshipId);
   }
 
-  /// Declines or removes a friendship by [friendshipId].
+  /// Declines a friendship request.
   Future<void> declineFriendRequest(String friendshipId) async {
     await _client.from('friendships').delete().eq('id', friendshipId);
+  }
+
+  /// Soft deletes a friendship by updating the status to 'unfriended'.
+  Future<void> unfriendUser(String friendshipId) async {
+    await _client
+        .from('friendships')
+        .update({'status': 'unfriended'})
+        .eq('id', friendshipId);
   }
 
   // ── My Profile ────────────────────────────────────────────────────────────

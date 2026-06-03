@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS friendships (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   requester_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   addressee_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  status TEXT CHECK (status IN ('pending', 'accepted', 'blocked')) DEFAULT 'pending',
+  status TEXT CHECK (status IN ('pending', 'accepted', 'blocked', 'unfriended')) DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(requester_id, addressee_id)
 );
@@ -86,3 +86,36 @@ CREATE INDEX IF NOT EXISTS idx_match_results_played_at ON match_results(played_a
 CREATE INDEX IF NOT EXISTS idx_profiles_total_wins ON profiles(total_wins DESC);
 CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_id);
 CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id);
+
+-- 4. Match scorecards — full game history and round-by-round scores
+CREATE TABLE IF NOT EXISTS match_scorecards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id TEXT NOT NULL,
+  played_at TIMESTAMPTZ DEFAULT NOW(),
+  -- JSONB array: [{ id, name, is_bot, total_score, rank }]
+  participants JSONB NOT NULL,
+  -- JSONB array: [{ "playerId": 10.0, "bot_1": 12.0 }, ...]
+  round_scores JSONB NOT NULL
+);
+
+-- 5. Mapping table for user's game history
+CREATE TABLE IF NOT EXISTS user_match_records (
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  match_id UUID REFERENCES match_scorecards(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, match_id)
+);
+
+-- ── Row Level Security for Scorecards ──────────────────────────────────────
+ALTER TABLE match_scorecards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_match_records ENABLE ROW LEVEL SECURITY;
+
+-- Match scorecards: anyone can read; only service role can insert
+DROP POLICY IF EXISTS "Match scorecards are viewable by everyone" ON match_scorecards;
+CREATE POLICY "Match scorecards are viewable by everyone" ON match_scorecards FOR SELECT USING (true);
+
+-- User match records: anyone can read; only service role can insert
+DROP POLICY IF EXISTS "User match records are viewable by everyone" ON user_match_records;
+CREATE POLICY "User match records are viewable by everyone" ON user_match_records FOR SELECT USING (true);
+
+-- ── Indexes for performance ────────────────────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_user_match_records_user_id ON user_match_records(user_id);

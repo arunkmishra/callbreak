@@ -313,6 +313,18 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
       _cleanUp();
     }
     
+    // Ignore turn sync race conditions ("It is not X's turn") from the backend
+    if (event.reason.startsWith('It is not ') && event.reason.contains('turn')) {
+      print('ℹ️ Ignoring turn sync error: ${event.reason}');
+      
+      final currentState = state;
+      // We still need to unblock the UI if it was awaiting the server
+      if (currentState is GameActive) {
+        emit(currentState.copyWith(awaitingServer: false));
+      }
+      return; // Skip emitting GameError to avoid annoying red snackbars
+    }
+
     final currentState = state;
     emit(GameError(event.reason));
 

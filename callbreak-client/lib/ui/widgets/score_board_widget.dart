@@ -123,20 +123,23 @@ class _SectionHeader extends StatelessWidget {
 // ─── Main ScoreBoardWidget ────────────────────────────────────────────────────
 
 class ScoreBoardWidget extends StatelessWidget {
-  final GameState gameState;
+  final List<Player> players;
+  final List<Map<String, double>> roundScores;
   final String myPlayerId;
+  final bool isGameOver;
   final bool hideTitle;
 
   const ScoreBoardWidget({
     super.key,
-    required this.gameState,
+    required this.players,
+    required this.roundScores,
     required this.myPlayerId,
+    required this.isGameOver,
     this.hideTitle = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final players = gameState.players;
     // Sort by rank; fall back to cumulative score descending.
     final sorted = [...players]..sort((a, b) {
         if (a.rank != null && b.rank != null) return a.rank!.compareTo(b.rank!);
@@ -155,17 +158,18 @@ class ScoreBoardWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Header ────────────────────────────────────────────────────
-          _SectionHeader(
-            label: gameState.isGameOver ? 'FINAL SCORES' : 'ROUND WISE SCORES',
-          ),
+          if (!hideTitle)
+            _SectionHeader(
+              label: isGameOver ? 'FINAL SCORES' : 'ROUND WISE SCORES',
+            ),
 
           // ── Round-wise score table ─────────────────────────────────────
-          if (gameState.roundScores.isNotEmpty || sorted.isNotEmpty)
+          if (roundScores.isNotEmpty || sorted.isNotEmpty)
             _RoundScoreTable(
               players: sorted,
-              roundScores: gameState.roundScores,
+              roundScores: roundScores,
               myPlayerId: myPlayerId,
-              showRanks: gameState.isGameOver,
+              showRanks: isGameOver,
             ),
 
           const SizedBox(height: 12),

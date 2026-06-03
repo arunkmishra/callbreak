@@ -730,7 +730,8 @@ class GameRoom(initialState: CallbreakState) {
                     logger.debug("⏱️  [Room ${state.roomId}] Turn timer started for '${player.name}' (${player.id}) — ${waitTime}ms (phase=$phase)")
 
                     val job = CoroutineScope(Dispatchers.Default).launch {
-                        delay(waitTime)
+                        // Add 2000ms grace period to factor in network delays from clients
+                        delay(waitTime + 2000L)
                         forceBotMove(player.id)
                     }
                     turnTimers[player.id] = job
@@ -823,20 +824,26 @@ class GameRoom(initialState: CallbreakState) {
      */
     private fun saveResultsToSupabase(finalState: CallbreakState) {
         val realPlayerCount = originalRealPlayerIds.size
-        if (realPlayerCount < 2) {
-            logger.info(
-                "⏭️  [Room ${finalState.roomId}] Skipping leaderboard update — only $realPlayerCount real player(s) " +
-                "participated (need ≥ 2). originalRealPlayerIds=$originalRealPlayerIds"
-            )
-            return
-        }
-
-        logger.info(
-            "📈 [Room ${finalState.roomId}] Saving leaderboard results — $realPlayerCount real players participated. " +
-            "Eligible: ${originalRealPlayerIds.joinToString()}"
-        )
+        if (realPlayerCount == 0) return
 
         CoroutineScope(Dispatchers.IO).launch {
+            // Save the full match scorecard for history view (includes practice matches)
+            logger.info("💾 [Room ${finalState.roomId}] Saving full match scorecard")
+            SupabaseService.saveMatchScorecard(finalState, originalRealPlayerIds)
+
+            if (realPlayerCount < 2) {
+                logger.info(
+                    "⏭️  [Room ${finalState.roomId}] Skipping leaderboard update — only $realPlayerCount real player(s) " +
+                    "participated (need ≥ 2). originalRealPlayerIds=$originalRealPlayerIds"
+                )
+                return@launch
+            }
+
+            logger.info(
+                "📈 [Room ${finalState.roomId}] Saving leaderboard results — $realPlayerCount real players participated. " +
+                "Eligible: ${originalRealPlayerIds.joinToString()}"
+            )
+
             finalState.players.forEach { player ->
                 // Only save result for original real players (not bot-substitutes)
                 if (player.id in originalRealPlayerIds) {

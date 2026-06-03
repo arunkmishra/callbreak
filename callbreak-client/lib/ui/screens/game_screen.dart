@@ -482,8 +482,10 @@ class _GameScreenState extends State<GameScreen> {
           final rightPanel = RepaintBoundary(
             key: screenshotKey,
             child: ScoreBoardWidget(
-              gameState: gameState,
+              players: gameState.players,
+              roundScores: gameState.roundScores,
               myPlayerId: state.myPlayerId,
+              isGameOver: gameState.isGameOver,
             ),
           );
 
@@ -1294,7 +1296,12 @@ class _ScorePanel extends StatelessWidget {
                 builder: (_) => Dialog(
                   backgroundColor: Colors.transparent,
                   insetPadding: const EdgeInsets.all(16),
-                  child: ScoreBoardWidget(gameState: gameState, myPlayerId: myPlayerId),
+                  child: ScoreBoardWidget(
+                    players: gameState.players,
+                    roundScores: gameState.roundScores,
+                    myPlayerId: myPlayerId,
+                    isGameOver: gameState.isGameOver,
+                  ),
                 ),
               );
             },

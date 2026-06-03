@@ -23,6 +23,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.buildJsonArray
+import com.callbreak.domain.models.CallbreakState
+import com.callbreak.domain.models.PlayerId
 import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("SupabaseService")
@@ -176,6 +179,90 @@ object SupabaseService {
             logger.info("✅ Finished Supabase update flow for user $supabaseUserId (rank=$rank, score=$score)")
         } catch (e: Exception) {
             logger.error("❌ Exception during saveMatchResult for $supabaseUserId: ${e.message}")
+        }
+    }
+
+    /**
+     * Saves the full match scorecard to Supabase for the history view.
+     */
+    suspend fun saveMatchScorecard(state: CallbreakState, originalRealPlayerIds: Set<PlayerId>) {
+        try {
+            // 1. Insert into match_scorecards
+            val participantsJson = buildJsonArray {
+                for (p in state.players) {
+                    add(buildJsonObject {
+                        put("id", p.id)
+                        put("name", p.name)
+                        put("is_bot", p.isBot)
+                        put("total_score", p.cumulativeScore)
+                        put("rank", p.rank ?: 4)
+                    })
+                }
+            }
+            
+            val roundScoresJson = buildJsonArray {
+                for (rs in state.roundScores) {
+                    add(buildJsonObject {
+                        for ((pid, score) in rs) {
+                            put(pid, score)
+                        }
+                    })
+                }
+            }
+
+            val scorecardBody = buildJsonObject {
+                put("room_id", state.roomId)
+                put("participants", participantsJson)
+                put("round_scores", roundScoresJson)
+            }
+
+            val postScorecardResponse = client.post("$supabaseUrl/rest/v1/match_scorecards") {
+                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                header("apikey", serviceRoleKey)
+                header("Prefer", "return=representation") // So we get the ID back
+                contentType(ContentType.Application.Json)
+                setBody(scorecardBody.toString())
+            }
+
+            if (postScorecardResponse.status.value !in 200..299) {
+                logger.error("❌ Failed to POST match_scorecards: ${postScorecardResponse.status} ${postScorecardResponse.bodyAsText()}")
+                return
+            }
+
+            // Extract the generated match_id
+            val scorecardResponseText = postScorecardResponse.bodyAsText()
+            val scorecardJsonArray = kotlinx.serialization.json.Json.parseToJsonElement(scorecardResponseText).jsonArray
+            if (scorecardJsonArray.isEmpty()) return
+            val matchId = scorecardJsonArray[0].jsonObject["id"]?.jsonPrimitive?.content ?: return
+
+            // 2. Insert into user_match_records for real players
+            val userRecordsBody = buildJsonArray {
+                for (playerId in originalRealPlayerIds) {
+                    add(buildJsonObject {
+                        put("user_id", playerId)
+                        put("match_id", matchId)
+                    })
+                }
+            }
+
+            if (userRecordsBody.isEmpty()) return
+
+            val postUserRecordsResponse = client.post("$supabaseUrl/rest/v1/user_match_records") {
+                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                header("apikey", serviceRoleKey)
+                header("Prefer", "return=minimal")
+                contentType(ContentType.Application.Json)
+                setBody(userRecordsBody.toString())
+            }
+
+            if (postUserRecordsResponse.status.value !in 200..299) {
+                logger.error("❌ Failed to POST user_match_records: ${postUserRecordsResponse.status} ${postUserRecordsResponse.bodyAsText()}")
+            } else {
+                logger.info("✅ Saved full match scorecard for room ${state.roomId}")
+            }
+
+        } catch (e: Exception) {
+            logger.error("❌ Exception during saveMatchScorecard for room ${state.roomId}: ${e.message}")
         }
     }
 }

@@ -1,51 +1,13 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
-import '../widgets/user_avatar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme.dart';
 import '../../data/services/heartbeat_service.dart';
-
-// ─── Data Models ─────────────────────────────────────────────────────────────
-
-class _FriendProfile {
-  final String id;
-  final String username;
-  final String? avatarUrl;
-
-  const _FriendProfile({required this.id, required this.username, this.avatarUrl});
-
-  factory _FriendProfile.fromMap(Map<String, dynamic> map) {
-    return _FriendProfile(
-      id: (map['id'] as String?) ?? '',
-      username: (map['username'] as String?) ?? 'Player',
-      avatarUrl: map['avatar_url'] as String?,
-    );
-  }
-}
-
-class _FriendEntry {
-  final String friendshipId;
-  final _FriendProfile profile;
-
-  const _FriendEntry({required this.friendshipId, required this.profile});
-}
-
-class _RequestEntry {
-  final String friendshipId;
-  final _FriendProfile requester;
-
-  const _RequestEntry({
-    required this.friendshipId,
-    required this.requester,
-  });
-}
+import '../../data/repositories/supabase_repository.dart';
 
 // ─── Friends Screen ───────────────────────────────────────────────────────────
 
-/// Two-tab screen: accepted friends and pending incoming friend requests.
-/// Also includes a search bar to find users and send friend requests.
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
 
@@ -67,15 +29,12 @@ class _FriendsScreenState extends State<FriendsScreen>
   bool _isLoadingRequests = true;
   bool _isSearching = false;
 
-  List<_FriendEntry> _friends = [];
-  List<_RequestEntry> _requests = [];
-  List<_FriendProfile> _searchResults = [];
+  List<Friendship> _friends = [];
+  List<Friendship> _requests = [];
+  List<UserProfile> _searchResults = [];
   Map<String, String> _onlineUserStatuses = {};
 
-  /// IDs of users the current user has already sent a request to (in-session
-  /// cache so we can disable the "Send" button immediately after tapping).
   final Set<String> _pendingSentIds = {};
-
   String _searchQuery = '';
 
   String? get _currentUserId =>
@@ -87,7 +46,6 @@ class _FriendsScreenState extends State<FriendsScreen>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
-        // Clear search when switching tabs
         _searchController.clear();
         setState(() {
           _searchQuery = '';
@@ -100,12 +58,10 @@ class _FriendsScreenState extends State<FriendsScreen>
     _fetchRequests();
     _fetchOnlineUsers();
 
-    // Poll online status every 15 seconds
     _onlineTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       _fetchOnlineUsers();
     });
 
-    // Listen to real-time updates on friendships table
     _friendshipsChannel = Supabase.instance.client.channel('public:friendships');
     _friendshipsChannel!
         .onPostgresChanges(
@@ -113,7 +69,6 @@ class _FriendsScreenState extends State<FriendsScreen>
       schema: 'public',
       table: 'friendships',
       callback: (payload) {
-        // When any friendship changes, refresh the lists so both users see the update instantly
         _fetchFriends();
         _fetchRequests();
       },
@@ -133,54 +88,12 @@ class _FriendsScreenState extends State<FriendsScreen>
   // ── Data fetching ──────────────────────────────────────────────────────────
 
   Future<void> _fetchFriends() async {
-    final uid = _currentUserId;
-    if (uid == null) return;
-
     setState(() => _isLoadingFriends = true);
-
     try {
-      // Fetch accepted friendships where current user is requester
-      final asRequester = await Supabase.instance.client
-          .from('friendships')
-          .select('id, addressee:profiles!friendships_addressee_id_fkey(id, username, avatar_url)')
-          .eq('requester_id', uid)
-          .eq('status', 'accepted');
-
-      // Fetch accepted friendships where current user is addressee
-      final asAddressee = await Supabase.instance.client
-          .from('friendships')
-          .select('id, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url)')
-          .eq('addressee_id', uid)
-          .eq('status', 'accepted');
-
+      final friends = await SupabaseRepository().getFriends();
       if (!mounted) return;
-
-      final List<_FriendEntry> combined = [];
-
-      for (final row in asRequester as List<dynamic>) {
-        final map = row as Map<String, dynamic>;
-        final profileData = map['addressee'];
-        if (profileData != null) {
-          combined.add(_FriendEntry(
-            friendshipId: map['id'] as String,
-            profile: _FriendProfile.fromMap(profileData as Map<String, dynamic>),
-          ));
-        }
-      }
-
-      for (final row in asAddressee as List<dynamic>) {
-        final map = row as Map<String, dynamic>;
-        final profileData = map['requester'];
-        if (profileData != null) {
-          combined.add(_FriendEntry(
-            friendshipId: map['id'] as String,
-            profile: _FriendProfile.fromMap(profileData as Map<String, dynamic>),
-          ));
-        }
-      }
-
       setState(() {
-        _friends = combined;
+        _friends = friends.where((f) => f.profile != null).toList();
         _sortFriendsList();
         _isLoadingFriends = false;
       });
@@ -192,34 +105,12 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Future<void> _fetchRequests() async {
-    final uid = _currentUserId;
-    if (uid == null) return;
-
     setState(() => _isLoadingRequests = true);
-
     try {
-      final data = await Supabase.instance.client
-          .from('friendships')
-          .select('id, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url)')
-          .eq('addressee_id', uid)
-          .eq('status', 'pending');
-
+      final reqs = await SupabaseRepository().getPendingRequests();
       if (!mounted) return;
-
-      final List<_RequestEntry> entries = [];
-      for (final row in data as List<dynamic>) {
-        final map = row as Map<String, dynamic>;
-        final profileData = map['requester'];
-        if (profileData != null) {
-          entries.add(_RequestEntry(
-            friendshipId: map['id'] as String,
-            requester: _FriendProfile.fromMap(profileData as Map<String, dynamic>),
-          ));
-        }
-      }
-
       setState(() {
-        _requests = entries;
+        _requests = reqs.where((r) => r.profile != null).toList();
         _isLoadingRequests = false;
       });
     } catch (e) {
@@ -237,15 +128,13 @@ class _FriendsScreenState extends State<FriendsScreen>
         _onlineUserStatuses = statuses;
         _sortFriendsList();
       });
-    } catch (_) {
-      // Online status is non-critical — fail silently
-    }
+    } catch (_) {}
   }
 
   void _sortFriendsList() {
     _friends.sort((a, b) {
-      final statusA = _onlineUserStatuses[a.profile.id] ?? 'offline';
-      final statusB = _onlineUserStatuses[b.profile.id] ?? 'offline';
+      final statusA = _onlineUserStatuses[a.profile!.id] ?? 'offline';
+      final statusB = _onlineUserStatuses[b.profile!.id] ?? 'offline';
       
       int weight(String s) {
         if (s == 'available') return 2;
@@ -256,7 +145,7 @@ class _FriendsScreenState extends State<FriendsScreen>
       final wA = weight(statusA);
       final wB = weight(statusB);
       if (wA != wB) return wB.compareTo(wA);
-      return a.profile.username.toLowerCase().compareTo(b.profile.username.toLowerCase());
+      return a.profile!.username.toLowerCase().compareTo(b.profile!.username.toLowerCase());
     });
   }
 
@@ -270,23 +159,9 @@ class _FriendsScreenState extends State<FriendsScreen>
     }
 
     setState(() => _isSearching = true);
-
     try {
-      final uid = _currentUserId;
-      final data = await Supabase.instance.client
-          .from('profiles')
-          .select('id, username, avatar_url')
-          .ilike('username', '%${query.trim()}%')
-          .limit(20);
-
+      final results = await SupabaseRepository().searchUsers(query);
       if (!mounted) return;
-
-      // Filter out current user
-      final results = (data as List<dynamic>)
-          .map((e) => _FriendProfile.fromMap(e as Map<String, dynamic>))
-          .where((p) => p.id != uid)
-          .toList();
-
       setState(() {
         _searchResults = results;
         _isSearching = false;
@@ -294,26 +169,16 @@ class _FriendsScreenState extends State<FriendsScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSearching = false);
-      _showError('Search failed. Please try again.');
+      _showError('Search failed.');
     }
   }
 
   // ── Friendship actions ─────────────────────────────────────────────────────
 
   Future<void> _sendFriendRequest(String targetId) async {
-    final uid = _currentUserId;
-    if (uid == null) return;
-
-    // Optimistically update UI
     setState(() => _pendingSentIds.add(targetId));
-
     try {
-      await Supabase.instance.client.from('friendships').insert({
-        'requester_id': uid,
-        'addressee_id': targetId,
-        'status': 'pending',
-      });
-
+      await SupabaseRepository().sendFriendRequest(targetId);
       if (!mounted) return;
       _showSuccess('Friend request sent!');
     } catch (e) {
@@ -325,11 +190,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Future<void> _acceptRequest(String friendshipId) async {
     try {
-      await Supabase.instance.client
-          .from('friendships')
-          .update({'status': 'accepted'})
-          .eq('id', friendshipId);
-
+      await SupabaseRepository().acceptFriendRequest(friendshipId);
       if (!mounted) return;
       _showSuccess('Friend request accepted!');
       await Future.wait([_fetchFriends(), _fetchRequests()]);
@@ -341,14 +202,10 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Future<void> _declineRequest(String friendshipId) async {
     try {
-      await Supabase.instance.client
-          .from('friendships')
-          .delete()
-          .eq('id', friendshipId);
-
+      await SupabaseRepository().declineFriendRequest(friendshipId);
       if (!mounted) return;
       setState(() {
-        _requests.removeWhere((r) => r.friendshipId == friendshipId);
+        _requests.removeWhere((r) => r.id == friendshipId);
       });
       _showSuccess('Request declined.');
     } catch (e) {
@@ -357,36 +214,40 @@ class _FriendsScreenState extends State<FriendsScreen>
     }
   }
 
+  Future<void> _unfriendUser(String friendshipId) async {
+    try {
+      await SupabaseRepository().unfriendUser(friendshipId);
+      if (!mounted) return;
+      setState(() {
+        _friends.removeWhere((f) => f.id == friendshipId);
+      });
+      _showSuccess('Unfriended successfully.');
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Could not unfriend.');
+    }
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.errorRed,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.errorRed),
     );
   }
 
   void _showSuccess(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.successGreen,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.successGreen),
     );
   }
 
   bool _isAlreadyFriend(String userId) {
-    return _friends.any((f) => f.profile.id == userId);
+    return _friends.any((f) => f.profile?.id == userId);
   }
 
   bool _hasPendingRequest(String userId) {
-    return _requests.any((r) => r.requester.id == userId) ||
+    return _requests.any((r) => r.profile?.id == userId) ||
         _pendingSentIds.contains(userId);
   }
 
@@ -395,31 +256,21 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF080B14),
-      body: Stack(
-        children: [
-          CustomPaint(
-            painter: _FriendsBackgroundPainter(),
-            size: Size(
-              MediaQuery.of(context).size.width,
-              MediaQuery.of(context).size.height,
+      backgroundColor: const Color(0xFF0A101C),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(context),
+            _buildSearchBar(),
+            _buildTabBar(),
+            Expanded(
+              child: _searchQuery.isEmpty
+                  ? _buildTabContent()
+                  : _buildSearchResults(),
             ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(context),
-                _buildSearchBar(),
-                _buildTabBar(),
-                Expanded(
-                  child: _searchQuery.isEmpty
-                      ? _buildTabContent()
-                      : _buildSearchResults(),
-                ),
-              ],
-            ),
-          ),
-        ],
+            _buildFooter(),
+          ],
+        ),
       ),
     );
   }
@@ -427,70 +278,72 @@ class _FriendsScreenState extends State<FriendsScreen>
   // ── Header ──────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF1A1F35), Color(0xFF080B14)],
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(8, 12, 16, 16),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: AppColors.textPrimary,
-              size: 20,
-            ),
-          ),
-          Expanded(
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [
-                  Color(0xFFFFE082),
-                  Color(0xFFFFC107),
-                  Color(0xFFFF8F00),
-                  Color(0xFFFFC107),
-                  Color(0xFFFFE082),
-                ],
-                stops: [0.0, 0.25, 0.5, 0.75, 1.0],
-              ).createShader(bounds),
-              child: const Text(
-                'FRIENDS',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 6,
-                ),
-              ),
-            ),
-          ),
-          // Badge showing incoming requests count
-          if (_requests.isNotEmpty)
-            Container(
-              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          // Back Button
+          InkWell(
+            onTap: () => Navigator.pop(context),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.errorRed,
+                color: Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
-              child: Text(
-                '${_requests.length}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+            ),
+          ),
+          
+          // Title
+          Column(
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.people_alt, color: AppColors.gold, size: 22),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'FRIENDS',
+                    style: TextStyle(
+                      color: AppColors.gold,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ],
               ),
-            )
-          else
-            const SizedBox(width: 16),
+              const SizedBox(height: 2),
+              const Text(
+                'Play together, win together',
+                style: TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+            ],
+          ),
+
+          // Add Friend Button
+          InkWell(
+            onTap: () => _searchFocus.requestFocus(),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_add_alt_1, color: const Color(0xFF34D399), size: 16),
+                  const SizedBox(width: 6),
+                  const Text('ADD FRIEND', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -500,43 +353,31 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
-          borderRadius: BorderRadius.circular(14),
+          color: const Color(0xFF131A2A),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _searchFocus.hasFocus
-                ? AppColors.gold.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.07),
-            width: 1.5,
+            color: _searchFocus.hasFocus ? AppColors.gold.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.07),
+            width: 1.0,
           ),
         ),
         child: Row(
           children: [
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Icon(
-                Icons.person_search_rounded,
-                color: AppColors.textSecondary,
-                size: 20,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Icon(Icons.search, color: Colors.white30, size: 22),
             ),
             Expanded(
               child: TextField(
                 controller: _searchController,
                 focusNode: _searchFocus,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: const InputDecoration(
-                  hintText: 'Search players by username…',
-                  hintStyle: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                  ),
+                  hintText: 'Search players by username...',
+                  hintStyle: TextStyle(color: Colors.white30, fontSize: 14),
                   border: InputBorder.none,
                   isDense: true,
                 ),
@@ -556,11 +397,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                     _searchResults = [];
                   });
                 },
-                icon: const Icon(
-                  Icons.close_rounded,
-                  color: AppColors.textSecondary,
-                  size: 18,
-                ),
+                icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 18),
               ),
           ],
         ),
@@ -572,50 +409,26 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-      height: 44,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.06),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: TabBar(
         controller: _tabController,
-        indicator: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFD54F), Color(0xFFFFC107)],
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.gold.withValues(alpha: 0.3),
-              blurRadius: 8,
-            ),
-          ],
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        dividerColor: Colors.transparent,
-        labelColor: const Color(0xFF1A1200),
-        unselectedLabelColor: AppColors.textSecondary,
-        labelStyle: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-          letterSpacing: 0.5,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 13,
-        ),
+        indicatorColor: AppColors.gold,
+        indicatorWeight: 3,
+        labelColor: AppColors.gold,
+        unselectedLabelColor: Colors.white54,
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
         tabs: [
           Tab(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.people_rounded, size: 16),
-                const SizedBox(width: 6),
-                Text('Friends (${_friends.length})'),
+                const Icon(Icons.people_rounded, size: 18),
+                const SizedBox(width: 8),
+                Text('FRIENDS (${_friends.length})'),
               ],
             ),
           ),
@@ -623,32 +436,42 @@ class _FriendsScreenState extends State<FriendsScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.person_add_rounded, size: 16),
-                const SizedBox(width: 6),
-                const Text('Requests'),
+                const Icon(Icons.person_add_alt_1, size: 18),
+                const SizedBox(width: 8),
+                Text('REQUESTS (${_requests.length})'),
                 if (_requests.isNotEmpty) ...[
                   const SizedBox(width: 6),
                   Container(
-                    width: 18,
-                    height: 18,
-                    decoration: const BoxDecoration(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
                       color: AppColors.errorRed,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Center(
-                      child: Text(
-                        '${_requests.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    child: Text(
+                      '${_requests.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.security, color: Colors.white30, size: 14),
+          SizedBox(width: 6),
+          Text(
+            'Add friends, invite them to play and climb the leaderboard together!',
+            style: TextStyle(color: Colors.white30, fontSize: 10),
           ),
         ],
       ),
@@ -669,20 +492,11 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildFriendsTab() {
     if (_isLoadingFriends) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.gold,
-          strokeWidth: 2.5,
-        ),
-      );
+      return const Center(child: CircularProgressIndicator(color: AppColors.gold));
     }
 
     if (_friends.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.people_outline_rounded,
-        title: 'No friends yet',
-        subtitle: 'Search for players above\nto send friend requests.',
-      );
+      return _buildEmptyState('No friends yet', 'Search for players above to add them.');
     }
 
     return RefreshIndicator(
@@ -690,16 +504,30 @@ class _FriendsScreenState extends State<FriendsScreen>
         await Future.wait([_fetchFriends(), _fetchOnlineUsers()]);
       },
       color: AppColors.gold,
-      backgroundColor: const Color(0xFF111827),
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      backgroundColor: const Color(0xFF131A2A),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
         itemCount: _friends.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final entry = _friends[index];
-          final isOnline = _onlineUserStatuses.containsKey(entry.profile.id);
-          return _FriendTile(
-            profile: entry.profile,
+          final profile = entry.profile!;
+          final isOnline = _onlineUserStatuses.containsKey(profile.id);
+          
+          return _UserCard(
+            profile: profile,
             isOnline: isOnline,
+            action: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                minimumSize: const Size(0, 32),
+              ),
+              onPressed: () => _unfriendUser(entry.id),
+              icon: const Icon(Icons.person_remove_outlined, color: Colors.white54, size: 14),
+              label: const Text('UNFRIEND', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
           );
         },
       ),
@@ -708,35 +536,54 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildRequestsTab() {
     if (_isLoadingRequests) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.gold,
-          strokeWidth: 2.5,
-        ),
-      );
+      return const Center(child: CircularProgressIndicator(color: AppColors.gold));
     }
 
     if (_requests.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.inbox_rounded,
-        title: 'No pending requests',
-        subtitle: 'When someone sends you\na friend request, it appears here.',
-      );
+      return _buildEmptyState('No pending requests', 'You have no incoming friend requests.');
     }
 
     return RefreshIndicator(
       onRefresh: _fetchRequests,
       color: AppColors.gold,
-      backgroundColor: const Color(0xFF111827),
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      backgroundColor: const Color(0xFF131A2A),
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
         itemCount: _requests.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final req = _requests[index];
-          return _RequestTile(
-            entry: req,
-            onAccept: () => _acceptRequest(req.friendshipId),
-            onDecline: () => _declineRequest(req.friendshipId),
+          final profile = req.profile!;
+          
+          return _UserCard(
+            profile: profile,
+            isOnline: false,
+            action: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  onPressed: () => _declineRequest(req.id),
+                  child: const Text('DECLINE', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  onPressed: () => _acceptRequest(req.id),
+                  child: const Text('ACCEPT', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -747,576 +594,197 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildSearchResults() {
     if (_isSearching) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.gold,
-          strokeWidth: 2.5,
-        ),
-      );
+      return const Center(child: CircularProgressIndicator(color: AppColors.gold));
     }
 
     if (_searchResults.isEmpty) {
-      return _buildEmptyState(
-        icon: Icons.search_off_rounded,
-        title: 'No players found',
-        subtitle: 'Try a different username.',
-      );
+      return _buildEmptyState('No players found', 'Try a different username.');
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
       itemCount: _searchResults.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final profile = _searchResults[index];
         final alreadyFriend = _isAlreadyFriend(profile.id);
         final hasPending = _hasPendingRequest(profile.id);
 
-        return _SearchResultTile(
+        Widget actionWidget;
+        if (alreadyFriend) {
+          actionWidget = const Text('FRIENDS', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold));
+        } else if (hasPending) {
+          actionWidget = const Text('REQUESTED', style: TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.bold));
+        } else {
+          actionWidget = ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              minimumSize: const Size(0, 32),
+            ),
+            onPressed: () => _sendFriendRequest(profile.id),
+            icon: const Icon(Icons.person_add, color: Colors.white, size: 14),
+            label: const Text('ADD', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+          );
+        }
+
+        return _UserCard(
           profile: profile,
-          alreadyFriend: alreadyFriend,
-          hasPending: hasPending,
-          onSendRequest: () => _sendFriendRequest(profile.id),
+          isOnline: false,
+          action: actionWidget,
         );
       },
     );
   }
 
-  // ── Empty State ─────────────────────────────────────────────────────────────
-
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
+  Widget _buildEmptyState(String title, String subtitle) {
     return Center(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                ),
-              ),
-              child: Icon(icon, color: AppColors.textSecondary, size: 34),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-                height: 1.6,
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.people_outline, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+          const SizedBox(height: 16),
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 14)),
+        ],
       ),
     );
   }
 }
 
-// ─── Friend Tile ─────────────────────────────────────────────────────────────
+// ─── Custom User Card ────────────────────────────────────────────────────────
 
-class _FriendTile extends StatelessWidget {
-  final _FriendProfile profile;
+class _UserCard extends StatelessWidget {
+  final UserProfile profile;
   final bool isOnline;
+  final Widget action;
 
-  const _FriendTile({required this.profile, required this.isOnline});
-
-  static const _colors = [
-    Color(0xFF7C3AED),
-    Color(0xFF059669),
-    Color(0xFF2563EB),
-    Color(0xFFDC2626),
-    Color(0xFFD97706),
-    Color(0xFF0891B2),
-  ];
-
-  Color _avatarColor() {
-    if (profile.id.isEmpty) return _colors[0];
-    final code = profile.id.codeUnits.fold(0, (a, b) => a + b);
-    return _colors[code % _colors.length];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.80),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Row(
-        children: [
-          // Avatar with online indicator
-          Stack(
-            children: [
-              UserAvatar(
-                avatarUrl: profile.avatarUrl,
-                username: profile.username,
-                radius: 21,
-                backgroundColor: _avatarColor(),
-              ),
-              if (isOnline)
-                Positioned(
-                  bottom: 1,
-                  right: 1,
-                  child: Container(
-                    width: 11,
-                    height: 11,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFF111827),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.username,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isOnline ? 'Online' : 'Offline',
-                  style: TextStyle(
-                    color: isOnline
-                        ? const Color(0xFF22C55E)
-                        : AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight:
-                        isOnline ? FontWeight.w500 : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Invite to game button (future feature placeholder)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: isOnline
-                  ? AppColors.gold.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isOnline
-                    ? AppColors.gold.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.06),
-              ),
-            ),
-            child: Text(
-              isOnline ? 'Invite' : 'Offline',
-              style: TextStyle(
-                color: isOnline ? AppColors.gold : AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Request Tile ─────────────────────────────────────────────────────────────
-
-class _RequestTile extends StatefulWidget {
-  final _RequestEntry entry;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  const _RequestTile({
-    required this.entry,
-    required this.onAccept,
-    required this.onDecline,
-  });
-
-  @override
-  State<_RequestTile> createState() => _RequestTileState();
-}
-
-class _RequestTileState extends State<_RequestTile> {
-  bool _isActing = false;
-
-  Future<void> _handleAccept() async {
-    setState(() => _isActing = true);
-    widget.onAccept();
-  }
-
-  Future<void> _handleDecline() async {
-    setState(() => _isActing = true);
-    widget.onDecline();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const colors = [
-      Color(0xFF7C3AED),
-      Color(0xFF059669),
-      Color(0xFF2563EB),
-      Color(0xFFDC2626),
-      Color(0xFFD97706),
-      Color(0xFF0891B2),
-    ];
-
-    final profile = widget.entry.requester;
-    final code = profile.id.codeUnits.fold(0, (a, b) => a + b);
-    final avatarColor = colors[code % colors.length];
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.80),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.gold.withValues(alpha: 0.12),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          UserAvatar(
-            avatarUrl: profile.avatarUrl,
-            username: profile.username,
-            radius: 21,
-            backgroundColor: avatarColor,
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.username,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Wants to be your friend',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Accept / Decline buttons
-          if (_isActing)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                color: AppColors.gold,
-                strokeWidth: 2,
-              ),
-            )
-          else
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Decline
-                GestureDetector(
-                  onTap: _handleDecline,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.errorRed.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.errorRed.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.close_rounded,
-                      color: AppColors.errorRed,
-                      size: 18,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                // Accept
-                GestureDetector(
-                  onTap: _handleAccept,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF22C55E).withValues(alpha: 0.35),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.check_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Search Result Tile ───────────────────────────────────────────────────────
-
-class _SearchResultTile extends StatelessWidget {
-  final _FriendProfile profile;
-  final bool alreadyFriend;
-  final bool hasPending;
-  final VoidCallback onSendRequest;
-
-  const _SearchResultTile({
+  const _UserCard({
     required this.profile,
-    required this.alreadyFriend,
-    required this.hasPending,
-    required this.onSendRequest,
+    required this.isOnline,
+    required this.action,
   });
 
-  static const _colors = [
-    Color(0xFF7C3AED),
-    Color(0xFF059669),
-    Color(0xFF2563EB),
-    Color(0xFFDC2626),
-    Color(0xFFD97706),
-    Color(0xFF0891B2),
-  ];
-
-  Color _avatarColor() {
-    if (profile.id.isEmpty) return _colors[0];
-    final code = profile.id.codeUnits.fold(0, (a, b) => a + b);
-    return _colors[code % _colors.length];
+  String _getRankString(int wins) {
+    if (wins < 20) return 'BRONZE I';
+    if (wins < 40) return 'BRONZE II';
+    if (wins < 60) return 'BRONZE III';
+    if (wins < 100) return 'SILVER I';
+    if (wins < 200) return 'SILVER II';
+    return 'GOLD I';
   }
 
   @override
   Widget build(BuildContext context) {
+    final initial = profile.username.isNotEmpty ? profile.username[0].toUpperCase() : '?';
+    final colors = [
+      const Color(0xFF8B5CF6), // Purple
+      const Color(0xFF3B82F6), // Blue
+      const Color(0xFF10B981), // Green
+      const Color(0xFFF97316), // Orange
+    ];
+    final avatarColor = colors[profile.username.hashCode % colors.length];
+    final rankLabel = _getRankString(profile.totalWins);
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827).withValues(alpha: 0.80),
-        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF131A2A),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Row(
         children: [
-          // Avatar
-          UserAvatar(
-            avatarUrl: profile.avatarUrl,
-            username: profile.username,
-            radius: 21,
-            backgroundColor: _avatarColor(),
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Text(
-              profile.username,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+          // Avatar with online status
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: Stack(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: avatarColor.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: avatarColor, width: 1.5),
+                  ),
+                  child: Center(
+                    child: Text(
+                      initial,
+                      style: TextStyle(color: avatarColor, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: isOnline ? const Color(0xFF10B981) : Colors.white30,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF131A2A), width: 2),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-
-          // Action button
-          _buildActionButton(),
+          const SizedBox(width: 16),
+          
+          // User Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.username,
+                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.workspace_premium, color: AppColors.gold, size: 12),
+                    const SizedBox(width: 4),
+                    Text(
+                      rankLabel,
+                      style: const TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: isOnline ? const Color(0xFF10B981) : Colors.white30,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isOnline ? 'Online' : 'Offline',
+                      style: TextStyle(
+                        color: isOnline ? const Color(0xFF10B981) : Colors.white54,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Action Widget (Unfriend / Accept / Request)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [action],
+          ),
         ],
       ),
     );
   }
-
-  Widget _buildActionButton() {
-    if (alreadyFriend) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.successGreen.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppColors.successGreen.withValues(alpha: 0.3),
-          ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_rounded, color: AppColors.successGreen, size: 14),
-            SizedBox(width: 4),
-            Text(
-              'Friends',
-              style: TextStyle(
-                color: AppColors.successGreen,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (hasPending) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        ),
-        child: const Text(
-          'Requested',
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: onSendRequest,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFD54F), Color(0xFFFFC107)],
-          ),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.gold.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.person_add_rounded, color: Color(0xFF1A1200), size: 14),
-            SizedBox(width: 4),
-            Text(
-              'Add',
-              style: TextStyle(
-                color: Color(0xFF1A1200),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Background Painter ───────────────────────────────────────────────────────
-
-class _FriendsBackgroundPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bgPaint = Paint()
-      ..shader = const RadialGradient(
-        center: Alignment(0.3, -0.4),
-        radius: 1.2,
-        colors: [Color(0xFF1A1F35), Color(0xFF080B14)],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, bgPaint);
-
-    final glowPaint = Paint()
-      ..shader = const RadialGradient(
-        center: Alignment(0, -1.3),
-        radius: 0.8,
-        colors: [Color(0x1AFFC107), Colors.transparent],
-      ).createShader(Offset.zero & size)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 40);
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height * 0.35),
-      glowPaint,
-    );
-
-    // Subtle hearts/spades pattern
-    final suits = ['♣', '♠', '♥'];
-    final positions = [(0.06, 0.60), (0.82, 0.55), (0.50, 0.90)];
-    for (int i = 0; i < suits.length; i++) {
-      final (x, y) = positions[i];
-      final tp = TextPainter(
-        text: TextSpan(
-          text: suits[i],
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.022),
-            fontSize: 80.0 + i * 15.0,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(x * size.width, y * size.height));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
