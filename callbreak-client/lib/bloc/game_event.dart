@@ -18,7 +18,7 @@ class CreateRoomRequested extends GameEvent {
   final int? minBid;
   final bool greedPenalty;
   final bool allowCustomTrump;
-  const CreateRoomRequested(this.playerName, {this.totalRounds = 5, this.minBid, this.greedPenalty = false, this.allowCustomTrump = false});
+  const CreateRoomRequested(this.playerName, {this.totalRounds = 5, this.minBid = 1, this.greedPenalty = false, this.allowCustomTrump = false});
 
   @override
   List<Object?> get props => [playerName, totalRounds, minBid, greedPenalty, allowCustomTrump];

@@ -833,30 +833,6 @@ class _GameScreenState extends State<GameScreen> {
                         turnEndTime: gameState.turnEndTime!,
                         isMyTurn: true,
                       ),
-                    const SizedBox(height: 6),
-                    AnimatedOpacity(
-                      opacity: (isMyTurn && state is GameActive) ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 500),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A).withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Text(
-                          'Your turn — play a card',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

@@ -240,63 +240,68 @@ class _RoomCodeSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0F1A),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.3)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'ROOM CODE',
-            style: TextStyle(color: Color(0xFF7C3AED), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                roomCode,
-                style: const TextStyle(
-                  color: Color(0xFF7C3AED),
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 8,
-                ),
+              const Text(
+                'ROOM CODE',
+                style: TextStyle(color: Color(0xFF7C3AED), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
               ),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: roomCode));
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room code copied!')));
-                },
-                child: const Icon(Icons.copy_outlined, color: Colors.white54, size: 18),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Text(
+                    roomCode,
+                    style: const TextStyle(
+                      color: Color(0xFF7C3AED),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: roomCode));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room code copied!')));
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.copy_outlined, color: Colors.white54, size: 16),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E1A5B),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 0,
-              ),
-              onPressed: () {
-                final url = kIsWeb
-                    ? Uri.base.replace(queryParameters: {'room': roomCode}).toString()
-                    : 'https://arunkumarmishra.github.io/callbreak/?room=$roomCode';
-                // ignore: deprecated_member_use
-                Share.share('Join my Callbreak room! Tap here to join: $url');
-              },
-              icon: const Icon(Icons.link_rounded, size: 14, color: Color(0xFFA78BFA)),
-              label: const Text('Share Room Link', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E1A5B),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+              minimumSize: const Size(0, 42),
             ),
+            onPressed: () {
+              final url = kIsWeb
+                  ? Uri.base.replace(queryParameters: {'room': roomCode}).toString()
+                  : 'https://arunkumarmishra.github.io/callbreak/?room=$roomCode';
+              // ignore: deprecated_member_use
+              Share.share('Join my Callbreak room! Tap here to join: $url');
+            },
+            icon: const Icon(Icons.link_rounded, size: 16, color: Color(0xFFA78BFA)),
+            label: const Text('Share', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         ],
       ),

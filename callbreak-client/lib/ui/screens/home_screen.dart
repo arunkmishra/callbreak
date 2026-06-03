@@ -225,10 +225,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _openMultiplayerSheet(BuildContext context, {String? initialRoomCode}) {
     AudioService.preload();
     setState(() => _isBotGame = false);
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.75),
       builder: (_) => BlocProvider.value(
         value: context.read<GameBloc>(),
         child: _MultiplayerSheet(
@@ -1828,12 +1827,15 @@ class _FanCard extends StatelessWidget {
             Text(suit,
                 style:
                     TextStyle(color: color, fontSize: width * 0.16, height: 1)),
-            const Spacer(),
-            Center(
-              child: Text(suit,
-                  style: TextStyle(color: color, fontSize: width * 0.38)),
+            Expanded(
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(suit,
+                      style: TextStyle(color: color, fontSize: width * 0.38, height: 1)),
+                ),
+              ),
             ),
-            const Spacer(),
           ],
         ),
       ),
@@ -2074,7 +2076,7 @@ class _BotGameSheetState extends State<_BotGameSheet> {
   }
 }
 
-// ─── Multiplayer Sheet (Private Room) ─────────────────────────────────────────
+// ─── Multiplayer Modal Dialog ───────────────────────────────────────────────
 
 class _MultiplayerSheet extends StatefulWidget {
   final String? initialRoomCode;
@@ -2092,7 +2094,7 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
   final _createFormKey = GlobalKey<FormState>();
   final _joinFormKey = GlobalKey<FormState>();
   int _rounds = 5;
-  int? _minBid;
+  int? _minBid = 1;
   bool _greedPenalty = false;
   bool _allowCustomTrump = false;
   bool _isCreateMode = true;
@@ -2131,109 +2133,170 @@ class _MultiplayerSheetState extends State<_MultiplayerSheet> {
       child: BlocBuilder<GameBloc, GameBlocState>(
         builder: (ctx, state) {
           final isLoading = state is GameLoading;
-          return _SheetContainer(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(11),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF34D399).withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: const Icon(Icons.group_add_outlined,
-                          color: Color(0xFF34D399), size: 26),
-                    ),
-                    const SizedBox(width: 14),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Private Room',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Play with friends in real-time',
-                          style: TextStyle(
-                              color: AppColors.textSecondary, fontSize: 12),
-                        ),
-                      ],
+          return Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 520,
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+                ),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111620), // Dark modal background
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header Area
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: const Color(0xFF4ADE80), width: 1.5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF4ADE80).withValues(alpha: 0.15),
+                                  blurRadius: 10,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.person_add_alt_1_rounded,
+                                color: Color(0xFF4ADE80), size: 22),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _isCreateMode ? 'CREATE PRIVATE ROOM' : 'JOIN PRIVATE ROOM',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Play with friends in real-time',
+                                  style: TextStyle(
+                                      color: Colors.white54, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => Navigator.of(context).pop(),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const Divider(color: Colors.white10, height: 1),
 
-                // Toggle
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _ToggleTab(
-                          label: 'Create Room',
-                          icon: Icons.add_circle_outline,
-                          isActive: _isCreateMode,
-                          onTap: () =>
-                              setState(() => _isCreateMode = true),
+                    // Scrollable content area
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Toggle Tabs
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0D111A), // Darker inset
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                              ),
+                              padding: const EdgeInsets.all(4),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _ToggleTab(
+                                      label: 'Create Room',
+                                      icon: Icons.group_add_outlined,
+                                      isActive: _isCreateMode,
+                                      onTap: () =>
+                                          setState(() => _isCreateMode = true),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _ToggleTab(
+                                      label: 'Join Room',
+                                      icon: Icons.login_outlined,
+                                      isActive: !_isCreateMode,
+                                      onTap: () =>
+                                          setState(() => _isCreateMode = false),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 260),
+                              child: _isCreateMode
+                                  ? _CreateRoomForm(
+                                      key: const ValueKey('create'),
+                                      formKey: _createFormKey,
+                                      rounds: _rounds,
+                                      minBid: _minBid,
+                                      greedPenalty: _greedPenalty,
+                                      allowCustomTrump: _allowCustomTrump,
+                                      isLoading: isLoading,
+                                      onRoundsChanged: (v) =>
+                                          setState(() => _rounds = v),
+                                      onMinBidChanged: (v) =>
+                                          setState(() => _minBid = v),
+                                      onGreedPenaltyChanged: (v) =>
+                                          setState(() => _greedPenalty = v),
+                                      onAllowCustomTrumpChanged: (v) =>
+                                          setState(() => _allowCustomTrump = v),
+                                      onSubmit: _createRoom,
+                                    )
+                                  : _JoinRoomForm(
+                                      key: const ValueKey('join'),
+                                      roomCodeController: _roomCodeController,
+                                      formKey: _joinFormKey,
+                                      isLoading: isLoading,
+                                      onSubmit: _joinRoom,
+                                    ),
+                            ),
+                          ],
                         ),
                       ),
-                      Expanded(
-                        child: _ToggleTab(
-                          label: 'Join Room',
-                          icon: Icons.login_outlined,
-                          isActive: !_isCreateMode,
-                          onTap: () =>
-                              setState(() => _isCreateMode = false),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 24),
-
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
-                  child: _isCreateMode
-                      ? _CreateRoomForm(
-                          key: const ValueKey('create'),
-                          formKey: _createFormKey,
-                          rounds: _rounds,
-                          minBid: _minBid,
-                          greedPenalty: _greedPenalty,
-                          allowCustomTrump: _allowCustomTrump,
-                          isLoading: isLoading,
-                          onRoundsChanged: (v) =>
-                              setState(() => _rounds = v),
-                          onMinBidChanged: (v) =>
-                              setState(() => _minBid = v),
-                          onGreedPenaltyChanged: (v) =>
-                              setState(() => _greedPenalty = v),
-                          onAllowCustomTrumpChanged: (v) =>
-                              setState(() => _allowCustomTrump = v),
-                          onSubmit: _createRoom,
-                        )
-                      : _JoinRoomForm(
-                          key: const ValueKey('join'),
-                          roomCodeController: _roomCodeController,
-                          formKey: _joinFormKey,
-                          isLoading: isLoading,
-                          onSubmit: _joinRoom,
-                        ),
-                ),
-                const SizedBox(height: 4),
-              ],
+              ),
             ),
           );
         },
@@ -2296,93 +2359,110 @@ class _CreateRoomForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<int>(
-            initialValue: rounds,
-            decoration: const InputDecoration(
-              labelText: 'Match Duration',
-              prefixIcon:
-                  Icon(Icons.loop_outlined, color: Color(0xFF34D399)),
+          // Section: GAME SETTINGS
+          const Text(
+            'GAME SETTINGS',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
             ),
-            dropdownColor: AppColors.surfaceElevated,
-            style:
-                const TextStyle(color: AppColors.textPrimary, fontSize: 16),
-            items: const [
-              DropdownMenuItem(value: 1, child: Text('1 Round  ·  Quick')),
-              DropdownMenuItem(value: 3, child: Text('3 Rounds  ·  Short')),
-              DropdownMenuItem(
-                  value: 5, child: Text('5 Rounds  ·  Standard')),
-              DropdownMenuItem(
-                  value: 10, child: Text('10 Rounds  ·  Marathon')),
-            ],
-            onChanged: isLoading
-                ? null
-                : (v) {
-                    if (v != null) onRoundsChanged(v);
-                  },
           ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<int?>(
-            initialValue: minBid,
-            decoration: const InputDecoration(
-              labelText: 'Minimum Bid',
-              prefixIcon: Icon(Icons.arrow_upward_outlined,
-                  color: Color(0xFF34D399)),
+          const SizedBox(height: 12),
+          
+          _SettingsRow(
+            icon: Icons.sync_rounded,
+            iconColor: const Color(0xFF4ADE80), // Green
+            title: 'Match Duration',
+            subtitle: 'Choose number of rounds and game type',
+            trailing: _CustomDropdown<int>(
+              value: rounds,
+              items: const [
+                DropdownMenuItem(value: 1, child: Text('1 Round · Quick')),
+                DropdownMenuItem(value: 3, child: Text('3 Rounds · Short')),
+                DropdownMenuItem(value: 5, child: Text('5 Rounds · Standard')),
+                DropdownMenuItem(value: 10, child: Text('10 Rounds · Marathon')),
+              ],
+              onChanged: isLoading ? null : (v) => v != null ? onRoundsChanged(v) : null,
             ),
-            dropdownColor: AppColors.surfaceElevated,
-            style:
-                const TextStyle(color: AppColors.textPrimary, fontSize: 16),
-            items: const [
-              DropdownMenuItem(value: null, child: Text('None (Default)')),
-              DropdownMenuItem(value: 1, child: Text('1')),
-              DropdownMenuItem(value: 2, child: Text('2')),
-              DropdownMenuItem(value: 3, child: Text('3')),
-            ],
-            onChanged: isLoading ? null : onMinBidChanged,
           ),
-          const SizedBox(height: 16),
-          Material(
-            color: Colors.transparent,
-            child: SwitchListTile(
-              title: const Text('Greed Penalty',
-                  style: TextStyle(color: AppColors.textPrimary)),
-              subtitle: const Text('0 points if player wins 2x their bid',
-                  style: TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12)),
+          const SizedBox(height: 12),
+          
+          _SettingsRow(
+            icon: Icons.arrow_upward_rounded,
+            iconColor: const Color(0xFF4ADE80), // Green
+            title: 'Minimum Bid',
+            subtitle: 'Set minimum bid required to play',
+            trailing: _CustomDropdown<int?>(
+              value: minBid,
+              items: const [
+                DropdownMenuItem(value: null, child: Text('None')),
+                DropdownMenuItem(value: 1, child: Text('1 Bid (Default)')),
+                DropdownMenuItem(value: 2, child: Text('2 Bids')),
+                DropdownMenuItem(value: 3, child: Text('3 Bids')),
+              ],
+              onChanged: isLoading ? null : onMinBidChanged,
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Section: ADVANCED OPTIONS
+          const Text(
+            'ADVANCED OPTIONS',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          _SettingsRow(
+            icon: Icons.balance_rounded,
+            iconColor: const Color(0xFF9333EA), // Purple
+            title: 'Greed Penalty',
+            subtitle: '0 points if player wins 2x their bid',
+            trailing: Switch(
               value: greedPenalty,
               onChanged: isLoading ? null : onGreedPenaltyChanged,
-              activeTrackColor: AppColors.gold.withValues(alpha: 0.5),
-              activeThumbColor: AppColors.gold,
-              contentPadding: EdgeInsets.zero,
+              activeColor: Colors.white,
+              activeTrackColor: const Color(0xFF4ADE80), // Green track
+              inactiveThumbColor: Colors.white70,
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
             ),
           ),
-          const SizedBox(height: 8),
-          Material(
-            color: Colors.transparent,
-            child: SwitchListTile(
-              title: const Text('Dynamic Trump Rules',
-                  style: TextStyle(color: AppColors.textPrimary)),
-              subtitle: const Text(
-                  'Split deal & dynamic trump suit selection',
-                  style: TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12)),
+          const SizedBox(height: 12),
+          
+          _SettingsRow(
+            icon: Icons.style_rounded,
+            iconColor: const Color(0xFF9333EA), // Purple
+            title: 'Dynamic Trump Rules',
+            subtitle: 'Split deal & dynamic trump suit selection',
+            trailing: Switch(
               value: allowCustomTrump,
               onChanged: isLoading ? null : onAllowCustomTrumpChanged,
-              activeTrackColor:
-                  const Color(0xFF34D399).withValues(alpha: 0.5),
-              activeThumbColor: const Color(0xFF34D399),
-              contentPadding: EdgeInsets.zero,
+              activeColor: Colors.white,
+              activeTrackColor: const Color(0xFF4ADE80), // Green track
+              inactiveThumbColor: Colors.white70,
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
             ),
           ),
-          const SizedBox(height: 28),
+          
+          const SizedBox(height: 32),
+          
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF34D399),
-              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF4ADE80),
+              foregroundColor: const Color(0xFF0F172A),
               minimumSize: const Size.fromHeight(54),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              shadowColor: const Color(0xFF34D399),
-              elevation: 4,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              shadowColor: const Color(0xFF4ADE80).withValues(alpha: 0.5),
+              elevation: 8,
             ),
             onPressed: isLoading ? null : onSubmit,
             icon: isLoading
@@ -2390,9 +2470,9 @@ class _CreateRoomForm extends StatelessWidget {
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2),
+                        color: Color(0xFF0F172A), strokeWidth: 2),
                   )
-                : const Icon(Icons.add_circle_outline),
+                : const Icon(Icons.add_circle_outline, size: 20),
             label: Text(
               isLoading ? 'Creating…' : 'Create Room',
               style: const TextStyle(
@@ -2400,6 +2480,112 @@ class _CreateRoomForm extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Custom Settings Row ──────────────────────────────────────────────────────
+
+class _SettingsRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final Widget trailing;
+
+  const _SettingsRow({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF191F2C), // Slightly lighter than modal background
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: iconColor.withValues(alpha: 0.2)),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          trailing,
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Custom Dropdown ──────────────────────────────────────────────────────────
+
+class _CustomDropdown<T> extends StatelessWidget {
+  final T value;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?>? onChanged;
+
+  const _CustomDropdown({
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D111A),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          dropdownColor: const Color(0xFF191F2C),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 18),
+          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+          isDense: true,
+        ),
       ),
     );
   }
@@ -2428,43 +2614,55 @@ class _JoinRoomForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
-            controller: roomCodeController,
-            decoration: const InputDecoration(
-              labelText: 'Room Code',
-              prefixIcon:
-                  Icon(Icons.key_outlined, color: AppColors.gold),
-              hintText: 'e.g.  A B C D E',
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF191F2C),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
             ),
-            style: const TextStyle(
-              color: AppColors.gold,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 8,
-              fontSize: 20,
+            child: TextFormField(
+              controller: roomCodeController,
+              decoration: const InputDecoration(
+                labelText: 'Enter Room Code',
+                labelStyle: TextStyle(color: Colors.white54, fontSize: 13),
+                border: InputBorder.none,
+                prefixIcon: Icon(Icons.key_outlined, color: Color(0xFF4ADE80)),
+                prefixIconConstraints: BoxConstraints(minWidth: 40),
+                hintText: 'e.g. A B C D E',
+                hintStyle: TextStyle(color: Colors.white24, letterSpacing: 8),
+              ),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 8,
+                fontSize: 18,
+              ),
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z]')),
+                LengthLimitingTextInputFormatter(5),
+              ],
+              validator: (v) {
+                if (v == null || v.trim().length != 5) {
+                  return 'Room code must be exactly 5 letters';
+                }
+                return null;
+              },
+              enabled: !isLoading,
             ),
-            textCapitalization: TextCapitalization.characters,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z]')),
-              LengthLimitingTextInputFormatter(5),
-            ],
-            validator: (v) {
-              if (v == null || v.trim().length != 5) {
-                return 'Room code must be exactly 5 letters';
-              }
-              return null;
-            },
-            enabled: !isLoading,
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 32),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF34D399),
-              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF4ADE80),
+              foregroundColor: const Color(0xFF0F172A),
               minimumSize: const Size.fromHeight(54),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              shadowColor: const Color(0xFF34D399),
-              elevation: 4,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              shadowColor: const Color(0xFF4ADE80).withValues(alpha: 0.5),
+              elevation: 8,
             ),
             onPressed: isLoading ? null : onSubmit,
             icon: isLoading
@@ -2472,9 +2670,9 @@ class _JoinRoomForm extends StatelessWidget {
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2),
+                        color: Color(0xFF0F172A), strokeWidth: 2),
                   )
-                : const Icon(Icons.login_outlined),
+                : const Icon(Icons.login_outlined, size: 20),
             label: Text(
               isLoading ? 'Joining…' : 'Join Room',
               style: const TextStyle(
@@ -2509,37 +2707,32 @@ class _ToggleTab extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(vertical: 11),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF34D399)
+              ? const Color(0xFF4ADE80).withValues(alpha: 0.1) // Subtle green tint
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isActive
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF34D399).withValues(alpha: 0.35),
-                    blurRadius: 10,
-                  ),
-                ]
-              : null,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isActive ? const Color(0xFF4ADE80) : Colors.transparent,
+            width: 1.5,
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              color: isActive ? Colors.white : AppColors.textSecondary,
-              size: 15,
+              color: isActive ? const Color(0xFF4ADE80) : Colors.white54,
+              size: 16,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: isActive ? Colors.white : AppColors.textSecondary,
+                color: isActive ? Colors.white : Colors.white54,
                 fontSize: 13,
-                fontWeight:
-                    isActive ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],
