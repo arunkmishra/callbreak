@@ -32,12 +32,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("GameRoom")
 
 /**
  * Manages a single active Callbreak game room.
  *
  * Thread-safety: all state mutations are gated behind [mutex].
  * WebSocket sessions are stored in [sessions] (playerId → session).
+ *
+ * Leaderboard scoring policy:
+ * - A match result is only saved to Supabase if at least 2 original real (non-bot)
+ *   players participated (i.e., [originalRealPlayerIds] has ≥ 2 entries).
+ * - If all real players disconnect mid-game the room is torn down immediately.
  */
 class GameRoom(initialState: CallbreakState) {
 
@@ -56,22 +64,54 @@ class GameRoom(initialState: CallbreakState) {
     /** Active turn timers for human players, keyed by playerId. */
     private val turnTimers = ConcurrentHashMap<PlayerId, Job>()
 
+    /**
+     * IDs of players that were real humans at game-start.
+     * Populated in [startGame] and never modified afterwards.
+     * Used to decide whether a completed match should count for the leaderboard.
+     */
+    private val originalRealPlayerIds = mutableSetOf<PlayerId>()
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
     private fun cancelTurnTimer(playerId: PlayerId?) {
         if (playerId != null) {
             turnTimers.remove(playerId)?.cancel()
         }
     }
 
+    /**
+     * Returns true when at least one real (non-bot) player is still online.
+     * Must be called inside [mutex].
+     */
+    private fun hasOnlineRealPlayers(): Boolean =
+        state.players.any { !it.isBot && it.isOnline }
+
+    /**
+     * Tears the room down: transitions to GAME_OVER, broadcasts, deletes from Redis,
+     * and removes the room from [GameRoomManager].
+     * Must be called inside [mutex].
+     */
+    private suspend fun tearDownRoom(reason: String) {
+        logger.warn("🔴 [Room ${state.roomId}] Tearing down room — $reason")
+        state = state.copy(phase = GamePhase.GAME_OVER)
+        broadcastState()
+        GameRoomManager.removeRoom(state.roomId)
+        logger.info("🗑️  [Room ${state.roomId}] Room removed from GameRoomManager")
+    }
+
     // ─── Session Management ──────────────────────────────────────────────────
 
     suspend fun addSession(playerId: PlayerId, session: DefaultWebSocketSession) {
         mutex.withLock { sessions[playerId] = session }
+        logger.info("🔗 [Room ${state.roomId}] Session added for player $playerId")
     }
 
     suspend fun removeSession(playerId: PlayerId) {
         var forceTakeover = false
+        var shouldTearDown = false
         mutex.withLock {
             sessions.remove(playerId)
+            logger.info("🔌 [Room ${state.roomId}] Session removed for player $playerId (phase=${state.phase})")
 
             // If the game is active (not LOBBY and not GAME_OVER), mark player offline
             if (state.phase != GamePhase.LOBBY && state.phase != GamePhase.GAME_OVER) {
@@ -80,47 +120,78 @@ class GameRoom(initialState: CallbreakState) {
                         if (p.id == playerId) p.copy(isOnline = false) else p
                     }
                 )
-                broadcastState()
 
-                // If it is currently this player's turn, start the 60-second timer
-                if (state.currentTurn == playerId) {
-                    startTakeoverTimer(playerId)
-                    cancelTurnTimer(playerId)
-                    forceTakeover = true
+                val playerName = state.players.firstOrNull { it.id == playerId }?.name ?: playerId
+                logger.info("📴 [Room ${state.roomId}] Player '$playerName' ($playerId) went offline")
+
+                // Check if all real players are now gone
+                if (!hasOnlineRealPlayers()) {
+                    logger.warn("⚠️  [Room ${state.roomId}] No real players remaining online — scheduling room teardown")
+                    shouldTearDown = true
+                } else {
+                    broadcastState()
+                    // If it is currently this player's turn, start the 60-second timer
+                    if (state.currentTurn == playerId) {
+                        logger.info("⏱️  [Room ${state.roomId}] Starting takeover timer for offline player $playerId (their turn)")
+                        startTakeoverTimer(playerId)
+                        cancelTurnTimer(playerId)
+                        forceTakeover = true
+                    }
                 }
             }
         }
-        if (forceTakeover) {
+
+        if (shouldTearDown) {
+            mutex.withLock { tearDownRoom("all real players disconnected") }
+        } else if (forceTakeover) {
             triggerBotActionsIfNeeded()
         }
     }
 
     suspend fun leaveRoom(playerId: PlayerId) {
+        var shouldTearDown = false
         mutex.withLock {
             sessionTokens.remove(playerId)
-            
+            val playerName = state.players.firstOrNull { it.id == playerId }?.name ?: playerId
+            logger.info("🚪 [Room ${state.roomId}] Player '$playerName' ($playerId) explicitly left the room (phase=${state.phase})")
+
             if (state.phase == GamePhase.LOBBY) {
                 // Remove player from the lobby to vacate the seat and transfer host
                 state = state.copy(
                     players = state.players.filter { it.id != playerId }
                 )
+                logger.info("🧹 [Room ${state.roomId}] Player removed from lobby. Remaining: ${state.players.size}")
             } else if (state.phase != GamePhase.GAME_OVER) {
                 // Game active: immediately take over with a bot
                 state = state.copy(
                     players = state.players.map { player ->
                         if (player.id == playerId) {
+                            val botName = if (player.name.endsWith(" (Bot)")) player.name else "${player.name} (Bot)"
+                            logger.info("🤖 [Room ${state.roomId}] Player '$playerName' replaced by bot '$botName'")
                             player.copy(
                                 isOnline = false,
                                 isBot = true,
-                                name = if (player.name.endsWith(" (Bot)")) player.name else "${player.name} (Bot)"
+                                name = botName
                             )
                         } else player
                     }
                 )
+
+                // Check if all real players are now gone
+                if (!hasOnlineRealPlayers()) {
+                    logger.warn("⚠️  [Room ${state.roomId}] Last real player left — scheduling room teardown")
+                    shouldTearDown = true
+                }
             }
-            broadcastState()
+
+            if (!shouldTearDown) broadcastState()
         }
-        
+
+        if (shouldTearDown) {
+            mutex.withLock { tearDownRoom("last real player left") }
+            return
+        }
+
         var forceTakeover = false
         mutex.withLock {
             if (state.phase != GamePhase.LOBBY && state.phase != GamePhase.GAME_OVER && state.currentTurn == playerId) {
@@ -155,11 +226,18 @@ class GameRoom(initialState: CallbreakState) {
                     if (cleanName.endsWith(" (Bot)")) {
                         cleanName = cleanName.removeSuffix(" (Bot)")
                     }
-                    p.copy(
+                    val wasBot = p.isBot
+                    val updated = p.copy(
                         isOnline = true,
                         isBot = false, // Hot-swap player back in
                         name = cleanName
                     )
+                    if (wasBot) {
+                        logger.info("♻️  [Room ${state.roomId}] Player '${cleanName}' ($playerId) reconnected and reclaimed seat from bot")
+                    } else {
+                        logger.info("✅ [Room ${state.roomId}] Player '${cleanName}' ($playerId) reconnected")
+                    }
+                    updated
                 } else p
             }
         )
@@ -175,6 +253,7 @@ class GameRoom(initialState: CallbreakState) {
     suspend fun addPlayer(player: Player) {
         mutex.withLock {
             state = state.copy(players = state.players + player)
+            logger.info("➕ [Room ${state.roomId}] Player '${player.name}' (${player.id}) joined lobby. Total: ${state.players.size}")
         }
         broadcastState()
     }
@@ -184,16 +263,27 @@ class GameRoom(initialState: CallbreakState) {
     /**
      * Starts the game: deals cards and moves to BIDDING phase.
      * Fills any empty seats with bots to reach 4 players.
+     * Records all human players in [originalRealPlayerIds] for leaderboard eligibility.
      */
     suspend fun startGame(): Result<Unit> {
         val startResult = mutex.withLock {
             if (state.phase != GamePhase.LOBBY) {
+                logger.warn("⚠️  [Room ${state.roomId}] startGame called but phase=${state.phase}")
                 return@withLock Result.failure(Exception("Game already started"))
             }
             val humanCount = state.players.size
             if (humanCount == 0) {
                 return@withLock Result.failure(Exception("Need at least 1 player to start"))
             }
+
+            // Record original real players before any bots are added
+            originalRealPlayerIds.clear()
+            state.players.filterNot { it.isBot }.forEach { originalRealPlayerIds.add(it.id) }
+            logger.info(
+                "🎮 [Room ${state.roomId}] Game starting — real players: " +
+                "${state.players.filterNot { it.isBot }.map { it.name }}, " +
+                "bots needed: ${CallbreakState.PLAYERS_REQUIRED - humanCount}"
+            )
 
             // Fill empty seats with bots to reach 4 players
             val botsNeeded = CallbreakState.PLAYERS_REQUIRED - humanCount
@@ -209,14 +299,16 @@ class GameRoom(initialState: CallbreakState) {
                 updatedPlayers.add(bot)
                 // Register an ephemeral session token for bots
                 registerSessionToken(botId, "bot-token-$botId")
+                logger.debug("🤖 [Room ${state.roomId}] Added bot: ${bot.name} (${bot.id})")
             }
 
             val shuffled = createDeck().shuffled()
             val stateWithBots = state.copy(
                 players = updatedPlayers.map { it.copy(cumulativeScore = 0.0) }
             )
-            
+
             state = startDealPhase1(stateWithBots, shuffled)
+            logger.info("🃏 [Room ${state.roomId}] Cards dealt — phase=${state.phase}, dealer index=${state.dealerIndex}")
 
             broadcastState()
             Result.success(Unit)
@@ -250,8 +342,12 @@ class GameRoom(initialState: CallbreakState) {
                 return@withLock Result.failure(Exception("Bid must be between $minBidAllowed and ${CallbreakState.CARDS_PER_HAND}"))
             }
 
+            val playerName = state.players.firstOrNull { it.id == playerId }?.name ?: playerId
+            val bidType = if (isAutoPlay) "auto" else "manual"
+            logger.info("🃏 [Room ${state.roomId}] Player '$playerName' bid $bid ($bidType)")
+
             val newBids = state.bids + (playerId to bid)
-            
+
             val allBid = newBids.size == state.players.size
             var firstPlayer = state.players[(state.dealerIndex + state.players.size - 1) % state.players.size].id
             if (state.trumpBidState.highestBidderId != null) {
@@ -285,6 +381,14 @@ class GameRoom(initialState: CallbreakState) {
                 }
             )
 
+            if (allBid) {
+                logger.info(
+                    "✅ [Room ${state.roomId}] All bids placed: " +
+                    "${newBids.entries.joinToString { (id, b) -> "${state.players.firstOrNull { it.id == id }?.name ?: id}=$b" }}. " +
+                    "First player: $firstPlayer"
+                )
+            }
+
             cancelTurnTimer(oldTurn)
             broadcastState()
             Result.success(Unit)
@@ -305,11 +409,17 @@ class GameRoom(initialState: CallbreakState) {
         val result = mutex.withLock {
             val nextStateResult = processTrumpBid(state, playerId, bid, suit)
             if (nextStateResult.isFailure) return@withLock nextStateResult.map { Unit }
-            
+
+            val playerName = state.players.firstOrNull { it.id == playerId }?.name ?: playerId
+            val action = if (bid == null) "passed trump bid" else "bid trump suit=${suit?.displayName} with $bid"
+            val bidType = if (isAutoPlay) "auto" else "manual"
+            logger.info("🎴 [Room ${state.roomId}] Player '$playerName' $action ($bidType)")
+
             val oldTurn = state.currentTurn
             var nextState = nextStateResult.getOrThrow()
             if (nextState.phase == GamePhase.DEALING_PHASE_2) {
                 nextState = startDealPhase2(nextState)
+                logger.info("🃏 [Room ${state.roomId}] Trump bidding ended — trump suit=${nextState.currentTrumpSuit}. Phase 2 dealing done.")
             }
             state = nextState.copy(
                 turnEndTime = null,
@@ -341,6 +451,10 @@ class GameRoom(initialState: CallbreakState) {
             val validation = validateMove(state, playerId, card)
             if (validation.isFailure) return@withLock validation
 
+            val playerName = state.players.firstOrNull { it.id == playerId }?.name ?: playerId
+            val cardType = if (isAutoPlay) "auto" else "manual"
+            logger.debug("🎴 [Room ${state.roomId}] Player '$playerName' played ${card.suit.displayName} ${card.rank.displayName} ($cardType)")
+
             val updatedHand = state.hands[playerId]!! - card
             val newTrickCards = state.currentTrick.cards + TrickCard(playerId, card)
             val ledSuit = state.currentTrick.ledSuit ?: card.suit
@@ -359,8 +473,10 @@ class GameRoom(initialState: CallbreakState) {
                 val winner = evaluateTrickWinner(newTrick, state.currentTrumpSuit)
                     ?: return@withLock Result.failure(Exception("Could not determine trick winner"))
 
+                val winnerName = state.players.firstOrNull { it.id == winner }?.name ?: winner
                 val newTricksWon = state.tricksWon + (winner to (state.tricksWon[winner] ?: 0) + 1)
                 val totalTricksPlayed = newTricksWon.values.sum()
+                logger.debug("🏆 [Room ${state.roomId}] Trick won by '$winnerName'. Total tricks this round: $totalTricksPlayed")
 
                 val playersWithUpdatedTricks = updatedPlayers.map { p ->
                     p.copy(tricksWon = newTricksWon[p.id] ?: 0)
@@ -390,10 +506,22 @@ class GameRoom(initialState: CallbreakState) {
                         mutex.withLock {
                             state = resolveRound(roundFinishedState)
                             broadcastState()
-                            if (state.phase == GamePhase.ROUND_OVER) {
-                                startIntermission()
-                            } else if (state.phase == GamePhase.GAME_OVER) {
-                                saveResultsToSupabase(state)
+                            when (state.phase) {
+                                GamePhase.ROUND_OVER -> {
+                                    logger.info(
+                                        "📊 [Room ${state.roomId}] Round ${state.currentRound} over. Scores: " +
+                                        state.players.joinToString { "${it.name}=${it.cumulativeScore}" }
+                                    )
+                                    startIntermission()
+                                }
+                                GamePhase.GAME_OVER -> {
+                                    logger.info(
+                                        "🏁 [Room ${state.roomId}] Game over after ${state.totalRounds} rounds. " +
+                                        "Final scores: ${state.players.joinToString { "${it.name}=${it.cumulativeScore} (rank=${it.rank})" }}"
+                                    )
+                                    saveResultsToSupabase(state)
+                                }
+                                else -> {}
                             }
                         }
                     }
@@ -472,6 +600,7 @@ class GameRoom(initialState: CallbreakState) {
             )
             state = startDealPhase1(nextDealerState, shuffled)
 
+            logger.info("🔄 [Room ${state.roomId}] Round ${state.currentRound} started — dealer index=$nextDealer, phase=${state.phase}")
             broadcastState()
             Result.success(Unit)
         }
@@ -493,28 +622,41 @@ class GameRoom(initialState: CallbreakState) {
             triggerTakeover(playerId)
         }
         offlineTimers[playerId] = job
+        logger.info("⏳ [Room ${state.roomId}] 60s takeover timer started for player $playerId")
     }
 
     private suspend fun triggerTakeover(playerId: PlayerId) {
         var needsAction = false
+        var shouldTearDown = false
         mutex.withLock {
             val p = state.players.firstOrNull { it.id == playerId }
             if (p != null && !p.isOnline && state.currentTurn == playerId) {
+                val botName = if (p.name.endsWith(" (Bot)")) p.name else "${p.name} (Bot)"
+                logger.info("🤖 [Room ${state.roomId}] Takeover timer expired — converting '${p.name}' to bot '$botName'")
                 state = state.copy(
                     players = state.players.map { player ->
                         if (player.id == playerId) {
                             player.copy(
                                 isBot = true,
-                                name = if (player.name.endsWith(" (Bot)")) player.name else "${player.name} (Bot)"
+                                name = botName
                             )
                         } else player
                     }
                 )
                 broadcastState()
                 needsAction = true
+
+                // After takeover, check if any real players remain
+                if (!hasOnlineRealPlayers()) {
+                    logger.warn("⚠️  [Room ${state.roomId}] No real players left after takeover — tearing down room")
+                    shouldTearDown = true
+                }
             }
         }
-        if (needsAction) {
+
+        if (shouldTearDown) {
+            mutex.withLock { tearDownRoom("all real players gone after takeover") }
+        } else if (needsAction) {
             triggerBotActionsIfNeeded()
         }
     }
@@ -522,13 +664,13 @@ class GameRoom(initialState: CallbreakState) {
     private suspend fun forceBotMove(playerId: PlayerId) {
         var phase: GamePhase = GamePhase.LOBBY
         var stateCopy: CallbreakState = state
-        
+
         mutex.withLock {
             if (state.currentTurn != playerId) return
             phase = state.phase
             stateCopy = state
         }
-        
+
         if (phase == GamePhase.REGULAR_BIDDING) {
             val botHand = stateCopy.hands[playerId] ?: emptyList()
             var minBidAllowed = stateCopy.minBid ?: 1
@@ -536,11 +678,14 @@ class GameRoom(initialState: CallbreakState) {
                 minBidAllowed = maxOf(minBidAllowed, stateCopy.trumpBidState.highestBid)
             }
             val bid = calculateBotBid(botHand, minBidAllowed, stateCopy.currentTrumpSuit)
+            logger.debug("⏰ [Room ${state.roomId}] Force-bidding for timed-out player $playerId: bid=$bid")
             placeBid(playerId, bid, isAutoPlay = true)
         } else if (phase == GamePhase.TRUMP_BIDDING) {
+            logger.debug("⏰ [Room ${state.roomId}] Force-passing trump bid for timed-out player $playerId")
             placeTrumpBid(playerId, null, null, isAutoPlay = true)
         } else if (phase == GamePhase.PLAYING) {
             val card = selectBotCard(stateCopy, playerId)
+            logger.debug("⏰ [Room ${state.roomId}] Force-playing card for timed-out player $playerId: ${card.suit.displayName} ${card.rank.displayName}")
             playCard(playerId, card, isAutoPlay = true)
         }
     }
@@ -562,6 +707,7 @@ class GameRoom(initialState: CallbreakState) {
             // Human is offline. Keep takeover timer running, but play immediately.
             mutex.withLock {
                 if (state.currentTurn == player.id && !offlineTimers.containsKey(player.id)) {
+                    logger.info("⏱️  [Room ${state.roomId}] Offline player ${player.id} is current turn — starting takeover timer")
                     startTakeoverTimer(player.id)
                 }
             }
@@ -569,7 +715,6 @@ class GameRoom(initialState: CallbreakState) {
 
         if (!player.isBot && player.isOnline) {
             // Start turn timer for human player
-            var startedTimer = false
             mutex.withLock {
                 if (state.currentTurn == player.id && !turnTimers.containsKey(player.id)) {
                     val waitTime = if (player.consecutiveBotMoves >= 2) {
@@ -582,13 +727,13 @@ class GameRoom(initialState: CallbreakState) {
                     val turnEnd = System.currentTimeMillis() + waitTime
                     state = state.copy(turnEndTime = turnEnd)
                     broadcastState()
-                    
+                    logger.debug("⏱️  [Room ${state.roomId}] Turn timer started for '${player.name}' (${player.id}) — ${waitTime}ms (phase=$phase)")
+
                     val job = CoroutineScope(Dispatchers.Default).launch {
                         delay(waitTime)
                         forceBotMove(player.id)
                     }
                     turnTimers[player.id] = job
-                    startedTimer = true
                 }
             }
             return
@@ -614,12 +759,15 @@ class GameRoom(initialState: CallbreakState) {
                 minBidAllowed = maxOf(minBidAllowed, state.trumpBidState.highestBid)
             }
             val bid = calculateBotBid(botHand, minBidAllowed, state.currentTrumpSuit)
+            logger.debug("🤖 [Room ${state.roomId}] Bot '${player.name}' bidding $bid")
             placeBid(player.id, bid, isAutoPlay = true)
         } else if (phase == GamePhase.TRUMP_BIDDING) {
+            logger.debug("🤖 [Room ${state.roomId}] Bot '${player.name}' passing trump bid")
             // Bots simply pass during custom trump bidding for now
             placeTrumpBid(player.id, null, null, isAutoPlay = true)
         } else if (phase == GamePhase.PLAYING) {
             val card = selectBotCard(state, player.id)
+            logger.debug("🤖 [Room ${state.roomId}] Bot '${player.name}' playing ${card.suit.displayName} ${card.rank.displayName}")
             playCard(player.id, card, isAutoPlay = true)
         }
     }
@@ -628,6 +776,7 @@ class GameRoom(initialState: CallbreakState) {
      * Launches a background coroutine to wait 5 seconds and start the next round automatically.
      */
     private fun startIntermission() {
+        logger.info("⏸️  [Room ${state.roomId}] Round intermission — next round starts in 5s")
         CoroutineScope(Dispatchers.Default).launch {
             delay(5000)
             startNextRound()
@@ -664,16 +813,48 @@ class GameRoom(initialState: CallbreakState) {
         }
     }
 
+    /**
+     * Saves match results to Supabase **only if** the game had at least 2 original real players.
+     *
+     * Scoring rules:
+     * - We only count the game if [originalRealPlayerIds] contains ≥ 2 entries, meaning the
+     *   game was played between at least 2 real humans (bot-only or 1-human games are excluded).
+     * - We save results only for players who are still real (non-bot) at game end.
+     */
     private fun saveResultsToSupabase(finalState: CallbreakState) {
+        val realPlayerCount = originalRealPlayerIds.size
+        if (realPlayerCount < 2) {
+            logger.info(
+                "⏭️  [Room ${finalState.roomId}] Skipping leaderboard update — only $realPlayerCount real player(s) " +
+                "participated (need ≥ 2). originalRealPlayerIds=$originalRealPlayerIds"
+            )
+            return
+        }
+
+        logger.info(
+            "📈 [Room ${finalState.roomId}] Saving leaderboard results — $realPlayerCount real players participated. " +
+            "Eligible: ${originalRealPlayerIds.joinToString()}"
+        )
+
         CoroutineScope(Dispatchers.IO).launch {
             finalState.players.forEach { player ->
-                if (!player.isBot) {
+                // Only save result for original real players (not bot-substitutes)
+                if (player.id in originalRealPlayerIds) {
+                    logger.info(
+                        "💾 [Room ${finalState.roomId}] Saving result for '${player.name}' " +
+                        "(${player.id}) — score=${player.cumulativeScore}, rank=${player.rank ?: 4}"
+                    )
                     SupabaseService.saveMatchResult(
                         supabaseUserId = player.id,
                         playerName = player.name,
                         roomId = finalState.roomId,
                         score = player.cumulativeScore,
                         rank = player.rank ?: 4
+                    )
+                } else {
+                    logger.debug(
+                        "⏭️  [Room ${finalState.roomId}] Skipping Supabase save for '${player.name}' " +
+                        "(${player.id}) — bot or not an original real player"
                     )
                 }
             }

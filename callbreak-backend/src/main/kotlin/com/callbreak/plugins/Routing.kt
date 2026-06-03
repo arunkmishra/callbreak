@@ -20,6 +20,9 @@ import io.ktor.websocket.readText
 import io.ktor.websocket.send
 import com.callbreak.config.appJson
 import kotlinx.serialization.encodeToString
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("Routing")
 
 fun Application.configureRouting() {
     routing {
@@ -29,7 +32,7 @@ fun Application.configureRouting() {
 
         // ─── WebSocket Route ─────────────────────────────────────────────────
         /**
-         * ws://<host>/ws/rooms/{roomId}?playerId={playerId}
+         * ws://<host>/ws/rooms/{roomId}?playerId={playerId}&sessionToken={token}
          *
          * Lifecycle:
          * 1. Validate roomId + playerId query params.
@@ -43,25 +46,30 @@ fun Application.configureRouting() {
             val sessionToken = call.request.queryParameters["sessionToken"]
 
             if (roomId == null || playerId == null || sessionToken == null) {
+                logger.warn("🚫 WS connect rejected — missing params: roomId=$roomId, playerId=$playerId, hasToken=${sessionToken != null}")
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Missing roomId, playerId, or sessionToken"))
                 return@webSocket
             }
 
             val room = GameRoomManager.getRoom(roomId)
             if (room == null) {
+                logger.warn("🚫 WS connect rejected — room '$roomId' not found (playerId=$playerId)")
                 close(CloseReason(CloseReason.Codes.NORMAL, "Room not found"))
                 return@webSocket
             }
 
             // Verify player is in the room and validate session token
             if (!room.validateSessionToken(playerId, sessionToken)) {
+                logger.warn("🚫 WS connect rejected — invalid session token for playerId=$playerId in room '$roomId'")
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Invalid sessionToken or player not in room"))
                 return@webSocket
             }
 
+            val playerName = room.getState().players.firstOrNull { it.id == playerId }?.name ?: playerId
+            logger.info("🔗 WS connected — '$playerName' ($playerId) joined room '$roomId'")
+
             // Handle player reconnection (marks online, cancels bot timer)
             room.playerReconnected(playerId)
-
             room.addSession(playerId, this)
 
             // Send current state immediately on connect
@@ -76,38 +84,55 @@ fun Application.configureRouting() {
                     val message: ClientMessage? = try {
                         appJson.decodeFromString<ClientMessage>(text)
                     } catch (_: Exception) {
+                        logger.warn("⚠️  [Room $roomId] Invalid message from '$playerName' ($playerId): $text")
                         sendError("Invalid message format")
                         null
                     }
 
                     if (message == null) continue
 
+                    logger.info("📨 [Room $roomId] Message from '$playerName' ($playerId): ${message::class.simpleName}")
+
                     val result = when (message) {
-                        is ClientMessage.StartGame -> room.startGame()
-                        is ClientMessage.PlaceBid -> room.placeBid(playerId, message.bid)
+                        is ClientMessage.StartGame -> {
+                            logger.info("▶️  [Room $roomId] '$playerName' requested START_GAME")
+                            room.startGame()
+                        }
+                        is ClientMessage.PlaceBid -> {
+                            logger.info("🎯 [Room $roomId] '$playerName' placing bid=${message.bid}")
+                            room.placeBid(playerId, message.bid)
+                        }
                         is ClientMessage.PlaceTrumpBid -> {
                             val suitEnum = message.suit?.let { s -> Suit.entries.find { it.displayName == s } }
+                            logger.info("🎴 [Room $roomId] '$playerName' placing trump bid=${message.bid}, suit=${message.suit}")
                             room.placeTrumpBid(playerId, message.bid, suitEnum)
                         }
                         is ClientMessage.PlayCard -> {
                             val suit = Suit.entries.find { it.displayName == message.suit }
                             val rank = Rank.entries.find { it.displayName == message.rank }
                             if (suit == null || rank == null) {
+                                logger.warn("⚠️  [Room $roomId] '$playerName' played invalid card: suit=${message.suit}, rank=${message.rank}")
                                 sendError("Invalid card: suit=${message.suit}, rank=${message.rank}")
                                 null
                             } else {
+                                logger.info("🃏 [Room $roomId] '$playerName' playing ${message.suit} ${message.rank}")
                                 room.playCard(playerId, PlayingCard(suit, rank))
                             }
                         }
                         is ClientMessage.LeaveRoom -> {
+                            logger.info("🚪 [Room $roomId] '$playerName' sent LEAVE_ROOM")
                             room.leaveRoom(playerId)
                             null
                         }
                     }
 
-                    result?.onFailure { sendError(it.message ?: "Action failed") }
+                    result?.onFailure { err ->
+                        logger.warn("❌ [Room $roomId] Action failed for '$playerName': ${err.message}")
+                        sendError(err.message ?: "Action failed")
+                    }
                 }
             } finally {
+                logger.info("🔌 WS disconnected — '$playerName' ($playerId) from room '$roomId'")
                 room.removeSession(playerId)
             }
         }
@@ -118,4 +143,3 @@ private suspend fun DefaultWebSocketServerSession.sendError(reason: String) {
     val msg = ServerMessage.Error(reason)
     send(appJson.encodeToString<ServerMessage>(msg))
 }
-
