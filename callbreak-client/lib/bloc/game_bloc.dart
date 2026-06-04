@@ -23,8 +23,20 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
   final SessionStorage _sessionStorage;
 
   String? _myPlayerId;
+  String? _myPlayerName;
   StreamSubscription<GameState>? _socketSubscription;
   StreamSubscription<ReconnectStatus>? _reconnectSubscription;
+
+  /// Supabase Realtime channel opened at game-over to coordinate rematches.
+  RealtimeChannel? _rematchChannel;
+
+  /// True when the current player clicked Rematch (or received a rematch invite)
+  /// so we ignore any subsequent duplicate broadcasts.
+  bool _isJoiningRematch = false;
+
+  /// True when a bot-game rematch is pending — makes the bloc auto-send
+  /// START_GAME as soon as the server emits the lobby phase for the new room.
+  bool _pendingBotRematch = false;
 
   GameBloc({
     required ApiRepository apiRepository,
@@ -47,6 +59,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     on<PlayCardAttempt>(_onPlayCard);
     on<NextRoundRequested>(_onNextRound);
     on<DisconnectRequested>(_onDisconnect);
+    on<RematchRequested>(_onRematch);
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -75,17 +88,24 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
   }
 
   void _onAppResumed(AppResumed event, Emitter<GameBlocState> emit) {
-    // On mobile, returning from the background should aggressively try to 
-    // restore the session if the socket was dropped, regardless of current UI state 
-    // (e.g., even if they are stuck on a GameError screen).
-    if (!_socketRepository.isConnected) {
-      _sessionStorage.load().then((session) {
-        if (session != null) {
-          _myPlayerId = session.playerId; // ensure memory cache is restored
-          add(ConnectToRoom(session.roomId, session.playerId, session.sessionToken));
-        }
-      });
-    }
+    if (_socketRepository.isConnected) return;
+
+    // Check if we're already trying to reconnect to avoid spamming connect()
+    final currentState = state;
+    bool isReconnecting = false;
+    if (currentState is GameActive) isReconnecting = currentState.isReconnecting;
+    if (currentState is GameLobby) isReconnecting = currentState.isReconnecting;
+    if (currentState is GameBidding) isReconnecting = currentState.isReconnecting;
+    if (currentState is GameRoundOver) isReconnecting = currentState.isReconnecting;
+
+    if (isReconnecting) return;
+
+    _sessionStorage.load().then((session) {
+      if (session != null) {
+        _myPlayerId = session.playerId; // ensure memory cache is restored
+        add(ConnectToRoom(session.roomId, session.playerId, session.sessionToken));
+      }
+    });
   }
 
   // ─── Session Restore ──────────────────────────────────────────────────────
@@ -107,6 +127,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     // Proactively clear any stale session/connection before starting fresh
     _cleanUp();
     _sessionStorage.clear();
+    _myPlayerName = event.playerName;
 
     emit(const GameLoading());
     try {
@@ -140,6 +161,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     // Proactively clear any stale session/connection before joining a new one
     _cleanUp();
     _sessionStorage.clear();
+    _myPlayerName = event.playerName;
 
     emit(const GameLoading());
     try {
@@ -263,6 +285,12 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
 
     switch (gameState.phase) {
       case GamePhase.lobby:
+        // Bot-rematch: skip the lobby flash and auto-start immediately
+        if (_pendingBotRematch) {
+          _pendingBotRematch = false;
+          _socketRepository.sendAction('START_GAME');
+          return;
+        }
         emit(GameLobby(gameState: gameState, myPlayerId: playerId, isReconnecting: currentIsReconnecting));
       case GamePhase.dealingPhase1:
       case GamePhase.trumpBidding:
@@ -288,6 +316,27 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
           final bool won = me.rank == 1;
           StatsPrefs.recordGame(won: won, points: me.cumulativeScore);
         } catch (_) {}
+
+        // ── Open rematch coordination channel ────────────────────────────
+        // All players subscribe to rematch_{roomId}. Whoever clicks "Rematch"
+        // first creates a new room and broadcasts {newRoomId} here. Others
+        // auto-join that room without needing to do anything manually.
+        _isJoiningRematch = false;
+        _rematchChannel?.unsubscribe();
+        _rematchChannel = Supabase.instance.client
+            .channel('rematch_${gameState.roomId}')
+          ..onBroadcast(
+            event: 'rematch',
+            callback: (payload) {
+              if (_isJoiningRematch) return; // already handled (we were the initiator)
+              _isJoiningRematch = true;
+              final newRoomId = payload['newRoomId'] as String?;
+              if (newRoomId == null) return;
+              // Auto-join the new room using our saved player name
+              add(JoinRoomRequested(newRoomId, _myPlayerName ?? 'Player'));
+            },
+          )
+          ..subscribe();
 
         emit(GameRoundOver(
           gameState: gameState,
@@ -373,6 +422,85 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     emit(const GameInitial());
   }
 
+  // ─── Rematch ──────────────────────────────────────────────────────────────
+
+  Future<void> _onRematch(
+    RematchRequested event,
+    Emitter<GameBlocState> emit,
+  ) async {
+    if (_isJoiningRematch) return; // already joining — ignore double-tap
+    _isJoiningRematch = true;
+
+    final gs = event.finishedGameState as GameState;
+    // A "bot game" is one where the local player is the *only* human.
+    // Multiplayer games with bot fill-ins (e.g. 2 humans + 2 bots) must use
+    // the broadcast/lobby flow so both real players end up in the same room.
+    final humanPlayers = gs.players.where((p) => !p.isBot).toList();
+    final isBotGame = humanPlayers.length <= 1;
+    final myPlayer = gs.players.firstWhere(
+      (p) => p.id == _myPlayerId,
+      orElse: () => gs.players.first,
+    );
+
+    // Tear down the old connection cleanly (WS already dead after game over,
+    // but cancel subscriptions to prevent stale events).
+    _socketSubscription?.cancel();
+    _socketSubscription = null;
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = null;
+    _socketRepository.disconnect();
+    // Keep _myPlayerId until we set the new one below.
+
+    emit(const GameLoading());
+
+    try {
+      final supabaseId = Supabase.instance.client.auth.currentUser?.id;
+      final result = await _apiRepository.createRoom(
+        myPlayer.name,
+        supabaseId,
+        totalRounds: gs.totalRounds,
+        minBid: gs.minBid,
+        greedPenalty: gs.greedPenalty,
+        allowCustomTrump: gs.allowCustomTrump,
+      );
+
+      _myPlayerId = result.playerId;
+      _myPlayerName = myPlayer.name;
+      await _sessionStorage.save(
+        roomId: result.roomId,
+        playerId: result.playerId,
+        sessionToken: result.sessionToken,
+      );
+
+      if (isBotGame) {
+        // Signal _onServerStateUpdated to skip the lobby state and start immediately.
+        _pendingBotRematch = true;
+      } else {
+        // Broadcast the new room ID to all other players still subscribed to
+        // the rematch channel. They will auto-join via _onServerStateUpdated.
+        try {
+          await _rematchChannel?.sendBroadcastMessage(
+            event: 'rematch',
+            payload: {'newRoomId': result.roomId},
+          );
+        } catch (_) { /* broadcast best-effort */ }
+      }
+
+      // Now close and null out the rematch channel — we no longer need it
+      _rematchChannel?.unsubscribe();
+      _rematchChannel = null;
+
+      add(ConnectToRoom(result.roomId, result.playerId, result.sessionToken));
+      _isJoiningRematch = false;
+    } on ApiException catch (e) {
+      _isJoiningRematch = false;
+      emit(GameError(e.message));
+    } catch (e) {
+      _isJoiningRematch = false;
+      emit(GameError('Failed to start rematch: $e'));
+    }
+  }
+
   // ─── Cleanup ──────────────────────────────────────────────────────────────
 
   void _cleanUp() {
@@ -381,6 +509,10 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     _reconnectSubscription?.cancel();
     _reconnectSubscription = null;
     _socketRepository.disconnect();
+    _rematchChannel?.unsubscribe();
+    _rematchChannel = null;
+    _isJoiningRematch = false;
+    _pendingBotRematch = false;
     _myPlayerId = null;
   }
 

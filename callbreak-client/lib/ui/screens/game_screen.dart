@@ -25,6 +25,7 @@ import '../widgets/settings_dialog.dart';
 import '../widgets/trick_zone_widget.dart';
 import '../widgets/turn_timer_widget.dart';
 import 'home_screen.dart';
+import 'lobby_screen.dart';
 
 /// Screen 4: The Virtual Game Table.
 ///
@@ -48,12 +49,27 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    WakelockPlus.enable();
+    // WakelockPlus injects no_sleep.js into the DOM on every enable() call.
+    // On web this causes a PromiseCompleter re-declaration crash when the
+    // screen is remounted (e.g. after rematch). Skip wakelock on web.
+    if (!kIsWeb) {
+      try {
+        WakelockPlus.enable();
+      } catch (e) {
+        debugPrint('Wakelock enable error: $e');
+      }
+    }
   }
 
   @override
   void dispose() {
-    WakelockPlus.disable();
+    if (!kIsWeb) {
+      try {
+        WakelockPlus.disable();
+      } catch (e) {
+        debugPrint('Wakelock disable error: $e');
+      }
+    }
     super.dispose();
   }
 
@@ -435,28 +451,86 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // ── Back to Lobby button (solid gold) ───────────────────
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF59E0B),
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
+                  // ── Rematch (host only) + Back to Lobby ───────────────
+                  Builder(builder: (context) {
+                    // The host is the first non-bot player (room creator).
+                    final hostId = gameState.players
+                        .firstWhere((p) => !p.isBot,
+                            orElse: () => gameState.players.first)
+                        .id;
+                    final isHost = state.myPlayerId == hostId;
+
+                    if (isHost) {
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF16A34A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 11),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              icon: const Icon(Icons.refresh_rounded, size: 16),
+                              onPressed: () {
+                                _dismissDialog();
+                                context.read<GameBloc>().add(RematchRequested(gameState));
+                              },
+                              label: const Text(
+                                'Rematch',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF59E0B),
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(vertical: 11),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              icon: const Icon(Icons.home_rounded, size: 16),
+                              onPressed: () {
+                                _dismissDialog();
+                                context.read<GameBloc>().add(const DisconnectRequested());
+                              },
+                              label: const Text(
+                                'Back to Lobby',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    // Non-host: full-width Back to Lobby only
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF59E0B),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.home_rounded, size: 20),
+                        onPressed: () {
+                          _dismissDialog();
+                          context.read<GameBloc>().add(const DisconnectRequested());
+                        },
+                        label: const Text(
+                          'Back to Lobby',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
                       ),
-                      icon: const Icon(Icons.home_rounded, size: 20),
-                      onPressed: () {
-                        _dismissDialog();
-                        context.read<GameBloc>().add(const DisconnectRequested());
-                      },
-                      label: const Text(
-                        'Back to Lobby',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                    ),
-                  ),
+                    );
+                  }),
                 ] else ...[
                   // ── Round over (not game over) ──────────────────────────
                   Text(
@@ -622,6 +696,15 @@ class _GameScreenState extends State<GameScreen> {
             (route) => false,
           );
         }
+        // Multiplayer rematch non-initiator: bloc emits GameLobby when
+        // the auto-join succeeds. Navigate to LobbyScreen to wait for others.
+        // (Bot rematch skips GameLobby entirely, so this won't fire for bots.)
+        if (state is GameLobby) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LobbyScreen()),
+            (route) => false,
+          );
+        }
         if (state is GameError) {
           rootScaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
@@ -633,6 +716,58 @@ class _GameScreenState extends State<GameScreen> {
         }
       },
       builder: (context, state) {
+        if (state is GameLoading || state is GameInitial) {
+          return const Scaffold(
+            backgroundColor: Color(0xFF080B14),
+            body: Center(
+              child: CircularProgressIndicator(color: AppColors.gold),
+            ),
+          );
+        }
+        
+        if (state is GameError) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF080B14),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline_rounded, color: AppColors.errorRed, size: 64),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Connection Lost',
+                      style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      state.message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.gold,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                          (route) => false,
+                        );
+                      },
+                      child: const Text('Return to Home', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         return BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, settingsState) {
             // Derive accent color from the chosen table-color scheme.

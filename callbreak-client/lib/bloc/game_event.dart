@@ -127,3 +127,16 @@ class NextRoundRequested extends GameEvent {
 class DisconnectRequested extends GameEvent {
   const DisconnectRequested();
 }
+
+/// Player taps "Rematch" on the game-over dialog.
+///
+/// Contains the finished [GameState] so the bloc knows the original room
+/// settings (totalRounds, minBid, etc.) and the player roster (to detect
+/// bot-only vs multiplayer games).
+class RematchRequested extends GameEvent {
+  final dynamic finishedGameState; // GameState — dynamic to avoid circular import
+  const RematchRequested(this.finishedGameState);
+
+  @override
+  List<Object?> get props => [finishedGameState];
+}

@@ -71,6 +71,26 @@ class HeartbeatService {
       );
       if (response.statusCode != 200) {
         debugPrint('💓 Heartbeat failed: ${response.statusCode}. Response: ${response.body}');
+        if (response.statusCode == 401) {
+          try {
+            await Supabase.instance.client.auth.refreshSession();
+            final newSession = Supabase.instance.client.auth.currentSession;
+            if (newSession != null) {
+              final newToken = newSession.accessToken;
+              await http.post(
+                Uri.parse('$kHttpBaseUrl/api/users/heartbeat'),
+                headers: {
+                  'Authorization': 'Bearer $newToken',
+                  'Content-Type': 'application/json',
+                },
+                body: jsonEncode({'status': currentStatus}),
+              );
+              debugPrint('💓 Heartbeat retried successfully after refresh');
+            }
+          } catch (refreshErr) {
+            debugPrint('💓 Heartbeat token refresh failed: $refreshErr');
+          }
+        }
       }
     } catch (e) {
       debugPrint('💓 Heartbeat error: $e');

@@ -11,13 +11,22 @@ class AudioService {
   static Uint8List? _tickBytes;
   static Uint8List? _sequenceBytes;
 
+  static Future<void> _safeStop(AudioPlayer player) async {
+    try {
+      if (player.state == PlayerState.playing) {
+        await player.stop();
+        // Give the browser's media pipeline a tick to settle before a
+        // subsequent play() call — prevents AbortError on web.
+        if (kIsWeb) await Future.delayed(const Duration(milliseconds: 50));
+      }
+    } catch (_) {}
+  }
+
   static Future<void> playTurnAlert() async {
     if (!_isEnabled) return;
     try {
       _player ??= AudioPlayer();
-      if (_player!.state == PlayerState.playing) {
-        await _player!.stop();
-      }
+      await _safeStop(_player!);
       if (kIsWeb && _tingBytes != null) {
         await _player!.play(BytesSource(_tingBytes!));
       } else if (!kIsWeb) {
@@ -32,9 +41,7 @@ class AudioService {
     if (!_isEnabled) return;
     try {
       _player ??= AudioPlayer();
-      if (_player!.state == PlayerState.playing) {
-        await _player!.stop();
-      }
+      await _safeStop(_player!);
       if (kIsWeb && _tickBytes != null) {
         await _player!.play(BytesSource(_tickBytes!));
       } else if (!kIsWeb) {
@@ -49,9 +56,7 @@ class AudioService {
     if (!_isEnabled) return;
     try {
       _sequencePlayer ??= AudioPlayer();
-      if (_sequencePlayer!.state == PlayerState.playing) {
-        await _sequencePlayer!.stop();
-      }
+      await _safeStop(_sequencePlayer!);
       if (kIsWeb && _sequenceBytes != null) {
         await _sequencePlayer!.play(BytesSource(_sequenceBytes!));
       } else if (!kIsWeb) {
