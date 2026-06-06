@@ -51,134 +51,187 @@ object SupabaseService {
     // ── Match Result ─────────────────────────────────────────────────────────
 
     /**
-     * Saves a single player's match result to the `match_results` table.
-     * Also updates aggregate stats on the `profiles` table.
+     * Saves all eligible players' match results and calculates Free-For-All Elo Rank Points (RP).
      *
-     * @param supabaseUserId The Supabase Auth UUID of the player.
-     * @param roomId         The 5-letter Callbreak room code.
-     * @param score          Final cumulative score for this match.
-     * @param rank           Finishing position (1 = winner, 4 = last).
+     * @param state The final game state containing all players and scores.
+     * @param originalRealPlayerIds The players who are eligible for leaderboard updates.
      */
-    suspend fun saveMatchResult(
-        supabaseUserId: String,
-        playerName: String,
-        roomId: String,
-        score: Double,
-        rank: Int
-    ) {
+    suspend fun calculateEloChangesForState(state: CallbreakState, originalRealPlayerIds: Set<String>): CallbreakState {
+        if (originalRealPlayerIds.size < 2) return state
+        
         try {
-            // First check if profile exists
-            val getResponse = client.get("$supabaseUrl/rest/v1/profiles?id=eq.$supabaseUserId&select=total_games,total_wins,total_score") {
+            val idsQuery = originalRealPlayerIds.joinToString(",") { "\"$it\"" }
+            val getResponse = client.get("$supabaseUrl/rest/v1/profiles?id=in.($idsQuery)&select=id,rank_points") {
                 header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
                 header("apikey", serviceRoleKey)
             }
             
-            if (getResponse.status.value !in 200..299) {
-                logger.error("❌ Failed to GET profile: ${getResponse.status} ${getResponse.bodyAsText()}")
+            val currentProfiles = mutableMapOf<String, kotlinx.serialization.json.JsonObject>()
+            if (getResponse.status.value in 200..299) {
+                val jsonArray = kotlinx.serialization.json.Json.parseToJsonElement(getResponse.bodyAsText()).jsonArray
+                for (element in jsonArray) {
+                    val obj = element.jsonObject
+                    val id = obj["id"]?.jsonPrimitive?.content ?: continue
+                    currentProfiles[id] = obj
+                }
+            } else {
+                logger.error("❌ Failed to GET profiles for Elo calculation: ${getResponse.status} ${getResponse.bodyAsText()}")
+                return state
+            }
+            
+            val currentRps = state.players.associate { p -> 
+                val rp = currentProfiles[p.id]?.get("rank_points")?.jsonPrimitive?.intOrNull ?: 1000
+                p.id to rp
+            }
+            
+            val rpChanges = com.callbreak.domain.rules.EloCalculator.calculateEloChanges(state.players, currentRps)
+            
+            return state.copy(players = state.players.map { p ->
+                p.copy(
+                    currentRp = currentRps[p.id] ?: 1000,
+                    rpChange = rpChanges[p.id]
+                )
+            })
+            
+        } catch (e: Exception) {
+            logger.error("❌ Error calculating Elo changes", e)
+            return state
+        }
+    }
+
+    suspend fun saveMatchResultsWithElo(
+        state: CallbreakState,
+        originalRealPlayerIds: Set<PlayerId>
+    ) {
+        try {
+            // 1. Fetch current profiles for real players to check existence
+            val idsQuery = originalRealPlayerIds.joinToString(",") { "\"$it\"" }
+            val getResponse = client.get("$supabaseUrl/rest/v1/profiles?id=in.($idsQuery)&select=id,username,total_games,total_wins,total_score,rank_points") {
+                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                header("apikey", serviceRoleKey)
+            }
+            
+            val currentProfiles = mutableMapOf<String, kotlinx.serialization.json.JsonObject>()
+            if (getResponse.status.value in 200..299) {
+                val jsonArray = kotlinx.serialization.json.Json.parseToJsonElement(getResponse.bodyAsText()).jsonArray
+                for (element in jsonArray) {
+                    val obj = element.jsonObject
+                    val id = obj["id"]?.jsonPrimitive?.content ?: continue
+                    currentProfiles[id] = obj
+                }
+            } else {
+                logger.error("❌ Failed to GET profiles: ${getResponse.status} ${getResponse.bodyAsText()}")
                 return
             }
             
-            val responseText = getResponse.bodyAsText()
-            val jsonArray = kotlinx.serialization.json.Json.parseToJsonElement(responseText).jsonArray
-            val won = if (rank == 1) 1 else 0
-            
-            if (jsonArray.isEmpty()) {
-                // Profile doesn't exist. Check if they have a valid custom username.
-                val isGuest = playerName.lowercase().startsWith("guest") || playerName.startsWith("pending_")
-                val isValidUsername = playerName.isNotBlank() && playerName.length >= 3 && !isGuest
+            // 2. Update Supabase for originalRealPlayerIds
+            for (player in state.players) {
+                if (player.id !in originalRealPlayerIds) continue
+                val rpChange = player.rpChange ?: 0
+                val won = if ((player.rank ?: 4) == 1) 1 else 0
+                val score = player.cumulativeScore
+                val rank = player.rank ?: 4
                 
-                if (isValidUsername) {
-                    logger.info("ℹ️ Creating new profile for $supabaseUserId with username $playerName")
-                    var finalUsername = playerName
-                    var newProfile = buildJsonObject {
-                        put("id", supabaseUserId)
-                        put("username", finalUsername)
-                        put("total_games", 1)
-                        put("total_wins", won)
-                        put("total_score", score)
-                    }
-                    var postProfileResponse = client.post("$supabaseUrl/rest/v1/profiles") {
-                        header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
-                        header("apikey", serviceRoleKey)
-                        header("Prefer", "return=minimal")
-                        contentType(ContentType.Application.Json)
-                        setBody(newProfile.toString())
-                    }
-
-                    // Handle unique constraint violation on username
-                    if (postProfileResponse.status.value == 409) {
-                        finalUsername = "${playerName}_${supabaseUserId.take(4)}"
-                        logger.info("ℹ️ Username $playerName taken, retrying with $finalUsername")
-                        newProfile = buildJsonObject {
-                            put("id", supabaseUserId)
+                val existingProfile = currentProfiles[player.id]
+                if (existingProfile == null) {
+                    val isGuest = player.name.lowercase().startsWith("guest") || player.name.startsWith("pending_")
+                    val isValidUsername = player.name.isNotBlank() && player.name.length >= 3 && !isGuest
+                    if (isValidUsername) {
+                        logger.info("ℹ️ Creating new profile for ${player.id} with username ${player.name}")
+                        var finalUsername = player.name
+                        var newProfile = buildJsonObject {
+                            put("id", player.id)
                             put("username", finalUsername)
                             put("total_games", 1)
                             put("total_wins", won)
                             put("total_score", score)
+                            put("rank_points", 1000 + rpChange)
                         }
-                        postProfileResponse = client.post("$supabaseUrl/rest/v1/profiles") {
+                        var postProfileResponse = client.post("$supabaseUrl/rest/v1/profiles") {
                             header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
                             header("apikey", serviceRoleKey)
                             header("Prefer", "return=minimal")
                             contentType(ContentType.Application.Json)
                             setBody(newProfile.toString())
                         }
-                    }
-
-                    if (postProfileResponse.status.value !in 200..299) {
-                        logger.error("❌ Failed to POST new profile: ${postProfileResponse.status} ${postProfileResponse.bodyAsText()}")
-                        return
+                        
+                        if (postProfileResponse.status.value == 409) {
+                            finalUsername = "${player.name}_${player.id.take(4)}"
+                            logger.info("ℹ️ Username ${player.name} taken, retrying with $finalUsername")
+                            newProfile = buildJsonObject {
+                                put("id", player.id)
+                                put("username", finalUsername)
+                                put("total_games", 1)
+                                put("total_wins", won)
+                                put("total_score", score)
+                                put("rank_points", 1000 + rpChange)
+                            }
+                            postProfileResponse = client.post("$supabaseUrl/rest/v1/profiles") {
+                                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                                header("apikey", serviceRoleKey)
+                                header("Prefer", "return=minimal")
+                                contentType(ContentType.Application.Json)
+                                setBody(newProfile.toString())
+                            }
+                        }
+                        
+                        if (postProfileResponse.status.value !in 200..299) {
+                            logger.error("❌ Failed to POST new profile: ${postProfileResponse.status} ${postProfileResponse.bodyAsText()}")
+                        }
+                    } else {
+                        logger.info("ℹ️ Skipping Supabase update for ${player.id} (No profile found and username '${player.name}' is not a valid custom name)")
+                        continue
                     }
                 } else {
-                    logger.info("ℹ️ Skipping Supabase update for $supabaseUserId (No profile found and username '$playerName' is not a valid custom name)")
-                    return
+                    // Update profile aggregate stats
+                    val currentGames = existingProfile["total_games"]?.jsonPrimitive?.intOrNull ?: 0
+                    val currentWins = existingProfile["total_wins"]?.jsonPrimitive?.intOrNull ?: 0
+                    val currentScore = existingProfile["total_score"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                    val currentRp = existingProfile["rank_points"]?.jsonPrimitive?.intOrNull ?: 1000
+                    
+                    val newRp = (currentRp + rpChange).coerceAtLeast(0) // don't let RP go below 0
+                    
+                    val profilePatch = buildJsonObject {
+                        put("total_games", currentGames + 1)
+                        put("total_wins", currentWins + won)
+                        put("total_score", currentScore + score)
+                        put("rank_points", newRp)
+                    }
+                    
+                    val patchResponse = client.patch("$supabaseUrl/rest/v1/profiles?id=eq.${player.id}") {
+                        header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                        header("apikey", serviceRoleKey)
+                        header("Prefer", "return=minimal")
+                        contentType(ContentType.Application.Json)
+                        setBody(profilePatch.toString())
+                    }
+                    if (patchResponse.status.value !in 200..299) {
+                        logger.error("❌ Failed to PATCH profile: ${patchResponse.status} ${patchResponse.bodyAsText()}")
+                    }
                 }
-            } else {
-                // Update profile aggregate stats
-                val profile = jsonArray[0].jsonObject
-                val currentGames = profile["total_games"]?.jsonPrimitive?.intOrNull ?: 0
-                val currentWins = profile["total_wins"]?.jsonPrimitive?.intOrNull ?: 0
-                val currentScore = profile["total_score"]?.jsonPrimitive?.doubleOrNull ?: 0.0
-
-                val profilePatch = buildJsonObject {
-                    put("total_games", currentGames + 1)
-                    put("total_wins", currentWins + won)
-                    put("total_score", currentScore + score)
+                
+                // Insert match result row
+                val body = buildJsonObject {
+                    put("user_id", player.id)
+                    put("room_id", state.roomId)
+                    put("score", score)
+                    put("rank", rank)
                 }
-
-                val patchResponse = client.patch("$supabaseUrl/rest/v1/profiles?id=eq.$supabaseUserId") {
+                val postResponse = client.post("$supabaseUrl/rest/v1/match_results") {
                     header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
                     header("apikey", serviceRoleKey)
                     header("Prefer", "return=minimal")
                     contentType(ContentType.Application.Json)
-                    setBody(profilePatch.toString())
+                    setBody(body.toString())
                 }
-                if (patchResponse.status.value !in 200..299) {
-                    logger.error("❌ Failed to PATCH profile: ${patchResponse.status} ${patchResponse.bodyAsText()}")
+                if (postResponse.status.value !in 200..299) {
+                    logger.error("❌ Failed to POST match_results: ${postResponse.status} ${postResponse.bodyAsText()}")
                 }
+                
+                logger.info("✅ Finished Supabase update for user ${player.id} (rank=$rank, score=$score, rpChange=${if(rpChange >= 0) "+$rpChange" else rpChange})")
             }
-
-            // Insert match result row (profile is now guaranteed to exist)
-            val body = buildJsonObject {
-                put("user_id", supabaseUserId)
-                put("room_id", roomId)
-                put("score", score)
-                put("rank", rank)
-            }
-            val postResponse = client.post("$supabaseUrl/rest/v1/match_results") {
-                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
-                header("apikey", serviceRoleKey)
-                header("Prefer", "return=minimal")
-                contentType(ContentType.Application.Json)
-                setBody(body.toString())
-            }
-            if (postResponse.status.value !in 200..299) {
-                logger.error("❌ Failed to POST match_results: ${postResponse.status} ${postResponse.bodyAsText()}")
-            }
-
-            logger.info("✅ Finished Supabase update flow for user $supabaseUserId (rank=$rank, score=$score)")
         } catch (e: Exception) {
-            logger.error("❌ Exception during saveMatchResult for $supabaseUserId: ${e.message}")
+            logger.error("❌ Exception during saveMatchResultsWithElo: ${e.message}", e)
         }
     }
 

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../data/services/heartbeat_service.dart';
 import '../../data/repositories/supabase_repository.dart';
+import '../../core/tier_system.dart';
 
 // ─── Friends Screen ───────────────────────────────────────────────────────────
 
@@ -667,15 +668,6 @@ class _UserCard extends StatelessWidget {
     required this.action,
   });
 
-  String _getRankString(int wins) {
-    if (wins < 20) return 'BRONZE I';
-    if (wins < 40) return 'BRONZE II';
-    if (wins < 60) return 'BRONZE III';
-    if (wins < 100) return 'SILVER I';
-    if (wins < 200) return 'SILVER II';
-    return 'GOLD I';
-  }
-
   @override
   Widget build(BuildContext context) {
     final initial = profile.username.isNotEmpty ? profile.username[0].toUpperCase() : '?';
@@ -686,7 +678,11 @@ class _UserCard extends StatelessWidget {
       const Color(0xFFF97316), // Orange
     ];
     final avatarColor = colors[profile.username.hashCode % colors.length];
-    final rankLabel = _getRankString(profile.totalWins);
+    
+    final rp = profile.rankPoints;
+    final rankLabel = TierSystem.getTierName(rp);
+    final rankColor = TierSystem.getTierColor(rp);
+    final rankIcon = TierSystem.getTierIcon(rp);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -749,11 +745,16 @@ class _UserCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.workspace_premium, color: AppColors.gold, size: 12),
+                    Icon(rankIcon, color: rankColor, size: 12),
                     const SizedBox(width: 4),
                     Text(
                       rankLabel,
-                      style: const TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: rankColor, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '($rp RP)',
+                      style: TextStyle(color: rankColor.withValues(alpha: 0.8), fontSize: 9, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 12),
                     Container(

@@ -80,7 +80,11 @@ object RedisService {
 
     /** Marks [userId] as online with a [ttlSeconds] TTL. */
     fun setOnline(userId: String, status: String = "available", ttlSeconds: Long = 35) {
-        commands.setex("online:$userId", ttlSeconds, status)
+        try {
+            commands.setex("online:$userId", ttlSeconds, status)
+        } catch (e: Exception) {
+            logger.warn("Failed to set online status for $userId: ${e.message}")
+        }
     }
 
     /** Returns all currently online user IDs and their statuses. */

@@ -20,6 +20,8 @@ class Player extends Equatable {
   final bool isOnline;
   final bool isBot;
   final int? rank;
+  final int? currentRp;
+  final int? rpChange;
 
   const Player({
     required this.id,
@@ -31,6 +33,8 @@ class Player extends Equatable {
     this.isOnline = true,
     this.isBot = false,
     this.rank,
+    this.currentRp,
+    this.rpChange,
   });
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
@@ -43,6 +47,8 @@ class Player extends Equatable {
         isOnline: json['isOnline'] as bool? ?? true,
         isBot: json['isBot'] as bool? ?? false,
         rank: json['rank'] as int?,
+        currentRp: json['currentRp'] as int?,
+        rpChange: json['rpChange'] as int?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -55,8 +61,10 @@ class Player extends Equatable {
         'isOnline': isOnline,
         'isBot': isBot,
         'rank': rank,
+        'currentRp': currentRp,
+        'rpChange': rpChange,
       };
 
   @override
-  List<Object?> get props => [id, name, bid, tricksWon, cardCount, cumulativeScore, isOnline, isBot, rank];
+  List<Object?> get props => [id, name, bid, tricksWon, cardCount, cumulativeScore, isOnline, isBot, rank, currentRp, rpChange];
 }

@@ -13,6 +13,7 @@ class _LeaderboardEntry {
   final int totalWins;
   final int totalGames;
   final double totalScore;
+  final int rankPoints;
 
   const _LeaderboardEntry({
     required this.id,
@@ -20,6 +21,7 @@ class _LeaderboardEntry {
     required this.totalWins,
     required this.totalGames,
     required this.totalScore,
+    required this.rankPoints,
   });
 
   factory _LeaderboardEntry.fromMap(Map<String, dynamic> map) {
@@ -29,6 +31,7 @@ class _LeaderboardEntry {
       totalWins: (map['total_wins'] as num?)?.toInt() ?? 0,
       totalGames: (map['total_games'] as num?)?.toInt() ?? 0,
       totalScore: (map['total_score'] as num?)?.toDouble() ?? 0.0,
+      rankPoints: (map['rank_points'] as num?)?.toInt() ?? 1000,
     );
   }
 }
@@ -88,10 +91,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     try {
       final data = await Supabase.instance.client
           .from('profiles')
-          .select('id, username, total_wins, total_games, total_score')
+          .select('id, username, total_wins, total_games, total_score, rank_points')
+          .order('rank_points', ascending: false)
           .order('total_wins', ascending: false)
           .order('total_score', ascending: false)
-          .order('total_games', ascending: true)
           .limit(100);
 
       if (!mounted) return;
@@ -117,25 +120,24 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           // User not in top 100, fetch specifically
           final userData = await Supabase.instance.client
               .from('profiles')
-              .select('id, username, total_wins, total_games, total_score')
+              .select('id, username, total_wins, total_games, total_score, rank_points')
               .eq('id', userId)
               .maybeSingle();
 
           if (userData != null) {
             currentUserEntry = _LeaderboardEntry.fromMap(userData);
             
-            // Calculate rank using the same logic: wins > OR (wins == and score >) OR (wins == and score == and games <)
+            // Calculate rank using RP
+            final rp = currentUserEntry.rankPoints;
             final w = currentUserEntry.totalWins;
-            final s = currentUserEntry.totalScore;
-            final g = currentUserEntry.totalGames;
             
             final betterPlayers = await Supabase.instance.client
                 .from('profiles')
                 .select('id')
-                .or('total_wins.gt.$w,and(total_wins.eq.$w,total_score.gt.$s),and(total_wins.eq.$w,total_score.eq.$s,total_games.lt.$g)');
+                .or('rank_points.gt.$rp,and(rank_points.eq.$rp,total_wins.gt.$w)');
                 
             currentUserRank = (betterPlayers as List).length + 1;
-            if (currentUserRank <= 5) currentUserRank = 6;
+            if (currentUserRank! <= 5) currentUserRank = 6;
           }
         }
       }
@@ -265,8 +267,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                         ),
                       ),
                     ),
+                    _HeaderCell('RP', width: 52),
                     _HeaderCell('WINS', width: 52),
-                    _HeaderCell('GAMES', width: 52),
                     _HeaderCell('SCORE', width: 60),
                   ],
                 ),
@@ -581,12 +583,12 @@ class _LeaderboardRow extends StatelessWidget {
 
             // ── Stats ──────────────────────────────────────────────────
             _StatCell(
-              value: entry.totalWins.toString(),
+              value: entry.rankPoints.toString(),
               width: 52,
               highlight: isTop3,
             ),
             _StatCell(
-              value: entry.totalGames.toString(),
+              value: entry.totalWins.toString(),
               width: 52,
             ),
             _StatCell(

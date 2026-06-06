@@ -16,6 +16,7 @@ import '../../bloc/settings_cubit.dart';
 import '../../core/audio_service.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../core/tier_system.dart';
 import '../../data/models/game_state.dart';
 import '../../data/models/player.dart';
 import '../widgets/opponent_widget.dart';
@@ -350,7 +351,7 @@ class _GameScreenState extends State<GameScreen> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFF1E3A6E), width: 1.2),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -358,8 +359,8 @@ class _GameScreenState extends State<GameScreen> {
                 // ── Trophy glow ──────────────────────────────────────────
                 Center(
                   child: Container(
-                    width: 100,
-                    height: 100,
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
@@ -372,10 +373,10 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     alignment: Alignment.center,
                     child: isWinner
-                        ? const Text('🏆', style: TextStyle(fontSize: 64))
+                        ? const Text('🏆', style: TextStyle(fontSize: 48))
                         : Container(
-                            width: 54,
-                            height: 76,
+                            width: 45,
+                            height: 65,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(8),
@@ -392,18 +393,18 @@ class _GameScreenState extends State<GameScreen> {
                               children: [
                                 Text(
                                   'A',
-                                  style: TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold, height: 1.1),
+                                  style: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold, height: 1.1),
                                 ),
                                 Text(
                                   '♠',
-                                  style: TextStyle(color: Colors.black, fontSize: 28, height: 1.1),
+                                  style: TextStyle(color: Colors.black, fontSize: 24, height: 1.1),
                                 ),
                               ],
                             ),
                           ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
                 // ── Headline ─────────────────────────────────────────────
                 if (state.isGameOver) ...[
@@ -412,7 +413,7 @@ class _GameScreenState extends State<GameScreen> {
                     style: TextStyle(
                       color: isWinner ? AppColors.gold : Colors.white,
                       fontWeight: FontWeight.w900,
-                      fontSize: 28,
+                      fontSize: 22,
                       letterSpacing: 1.2,
                       shadows: isWinner
                           ? [Shadow(color: AppColors.gold.withValues(alpha: 0.6), blurRadius: 16)]
@@ -420,32 +421,94 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     isWinner
                         ? 'Great game! You outplayed everyone.'
                         : 'Better luck next time!',
-                    style: const TextStyle(color: Colors.white60, fontSize: 13),
+                    style: const TextStyle(color: Colors.white60, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20),
+                  
+                  // ── Ranked Progression ───────────────────────────────────
+                  Builder(builder: (context) {
+                    final rpChange = myPlayer.rpChange ?? 0;
+                    final currentRp = myPlayer.currentRp ?? 1000;
+                    final isPositive = rpChange >= 0;
+                    final sign = isPositive ? '+' : '';
+                    final color = isPositive ? AppColors.gold : AppColors.errorRed;
+                    final tierName = TierSystem.getTierName(currentRp);
+                    final tierColor = TierSystem.getTierColor(currentRp);
+                    final tierIcon = TierSystem.getTierIcon(currentRp);
+
+                    return Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: tierColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(tierIcon, color: tierColor, size: 24),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                tierName,
+                                style: TextStyle(
+                                  color: tierColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    '$currentRp RP',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '($sign$rpChange)',
+                                    style: TextStyle(
+                                      color: color,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
 
                   // ── Share Result button (outlined purple) ───────────────
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         foregroundColor: const Color(0xFFA78BFA),
                         backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.08),
                       ),
-                      icon: const Icon(Icons.share_outlined, size: 18),
+                      icon: const Icon(Icons.share_outlined, size: 16),
                       onPressed: () => _shareScreenshot(screenshotKey),
                       label: const Text(
                         'Share Result',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ),
                   ),

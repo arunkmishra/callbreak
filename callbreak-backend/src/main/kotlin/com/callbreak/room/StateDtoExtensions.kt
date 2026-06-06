@@ -29,6 +29,8 @@ fun toDto(state: CallbreakState, requestingPlayerId: PlayerId): GameStateDto =
                 isOnline = p.isOnline,
                 isBot = p.isBot,
                 rank = p.rank,
+                currentRp = p.currentRp,
+                rpChange = p.rpChange,
             )
         },
         myHand = state.hands[requestingPlayerId] ?: emptyList(),

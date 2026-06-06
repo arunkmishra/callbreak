@@ -8,6 +8,7 @@ class UserProfile {
   final int totalWins;
   final int totalGames;
   final double totalScore;
+  final int rankPoints;
 
   const UserProfile({
     required this.id,
@@ -16,6 +17,7 @@ class UserProfile {
     required this.totalWins,
     required this.totalGames,
     required this.totalScore,
+    this.rankPoints = 1000,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class UserProfile {
       totalWins: (json['total_wins'] as num?)?.toInt() ?? 0,
       totalGames: (json['total_games'] as num?)?.toInt() ?? 0,
       totalScore: (json['total_score'] as num?)?.toDouble() ?? 0.0,
+      rankPoints: (json['rank_points'] as num?)?.toInt() ?? 1000,
     );
   }
 }
@@ -60,8 +63,8 @@ class SupabaseRepository {
   Future<List<UserProfile>> getLeaderboard() async {
     final data = await _client
         .from('profiles')
-        .select('id, username, avatar_url, total_wins, total_games, total_score')
-        .order('total_wins', ascending: false)
+        .select('id, username, avatar_url, total_wins, total_games, total_score, rank_points')
+        .order('rank_points', ascending: false)
         .limit(100);
 
     return (data as List<dynamic>)
@@ -146,7 +149,7 @@ class SupabaseRepository {
     final myId = _myUserId;
     final data = await _client
         .from('profiles')
-        .select('id, username, avatar_url, total_wins, total_games, total_score')
+        .select('id, username, avatar_url, total_wins, total_games, total_score, rank_points')
         .ilike('username', '%${query.trim()}%')
         .neq('id', myId ?? '')
         .limit(20);

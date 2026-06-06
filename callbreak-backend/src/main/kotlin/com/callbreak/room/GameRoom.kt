@@ -106,10 +106,16 @@ class GameRoom(initialState: CallbreakState) {
         logger.info("🔗 [Room ${state.roomId}] Session added for player $playerId")
     }
 
-    suspend fun removeSession(playerId: PlayerId) {
+    suspend fun removeSession(playerId: PlayerId, sessionToRemove: DefaultWebSocketSession) {
         var forceTakeover = false
         var shouldTearDown = false
         mutex.withLock {
+            val currentSession = sessions[playerId]
+            if (currentSession != null && currentSession != sessionToRemove) {
+                logger.info("🔌 [Room ${state.roomId}] Old session disconnected for player $playerId, but a new session is active. Ignoring.")
+                return@withLock
+            }
+
             sessions.remove(playerId)
             logger.info("🔌 [Room ${state.roomId}] Session removed for player $playerId (phase=${state.phase})")
 
@@ -504,7 +510,11 @@ class GameRoom(initialState: CallbreakState) {
                     CoroutineScope(Dispatchers.Default).launch {
                         delay(1000)
                         mutex.withLock {
-                            state = resolveRound(roundFinishedState)
+                            var tempState = resolveRound(roundFinishedState)
+                            if (tempState.phase == GamePhase.GAME_OVER) {
+                                tempState = SupabaseService.calculateEloChangesForState(tempState, originalRealPlayerIds)
+                            }
+                            state = tempState
                             broadcastState()
                             when (state.phase) {
                                 GamePhase.ROUND_OVER -> {
@@ -839,32 +849,8 @@ class GameRoom(initialState: CallbreakState) {
                 return@launch
             }
 
-            logger.info(
-                "📈 [Room ${finalState.roomId}] Saving leaderboard results — $realPlayerCount real players participated. " +
-                "Eligible: ${originalRealPlayerIds.joinToString()}"
-            )
-
-            finalState.players.forEach { player ->
-                // Only save result for original real players (not bot-substitutes)
-                if (player.id in originalRealPlayerIds) {
-                    logger.info(
-                        "💾 [Room ${finalState.roomId}] Saving result for '${player.name}' " +
-                        "(${player.id}) — score=${player.cumulativeScore}, rank=${player.rank ?: 4}"
-                    )
-                    SupabaseService.saveMatchResult(
-                        supabaseUserId = player.id,
-                        playerName = player.name,
-                        roomId = finalState.roomId,
-                        score = player.cumulativeScore,
-                        rank = player.rank ?: 4
-                    )
-                } else {
-                    logger.debug(
-                        "⏭️  [Room ${finalState.roomId}] Skipping Supabase save for '${player.name}' " +
-                        "(${player.id}) — bot or not an original real player"
-                    )
-                }
-            }
+            logger.info("📈 [Room ${finalState.roomId}] Saving leaderboard results with Elo calculation")
+            SupabaseService.saveMatchResultsWithElo(finalState, originalRealPlayerIds)
         }
     }
 }

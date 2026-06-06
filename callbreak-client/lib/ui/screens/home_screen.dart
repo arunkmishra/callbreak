@@ -10,7 +10,9 @@ import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
 import '../../core/audio_service.dart';
+import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../core/tier_system.dart';
 import '../../data/repositories/supabase_repository.dart';
 import '../../data/services/heartbeat_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -600,8 +602,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildLeftColumn(BuildContext context) {
     final wins = _profile?.totalWins ?? 0;
-    final rankLabel = _rankLabel(wins);
-    final rankStars = (wins / 20).clamp(0, 5).toInt();
+    final rp = _profile?.rankPoints ?? 1000;
+    final rankLabel = TierSystem.getTierName(rp);
+    final rankColor = TierSystem.getTierColor(rp);
+    final rankIcon = TierSystem.getTierIcon(rp);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
@@ -618,10 +622,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'CURRENT RANK',
                       style: TextStyle(
-                        color: AppColors.gold,
+                        color: rankColor,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
@@ -636,18 +640,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           shape: BoxShape.circle,
                           gradient: RadialGradient(
                             colors: [
-                              AppColors.gold.withValues(alpha: 0.3),
-                              AppColors.gold.withValues(alpha: 0.05),
+                              rankColor.withValues(alpha: 0.3),
+                              rankColor.withValues(alpha: 0.05),
                             ],
                           ),
                           border: Border.all(
-                              color: AppColors.gold.withValues(alpha: 0.5),
+                              color: rankColor.withValues(alpha: 0.5),
                               width: 1.5),
                         ),
-                        child: const Center(
-                          child: Text('♛',
-                              style: TextStyle(
-                                  fontSize: 28, color: AppColors.gold)),
+                        child: Center(
+                          child: Icon(rankIcon,
+                              size: 32, color: rankColor),
                         ),
                       ),
                     ),
@@ -655,8 +658,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     Center(
                       child: Text(
                         rankLabel,
-                        style: const TextStyle(
-                          color: AppColors.gold,
+                        style: TextStyle(
+                          color: rankColor,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
@@ -665,15 +668,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 4),
                     Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(
-                          5,
-                          (i) => Icon(
-                            i < rankStars ? Icons.star_rounded : Icons.star_outline_rounded,
-                            color: AppColors.gold,
-                            size: 13,
-                          ),
+                      child: Text(
+                        '$rp RP',
+                        style: TextStyle(
+                          color: rankColor.withValues(alpha: 0.8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -1322,16 +1322,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // ── Rank helpers ──────────────────────────────────────────────────────────
 
-  String _rankLabel(int wins) {
-    if (wins < 10) return 'BRONZE I';
-    if (wins < 20) return 'BRONZE II';
-    if (wins < 35) return 'SILVER I';
-    if (wins < 50) return 'SILVER II';
-    if (wins < 75) return 'GOLD I';
-    if (wins < 100) return 'GOLD II';
-    if (wins < 150) return 'PLATINUM I';
-    return 'DIAMOND';
-  }
 }
 
 // ─── Shared Card Widget ──────────────────────────────────────────────────────

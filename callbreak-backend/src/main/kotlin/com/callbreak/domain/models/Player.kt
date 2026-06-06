@@ -25,4 +25,6 @@ data class Player(
     val isBot: Boolean = false,
     val rank: Int? = null,
     val consecutiveBotMoves: Int = 0,
+    val currentRp: Int? = null,
+    val rpChange: Int? = null,
 )

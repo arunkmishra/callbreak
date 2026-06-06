@@ -133,7 +133,7 @@ fun Application.configureRouting() {
                 }
             } finally {
                 logger.info("🔌 WS disconnected — '$playerName' ($playerId) from room '$roomId'")
-                room.removeSession(playerId)
+                room.removeSession(playerId, this)
             }
         }
     }

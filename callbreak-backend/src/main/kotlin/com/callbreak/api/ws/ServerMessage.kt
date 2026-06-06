@@ -67,6 +67,8 @@ data class PlayerDto(
     val isOnline: Boolean,
     val isBot: Boolean,
     val rank: Int?,
+    val currentRp: Int? = null,
+    val rpChange: Int? = null,
 )
 
 @Serializable
