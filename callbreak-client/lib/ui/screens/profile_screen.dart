@@ -203,16 +203,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   Expanded(
-                    flex: 1, // Let stats take up half the vertical space
+                    flex: 1,
                     child: _buildStatsSection(p, winRate),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Expanded(
-                    flex: 1, // Let rank progress take up the other half
+                    flex: 1,
                     child: _buildRankProgressSection(rp, rankName, rankColor, rankIcon),
                   ),
                   if (Supabase.instance.client.auth.currentUser?.isAnonymous == true) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     _buildLinkAccountButton(),
                   ],
                 ],
@@ -388,7 +388,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildStatsSection(UserProfile p, String winRate) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF131824),
         borderRadius: BorderRadius.circular(12),
@@ -401,12 +401,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'STATISTICS',
             style: TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
             ),
           ),
-          const Expanded(child: SizedBox()), // Push stats to middle
+          const Spacer(),
           Row(
             children: [
               Expanded(
@@ -438,7 +438,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-          const Expanded(child: SizedBox()),
+          const Spacer(),
         ],
       ),
     );
@@ -448,19 +448,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 8),
+        Icon(icon, color: color, size: 20),
+        const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           value,
           style: TextStyle(
             color: color,
-            fontSize: 24,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -468,7 +468,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 9),
           ),
         ]
       ],
@@ -497,7 +497,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     int rpTotal = ceilRP - floorRP;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF131824),
         borderRadius: BorderRadius.circular(12),
@@ -510,21 +510,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'RANK PROGRESS',
             style: TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
             ),
           ),
-          const Expanded(child: SizedBox()),
+          const Spacer(),
           Row(
             children: [
               RankBadge(
-                size: 56,
+                size: 48,
                 baseColor: rankColor,
                 icon: rankIcon,
                 rankName: rankName,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -534,29 +534,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       rankName,
                       style: TextStyle(
                         color: rankColor,
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.0,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
                           'Keep playing to rank up',
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 10),
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Row(
                               children: [
-                                Icon(rankIcon, color: rankColor, size: 12),
+                                Icon(rankIcon, color: rankColor, size: 10),
                                 const SizedBox(width: 4),
                                 const Text(
                                   'Next Rank',
-                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 9),
                                 ),
                               ],
                             ),
@@ -564,7 +564,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               nextRankName,
                               style: TextStyle(
                                 color: rankColor,
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -572,23 +572,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Stack(
                       children: [
                         Container(
-                          height: 6,
+                          height: 4,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(3),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                         FractionallySizedBox(
                           widthFactor: progress.clamp(0.0, 1.0),
                           child: Container(
-                            height: 6,
+                            height: 4,
                             decoration: BoxDecoration(
                               color: rankColor,
-                              borderRadius: BorderRadius.circular(3),
+                              borderRadius: BorderRadius.circular(2),
                               boxShadow: [
                                 BoxShadow(
                                   color: rankColor.withValues(alpha: 0.5),
@@ -600,12 +600,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       '$rpProgress / $rpTotal RP',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -614,7 +614,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-          const Expanded(child: SizedBox()),
+          const Spacer(),
         ],
       ),
     );

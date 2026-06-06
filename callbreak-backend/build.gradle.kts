@@ -4,11 +4,11 @@ plugins {
     alias(libs.plugins.kotlin.plugin.serialization)
 }
 
-group = "com.callbreak"
+group = "com.akm.callbreak"
 version = "0.0.1"
 
 application {
-    mainClass = "com.callbreak.ApplicationKt"
+    mainClass = "com.akm.callbreak.ApplicationKt"
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")

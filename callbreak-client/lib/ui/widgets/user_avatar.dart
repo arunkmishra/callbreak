@@ -9,6 +9,8 @@ class UserAvatar extends StatelessWidget {
   final Border? border;
   final List<BoxShadow>? boxShadow;
 
+  static final Set<String> _failedUrls = {};
+
   const UserAvatar({
     super.key,
     this.avatarUrl,
@@ -24,7 +26,7 @@ class UserAvatar extends StatelessWidget {
     final initials = username.isNotEmpty ? username[0].toUpperCase() : '?';
 
     Widget inner;
-    if (avatarUrl == null || avatarUrl!.isEmpty) {
+    if (avatarUrl == null || avatarUrl!.isEmpty || _failedUrls.contains(avatarUrl)) {
       inner = _buildInitials(initials);
     } else {
       inner = ClipOval(
@@ -34,7 +36,10 @@ class UserAvatar extends StatelessWidget {
           height: radius * 2,
           fit: BoxFit.cover,
           placeholder: (context, url) => _buildInitials(initials),
-          errorWidget: (context, url, error) => _buildInitials(initials),
+          errorWidget: (context, url, error) {
+            _failedUrls.add(url);
+            return _buildInitials(initials);
+          },
         ),
       );
     }

@@ -1,6 +1,6 @@
-package com.callbreak.domain.rules
+package com.akm.callbreak.domain.rules
 
-import com.callbreak.domain.models.Player
+import com.akm.callbreak.domain.models.Player
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

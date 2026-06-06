@@ -1,6 +1,6 @@
-package com.callbreak.domain.rules
+package com.akm.callbreak.domain.rules
 
-import com.callbreak.domain.models.*
+import com.akm.callbreak.domain.models.*
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse

@@ -17,6 +17,7 @@ import 'data/repositories/supabase_repository.dart';
 import 'data/services/heartbeat_service.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/login_screen.dart';
+import 'ui/screens/splash_screen.dart';
 import 'ui/screens/username_screen.dart';
 
 Future<void> main() async {
@@ -88,7 +89,7 @@ class CallbreakApp extends StatelessWidget {
           title: 'Callbreak',
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(),
-          home: const _AuthGate(),
+          home: const SplashScreen(nextScreen: AuthGate()),
         ),
       ),
     );
@@ -102,14 +103,14 @@ class CallbreakApp extends StatelessWidget {
 ///
 /// The [StreamBuilder] reacts instantly to sign-in and sign-out events,
 /// so navigating between the two screens is automatic.
-class _AuthGate extends StatefulWidget {
-  const _AuthGate();
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
 
   @override
-  State<_AuthGate> createState() => _AuthGateState();
+  State<AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<_AuthGate> {
+class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AuthState>(
