@@ -87,4 +87,50 @@ class TierSystem {
         return Icons.local_fire_department;
     }
   }
+
+  static int getFloorRPForTier(int rp) {
+    if (rp < 1066) return 1000; // Base start
+    if (rp < 1133) return 1066;
+    if (rp < 1200) return 1133;
+    if (rp < 1266) return 1200;
+    if (rp < 1333) return 1266;
+    if (rp < 1400) return 1333;
+    if (rp < 1466) return 1400;
+    if (rp < 1533) return 1466;
+    if (rp < 1600) return 1533;
+    if (rp < 1666) return 1600;
+    if (rp < 1733) return 1666;
+    if (rp < 1800) return 1733;
+    if (rp < 1866) return 1800;
+    if (rp < 1933) return 1866;
+    if (rp < 2000) return 1933;
+    if (rp < 2500) return 2000;
+    return 2500;
+  }
+
+  static int getCeilRPForTier(int rp) {
+    if (rp < 1066) return 1066;
+    if (rp < 1133) return 1133;
+    if (rp < 1200) return 1200;
+    if (rp < 1266) return 1266;
+    if (rp < 1333) return 1333;
+    if (rp < 1400) return 1400;
+    if (rp < 1466) return 1466;
+    if (rp < 1533) return 1533;
+    if (rp < 1600) return 1600;
+    if (rp < 1666) return 1666;
+    if (rp < 1733) return 1733;
+    if (rp < 1800) return 1800;
+    if (rp < 1866) return 1866;
+    if (rp < 1933) return 1933;
+    if (rp < 2000) return 2000;
+    if (rp < 2500) return 2500;
+    return 3000; // Arbitrary high number for Grandmaster cap
+  }
+
+  static String getNextTierName(int rp) {
+    int ceil = getCeilRPForTier(rp);
+    if (ceil >= 2500) return 'MAX RANK';
+    return getTierName(ceil);
+  }
 }

@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../widgets/user_avatar.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme.dart';
+import '../../core/tier_system.dart';
 import '../../data/repositories/supabase_repository.dart';
+import '../widgets/rank_badge.dart';
+import '../widgets/user_avatar.dart';
+import 'username_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -74,24 +77,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF080B14),
+      backgroundColor: const Color(0xFF0B0F19), // Darker background
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFF0B0F19),
         elevation: 0,
-        title: const Text(
-          'MY PROFILE',
-          style: TextStyle(
-            color: AppColors.gold,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.0,
-            fontSize: 20,
-          ),
+        toolbarHeight: 60, // Compact AppBar
+        title: const Column(
+          children: [
+            Text(
+              'PROFILE',
+              style: TextStyle(
+                color: AppColors.gold,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2.0,
+                fontSize: 20,
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'View and manage your profile',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0, top: 12.0, bottom: 12.0),
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UsernameScreen()),
+                ).then((_) => _loadProfile());
+              },
+              icon: const Icon(Icons.edit, size: 14, color: Colors.white),
+              label: const Text(
+                'Edit Profile',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          )
+        ],
       ),
       body: _buildBody(),
     );
@@ -137,242 +179,482 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final p = _profile!;
-    return RefreshIndicator(
-      onRefresh: _loadProfile,
-      color: AppColors.gold,
-      backgroundColor: const Color(0xFF111827),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: Column(
-          children: [
-            // Avatar
-            UserAvatar(
-              avatarUrl: p.avatarUrl,
-              username: p.username,
-              radius: 50,
-              backgroundColor: _avatarColor(p.id),
-              border: Border.all(color: AppColors.gold, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.gold.withValues(alpha: 0.2),
-                  blurRadius: 16,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
+    final rp = p.rankPoints;
+    final rankName = TierSystem.getTierName(rp);
+    final rankColor = TierSystem.getTierColor(rp);
+    final rankIcon = TierSystem.getTierIcon(rp);
+    final winRate = p.totalGames > 0 ? (p.totalWins / p.totalGames * 100).toStringAsFixed(1) : '0.0';
 
-            // Identity Card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111827),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              ),
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch, // Make children stretch to fill height
+          children: [
+            // Left Column: Profile Card
+            Expanded(
+              flex: 4,
+              child: _buildProfileCard(p, rankName, rankColor, rankIcon),
+            ),
+            const SizedBox(width: 16),
+            // Right Column: Stats and Rank Progress
+            Expanded(
+              flex: 6,
               child: Column(
                 children: [
-                  _IdentityRow(
-                    label: 'Username',
-                    value: p.username,
-                    onCopy: () => _copyToClipboard(p.username, 'Username'),
+                  Expanded(
+                    flex: 1, // Let stats take up half the vertical space
+                    child: _buildStatsSection(p, winRate),
                   ),
-                  const Divider(color: Colors.white10, height: 32),
-                  _IdentityRow(
-                    label: 'Player ID',
-                    value: p.id,
-                    onCopy: () => _copyToClipboard(p.id, 'Player ID'),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    flex: 1, // Let rank progress take up the other half
+                    child: _buildRankProgressSection(rp, rankName, rankColor, rankIcon),
                   ),
+                  if (Supabase.instance.client.auth.currentUser?.isAnonymous == true) ...[
+                    const SizedBox(height: 12),
+                    _buildLinkAccountButton(),
+                  ],
                 ],
               ),
-            ),
-
-            const SizedBox(height: 32),
-
-            if (Supabase.instance.client.auth.currentUser?.isAnonymous == true) ...[
-              ElevatedButton.icon(
-                onPressed: () async {
-                  try {
-                    final redirectTo = kIsWeb
-                        ? (kReleaseMode ? 'https://arunkmishra.github.io/callbreak/' : Uri.base.origin)
-                        : 'io.supabase.callbreak://login-callback/';
-                    await Supabase.instance.client.auth.linkIdentity(
-                      OAuthProvider.google,
-                      redirectTo: redirectTo,
-                    );
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Account linked successfully!')),
-                    );
-                    setState(() {});
-                  } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to link account: $e')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.link_rounded),
-                label: const Text('Link Google Account (Save Progress)'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-            ],
-
-            // Stats Label
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'LIFETIME STATS',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Stats Grid
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    title: 'Games',
-                    value: p.totalGames.toString(),
-                    icon: Icons.casino_rounded,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _StatCard(
-                    title: 'Wins',
-                    value: p.totalWins.toString(),
-                    icon: Icons.emoji_events_rounded,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _StatCard(
-              title: 'Total Score',
-              value: p.totalScore.toStringAsFixed(1),
-              icon: Icons.star_rounded,
-              isWide: true,
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _IdentityRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final VoidCallback onCopy;
-
-  const _IdentityRow({
-    required this.label,
-    required this.value,
-    required this.onCopy,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildProfileCard(UserProfile p, String rankName, Color rankColor, IconData rankIcon) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF131824), // Lighter card background
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.4), width: 1.5),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+        children: [
+          // Avatar
+          Stack(
+            alignment: Alignment.center,
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
+              UserAvatar(
+                avatarUrl: p.avatarUrl,
+                username: p.username,
+                radius: 40, // Smaller avatar
+                backgroundColor: _avatarColor(p.id),
+                border: Border.all(color: AppColors.gold, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.gold.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+              const Positioned(
+                top: -6,
+                child: Icon(Icons.workspace_premium, color: AppColors.gold, size: 24),
+              ),
+              Positioned(
+                bottom: 2,
+                right: 2,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: AppColors.successGreen,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF131824), width: 2),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-        IconButton(
-          onPressed: onCopy,
-          icon: const Icon(Icons.copy_rounded, color: AppColors.gold, size: 20),
-          tooltip: 'Copy $label',
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.gold.withValues(alpha: 0.1),
+          const SizedBox(height: 12),
+          // Username
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  p.username,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UsernameScreen()),
+                  ).then((_) => _loadProfile());
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.edit, size: 12, color: Colors.white70),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          // Rank Badge
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RankBadge(
+                size: 32,
+                baseColor: rankColor,
+                icon: rankIcon,
+                rankName: rankName,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                rankName.split(' ').first, // e.g. "BRONZE"
+                style: TextStyle(
+                  color: rankColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          // Member Since
+          _buildInfoRow(Icons.calendar_today, 'Member Since', 'Oct 24, 2023'),
+          const SizedBox(height: 8),
+          // User ID
+          _buildInfoRow(
+            Icons.location_on, 
+            'User ID', 
+            p.id.length > 8 ? p.id.substring(0, 8).toUpperCase() : p.id.toUpperCase(), 
+            showCopy: true, 
+            onCopy: () => _copyToClipboard(p.id, 'User ID')
+          ),
+        ],
+      ),
     );
   }
-}
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final bool isWide;
-
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    this.isWide = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildInfoRow(IconData icon, String label, String value, {bool showCopy = false, VoidCallback? onCopy}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        color: const Color(0xFF0B0F19),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Icon(icon, color: AppColors.gold, size: 28),
-          const SizedBox(height: 12),
+          Icon(icon, color: AppColors.textSecondary, size: 14),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+          const Spacer(),
           Text(
             value,
             style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
+          if (showCopy) ...[
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: onCopy,
+              child: const Icon(Icons.copy, color: AppColors.textSecondary, size: 14),
             ),
-          ),
+          ]
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatsSection(UserProfile p, String winRate) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131824),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'STATISTICS',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const Expanded(child: SizedBox()), // Push stats to middle
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  Icons.emoji_events, 
+                  AppColors.gold, 
+                  'Matches Played', 
+                  p.totalGames.toString()
+                ),
+              ),
+              _buildDivider(),
+              Expanded(
+                child: _buildStatItem(
+                  Icons.stars, 
+                  AppColors.successGreen, 
+                  'Matches Won', 
+                  p.totalWins.toString(),
+                  subtitle: '$winRate% Win Rate'
+                ),
+              ),
+              _buildDivider(),
+              Expanded(
+                child: _buildStatItem(
+                  Icons.style, 
+                  AppColors.spadeBlue, 
+                  'Best Score', 
+                  p.totalScore.toStringAsFixed(1)
+                ),
+              ),
+            ],
+          ),
+          const Expanded(child: SizedBox()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, Color color, String label, String value, {String? subtitle}) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+          ),
+        ]
+      ],
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      height: 40,
+      width: 1,
+      color: Colors.white.withValues(alpha: 0.1),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+    );
+  }
+
+  Widget _buildRankProgressSection(int rp, String rankName, Color rankColor, IconData rankIcon) {
+    int floorRP = TierSystem.getFloorRPForTier(rp);
+    int ceilRP = TierSystem.getCeilRPForTier(rp);
+    String nextRankName = TierSystem.getNextTierName(rp);
+    
+    double progress = (ceilRP - floorRP) > 0 
+        ? (rp - floorRP) / (ceilRP - floorRP) 
+        : 1.0;
+        
+    int rpProgress = rp - floorRP;
+    int rpTotal = ceilRP - floorRP;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131824),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'RANK PROGRESS',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const Expanded(child: SizedBox()),
+          Row(
+            children: [
+              RankBadge(
+                size: 56,
+                baseColor: rankColor,
+                icon: rankIcon,
+                rankName: rankName,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      rankName,
+                      style: TextStyle(
+                        color: rankColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Keep playing to rank up',
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(rankIcon, color: rankColor, size: 12),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Next Rank',
+                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 10),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              nextRankName,
+                              style: TextStyle(
+                                color: rankColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Stack(
+                      children: [
+                        Container(
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        FractionallySizedBox(
+                          widthFactor: progress.clamp(0.0, 1.0),
+                          child: Container(
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: rankColor,
+                              borderRadius: BorderRadius.circular(3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: rankColor.withValues(alpha: 0.5),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '$rpProgress / $rpTotal RP',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Expanded(child: SizedBox()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkAccountButton() {
+    return SizedBox(
+      height: 36, // Compact height
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          try {
+            final redirectTo = kIsWeb
+                ? (kReleaseMode ? 'https://arunkmishra.github.io/callbreak/' : Uri.base.origin)
+                : 'io.supabase.callbreak://login-callback/';
+            await Supabase.instance.client.auth.linkIdentity(
+              OAuthProvider.google,
+              redirectTo: redirectTo,
+            );
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Account linked successfully!')),
+            );
+            setState(() {});
+          } catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to link account: $e')),
+            );
+          }
+        },
+        icon: const Icon(Icons.link_rounded, size: 16),
+        label: const Text('Link Google Account', style: TextStyle(fontSize: 12)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2563EB),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
       ),
     );
   }
