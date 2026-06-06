@@ -13,6 +13,7 @@ import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
 
 import '../../core/theme.dart';
+import '../../core/constants.dart';
 import '../../data/repositories/supabase_repository.dart';
 import '../../data/services/heartbeat_service.dart';
 import 'game_screen.dart';
@@ -41,13 +42,34 @@ class LobbyScreen extends StatelessWidget {
               (route) => false,
             );
           } else if (state is GameError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.errorRed,
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            if (state.message == 'FORCE_UPDATE_REQUIRED') {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF1E3A5F),
+                  title: const Text('Update Required', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  content: Text(
+                    getUpdateMessage(),
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('OK', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: AppColors.errorRed,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
           }
         },
         builder: (context, state) {

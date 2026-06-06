@@ -8,6 +8,8 @@ enum ReconnectStatus { reconnecting, reconnected, failed }
 
 /// Manages the WebSocket connection to the Callbreak server.
 class SocketRepository {
+  static const int APP_PROTOCOL_VERSION = 1;
+
   final String wsBaseUrl;
 
   WebSocketChannel? _channel;
@@ -73,7 +75,7 @@ class SocketRepository {
     if (_intentionalDisconnect || _lastRoomId == null) return;
 
     final uri = Uri.parse(
-        '$wsBaseUrl/ws/rooms/${_lastRoomId!.toUpperCase()}?playerId=$_lastPlayerId&sessionToken=$_lastSessionToken');
+        '$wsBaseUrl/ws/rooms/${_lastRoomId!.toUpperCase()}?playerId=$_lastPlayerId&sessionToken=$_lastSessionToken&protocol=$APP_PROTOCOL_VERSION');
 
     try {
       _channel = WebSocketChannel.connect(uri);
@@ -103,7 +105,11 @@ class SocketRepository {
           }
         },
         onDone: () {
-          print('🔌 WS closed (onDone)');
+          print('🔌 WS closed (onDone) - Code: ${_channel?.closeCode}, Reason: ${_channel?.closeReason}');
+          if (_channel?.closeReason == 'FORCE_UPDATE_REQUIRED') {
+             _controller?.addError(const ServerError('FORCE_UPDATE_REQUIRED'));
+             return;
+          }
           _scheduleReconnect();
         },
         cancelOnError: false,

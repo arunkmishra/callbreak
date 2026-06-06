@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../bloc/settings_cubit.dart';
 import '../../core/theme.dart';
+import '../../data/repositories/socket_repository.dart';
 
 // ─── Tab definitions ───────────────────────────────────────────────────────────
 enum _SettingsTab { gameplay, audio, visual, notifications, about }
@@ -600,7 +601,7 @@ class _AboutPageState extends State<_AboutPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              _infoRow('Version', '1.0.0'),
+              _infoRow('Version', SocketRepository.APP_PROTOCOL_VERSION.toString()),
               _infoRow('Build', 'Release'),
             ],
           ),

@@ -23,3 +23,13 @@ const int kPlayersRequired = 4;
 const int kCardsPerHand = 13;
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+String getUpdateMessage() {
+  if (kIsWeb) {
+    return 'A new mandatory update is available. Please refresh the page to update Callbreak and continue playing.';
+  }
+  if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS) {
+    return 'A new mandatory update is available. Please visit the App Store to update Callbreak and continue playing.';
+  }
+  return 'A new mandatory update is available. Please visit the Play Store to update Callbreak and continue playing.';
+}

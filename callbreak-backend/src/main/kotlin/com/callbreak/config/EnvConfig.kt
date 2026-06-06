@@ -13,3 +13,7 @@ val env = dotenv {
 /** Returns the value for [key] from .env or system environment. */
 fun getEnv(key: String): String =
     env[key] ?: System.getenv(key) ?: error("Missing required environment variable: $key")
+
+/** Returns the value for [key] from .env or system environment, or null if missing. */
+fun getEnvOrNull(key: String): String? =
+    env[key] ?: System.getenv(key)

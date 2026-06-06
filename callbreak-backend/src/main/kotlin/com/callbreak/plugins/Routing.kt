@@ -19,6 +19,7 @@ import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import io.ktor.websocket.send
 import com.callbreak.config.appJson
+import com.callbreak.config.getEnvOrNull
 import kotlinx.serialization.encodeToString
 import org.slf4j.LoggerFactory
 
@@ -44,10 +45,19 @@ fun Application.configureRouting() {
             val roomId = call.parameters["roomId"]?.uppercase()
             val playerId = call.request.queryParameters["playerId"]
             val sessionToken = call.request.queryParameters["sessionToken"]
+            val clientProtocol = call.request.queryParameters["protocol"]?.toIntOrNull() ?: 1
 
             if (roomId == null || playerId == null || sessionToken == null) {
                 logger.warn("🚫 WS connect rejected — missing params: roomId=$roomId, playerId=$playerId, hasToken=${sessionToken != null}")
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Missing roomId, playerId, or sessionToken"))
+                return@webSocket
+            }
+
+            val minProtocol = getEnvOrNull("MIN_SUPPORTED_PROTOCOL")?.toIntOrNull() ?: 1
+            if (clientProtocol < minProtocol) {
+                logger.warn("🚫 WS connect rejected — client protocol $clientProtocol < min $minProtocol (playerId=$playerId)")
+                // Send specific close reason for client to force update
+                close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "FORCE_UPDATE_REQUIRED"))
                 return@webSocket
             }
 

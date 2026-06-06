@@ -769,13 +769,34 @@ class _GameScreenState extends State<GameScreen> {
           );
         }
         if (state is GameError) {
-          rootScaffoldMessengerKey.currentState?.showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.errorRed,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          if (state.message == 'FORCE_UPDATE_REQUIRED') {
+            showDialog(
+              context: context,
+              barrierDismissible: true,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: const Color(0xFF1E3A5F),
+                title: const Text('Update Required', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                content: Text(
+                  getUpdateMessage(),
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('OK', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            rootScaffoldMessengerKey.currentState?.showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: AppColors.errorRed,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
       },
       builder: (context, state) {
@@ -789,6 +810,7 @@ class _GameScreenState extends State<GameScreen> {
         }
         
         if (state is GameError) {
+          final isUpdate = state.message == 'FORCE_UPDATE_REQUIRED';
           return Scaffold(
             backgroundColor: const Color(0xFF080B14),
             body: Center(
@@ -797,15 +819,15 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: AppColors.errorRed, size: 64),
+                    Icon(isUpdate ? Icons.system_update_rounded : Icons.error_outline_rounded, color: isUpdate ? AppColors.gold : AppColors.errorRed, size: 64),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Connection Lost',
-                      style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                    Text(
+                      isUpdate ? 'Update Required' : 'Connection Lost',
+                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      state.message,
+                      isUpdate ? getUpdateMessage() : state.message,
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.white70, fontSize: 16),
                     ),
@@ -822,7 +844,7 @@ class _GameScreenState extends State<GameScreen> {
                           (route) => false,
                         );
                       },
-                      child: const Text('Return to Home', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text(isUpdate ? 'OK' : 'Return to Home', style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
