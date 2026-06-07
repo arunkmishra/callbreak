@@ -52292,10 +52292,10 @@ if(g==null){q=A.b([],t.HO)
 s=1
 break}o=p.a
 s=3
-return A.h(o.hP("friendships").ls("id, requester_id, addressee_id, status, addressee:profiles!friendships_addressee_id_fkey(id, username, avatar_url, created_at)").iR("requester_id",g).iR("status","accepted"),$async$nx)
+return A.h(o.hP("friendships").ls("id, requester_id, addressee_id, status, addressee:profiles!friendships_addressee_id_fkey(id, username, avatar_url, created_at, total_wins, total_games, total_score, rank_points)").iR("requester_id",g).iR("status","accepted"),$async$nx)
 case 3:n=b
 s=4
-return A.h(o.hP("friendships").ls("id, requester_id, addressee_id, status, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url, created_at)").iR("addressee_id",g).iR("status","accepted"),$async$nx)
+return A.h(o.hP("friendships").ls("id, requester_id, addressee_id, status, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url, created_at, total_wins, total_games, total_score, rank_points)").iR("addressee_id",g).iR("status","accepted"),$async$nx)
 case 4:m=b
 l=A.b([],t.HO)
 for(o=J.bc(n),k=t.a;o.v();){j=k.a(o.gO())
@@ -52322,7 +52322,7 @@ if(n==null){q=A.b([],t.HO)
 s=1
 break}m=J
 s=3
-return A.h(p.a.hP("friendships").ls("id, requester_id, addressee_id, status, profiles!friendships_requester_id_fkey(id, username, avatar_url, created_at)").iR("addressee_id",n).iR("status","pending"),$async$Ba)
+return A.h(p.a.hP("friendships").ls("id, requester_id, addressee_id, status, profiles!friendships_requester_id_fkey(id, username, avatar_url, created_at, total_wins, total_games, total_score, rank_points)").iR("addressee_id",n).iR("status","pending"),$async$Ba)
 case 3:o=m.dT(b,new A.axd(),t.TD)
 o=A.Z(o,o.$ti.h("ao.E"))
 q=o
