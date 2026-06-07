@@ -25,6 +25,7 @@ import 'game_screen.dart';
 import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
 import 'profile_screen.dart';
+import 'rank_screen.dart';
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 
@@ -1204,6 +1205,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               onTap: () async {
                 if (i == 0) {
                   setState(() => _selectedNavIndex = i);
+                } else if (i == 1) {
+                  setState(() => _selectedNavIndex = i);
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RankScreen()),
+                  );
+                  if (mounted) {
+                    setState(() => _selectedNavIndex = 0);
+                  }
                 } else if (i == 2) {
                   setState(() => _selectedNavIndex = i);
                   await Navigator.of(context).push(

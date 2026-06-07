@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../data/services/heartbeat_service.dart';
 import '../../data/repositories/supabase_repository.dart';
 import '../../core/tier_system.dart';
+import 'profile_screen.dart';
 
 // ─── Friends Screen ───────────────────────────────────────────────────────────
 
@@ -684,9 +685,17 @@ class _UserCard extends StatelessWidget {
     final rankColor = TierSystem.getTierColor(rp);
     final rankIcon = TierSystem.getTierIcon(rp);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ProfileScreen(userProfile: profile)),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
         color: const Color(0xFF131A2A),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
@@ -786,6 +795,6 @@ class _UserCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,12 +7,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme.dart';
 import '../../core/tier_system.dart';
 import '../../data/repositories/supabase_repository.dart';
+import '../../data/services/heartbeat_service.dart';
 import '../widgets/rank_badge.dart';
 import '../widgets/user_avatar.dart';
 import 'username_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final UserProfile? userProfile;
+
+  const ProfileScreen({super.key, this.userProfile});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -23,10 +27,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   String? _error;
 
+  bool _isFriend = false;
+  bool _isOnline = false;
+  Timer? _onlineTimer;
+
+  bool get _userIsOnline => widget.userProfile == null ? true : _isOnline;
+
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+    if (widget.userProfile != null) {
+      _profile = widget.userProfile;
+      _isLoading = false;
+      _fetchFriendshipStatus();
+      _fetchOnlineStatus();
+      _onlineTimer = Timer.periodic(const Duration(seconds: 15), (_) => _fetchOnlineStatus());
+    } else {
+      _loadProfile();
+    }
+  }
+
+  @override
+  void dispose() {
+    _onlineTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchOnlineStatus() async {
+    if (_profile == null) return;
+    try {
+      final statuses = await HeartbeatService.getOnlineUsers();
+      if (mounted) {
+        setState(() {
+          _isOnline = statuses.containsKey(_profile!.id);
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchFriendshipStatus() async {
+    if (_profile == null) return;
+    try {
+      final friends = await _repository.getFriends();
+      final isFriend = friends.any((f) => f.profile?.id == _profile!.id);
+      if (mounted) {
+        setState(() {
+          _isFriend = isFriend;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _addFriend() async {
+    if (_profile == null) return;
+    try {
+      await _repository.sendFriendRequest(_profile!.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Friend request sent!'), backgroundColor: AppColors.successGreen),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send friend request.'), backgroundColor: AppColors.errorRed),
+        );
+      }
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -82,27 +149,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: const Color(0xFF0B0F19),
         elevation: 0,
         toolbarHeight: 60, // Compact AppBar
-        title: const Column(
-          children: [
-            Text(
-              'PROFILE',
-              style: TextStyle(
-                color: AppColors.gold,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2.0,
-                fontSize: 20,
-              ),
-            ),
-            SizedBox(height: 2),
-            Text(
-              'View and manage your profile',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
+        title: const Text(
+          'PROFILE',
+          style: TextStyle(
+            color: AppColors.gold,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2.0,
+            fontSize: 20,
+          ),
         ),
         centerTitle: true,
         leading: IconButton(
@@ -110,29 +164,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0, top: 12.0, bottom: 12.0),
-            child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const UsernameScreen()),
-                ).then((_) => _loadProfile());
-              },
-              icon: const Icon(Icons.edit, size: 14, color: Colors.white),
-              label: const Text(
-                'Edit Profile',
-                style: TextStyle(color: Colors.white, fontSize: 12),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          if (widget.userProfile == null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0, top: 12.0, bottom: 12.0),
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UsernameScreen()),
+                  ).then((_) => _loadProfile());
+                },
+                icon: const Icon(Icons.edit, size: 14, color: Colors.white),
+                label: const Text(
+                  'Edit Profile',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
               ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0, top: 12.0, bottom: 12.0),
+              child: _isFriend
+                  ? OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.check, size: 14, color: AppColors.successGreen),
+                      label: const Text('FRIEND', style: TextStyle(color: AppColors.successGreen, fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: AppColors.successGreen.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(0, 32),
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: _addFriend,
+                      icon: const Icon(Icons.person_add, size: 14, color: Colors.white),
+                      label: const Text('ADD FRIEND', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(0, 32),
+                      ),
+                    ),
             ),
-          )
         ],
       ),
       body: _buildBody(),
@@ -211,7 +293,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     flex: 1,
                     child: _buildRankProgressSection(rp, rankName, rankColor, rankIcon),
                   ),
-                  if (Supabase.instance.client.auth.currentUser?.isAnonymous == true) ...[
+                  if (widget.userProfile == null && Supabase.instance.client.auth.currentUser?.isAnonymous == true) ...[
                     const SizedBox(height: 8),
                     _buildLinkAccountButton(),
                   ],
@@ -225,6 +307,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileCard(UserProfile p, String rankName, Color rankColor, IconData rankIcon) {
+    String memberSince = 'Unknown';
+    if (p.createdAt != null) {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      memberSince = '${months[p.createdAt!.month - 1]} ${p.createdAt!.day}, ${p.createdAt!.year}';
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF131824), // Lighter card background
@@ -264,7 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: AppColors.successGreen,
+                    color: _userIsOnline ? AppColors.successGreen : Colors.white30,
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFF131824), width: 2),
                   ),
@@ -288,23 +376,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const UsernameScreen()),
-                  ).then((_) => _loadProfile());
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
+              if (widget.userProfile == null) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const UsernameScreen()),
+                    ).then((_) => _loadProfile());
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.edit, size: 12, color: Colors.white70),
                   ),
-                  child: const Icon(Icons.edit, size: 12, color: Colors.white70),
                 ),
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -332,7 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Spacer(),
           // Member Since
-          _buildInfoRow(Icons.calendar_today, 'Member Since', 'Oct 24, 2023'),
+          _buildInfoRow(Icons.calendar_today, 'Member Since', memberSince),
           const SizedBox(height: 8),
           // User ID
           _buildInfoRow(

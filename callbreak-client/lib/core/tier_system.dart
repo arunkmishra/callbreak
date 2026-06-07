@@ -133,4 +133,20 @@ class TierSystem {
     if (ceil >= 2500) return 'MAX RANK';
     return getTierName(ceil);
   }
+
+  static List<int> getUpcomingTiersCeilRPs(int currentRp, {int count = 5}) {
+    List<int> ceils = [];
+    int nextRp = getCeilRPForTier(currentRp);
+    
+    for (int i = 0; i < count; i++) {
+      if (nextRp >= 2500) {
+        if (!ceils.contains(2500)) ceils.add(2500);
+        break; // Max rank reached
+      }
+      ceils.add(nextRp);
+      // To get the next tier, we push it slightly past the current ceiling
+      nextRp = getCeilRPForTier(nextRp + 1);
+    }
+    return ceils;
+  }
 }

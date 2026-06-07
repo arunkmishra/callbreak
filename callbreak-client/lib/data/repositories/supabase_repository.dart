@@ -9,6 +9,7 @@ class UserProfile {
   final int totalGames;
   final double totalScore;
   final int rankPoints;
+  final DateTime? createdAt;
 
   const UserProfile({
     required this.id,
@@ -18,6 +19,7 @@ class UserProfile {
     required this.totalGames,
     required this.totalScore,
     this.rankPoints = 1000,
+    this.createdAt,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class UserProfile {
       totalGames: (json['total_games'] as num?)?.toInt() ?? 0,
       totalScore: (json['total_score'] as num?)?.toDouble() ?? 0.0,
       rankPoints: (json['rank_points'] as num?)?.toInt() ?? 1000,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
     );
   }
 }
@@ -63,7 +66,7 @@ class SupabaseRepository {
   Future<List<UserProfile>> getLeaderboard() async {
     final data = await _client
         .from('profiles')
-        .select('id, username, avatar_url, total_wins, total_games, total_score, rank_points')
+        .select('id, username, avatar_url, total_wins, total_games, total_score, rank_points, created_at')
         .order('rank_points', ascending: false)
         .limit(100);
 
@@ -80,13 +83,13 @@ class SupabaseRepository {
 
     final asRequester = await _client
         .from('friendships')
-        .select('id, requester_id, addressee_id, status, addressee:profiles!friendships_addressee_id_fkey(id, username, avatar_url)')
+        .select('id, requester_id, addressee_id, status, addressee:profiles!friendships_addressee_id_fkey(id, username, avatar_url, created_at, total_wins, total_games, total_score, rank_points)')
         .eq('requester_id', myId)
         .eq('status', 'accepted');
 
     final asAddressee = await _client
         .from('friendships')
-        .select('id, requester_id, addressee_id, status, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url)')
+        .select('id, requester_id, addressee_id, status, requester:profiles!friendships_requester_id_fkey(id, username, avatar_url, created_at, total_wins, total_games, total_score, rank_points)')
         .eq('addressee_id', myId)
         .eq('status', 'accepted');
 
@@ -126,7 +129,7 @@ class SupabaseRepository {
 
     final data = await _client
         .from('friendships')
-        .select('id, requester_id, addressee_id, status, profiles!friendships_requester_id_fkey(id, username, avatar_url)')
+        .select('id, requester_id, addressee_id, status, profiles!friendships_requester_id_fkey(id, username, avatar_url, created_at, total_wins, total_games, total_score, rank_points)')
         .eq('addressee_id', myId)
         .eq('status', 'pending');
 
@@ -149,7 +152,7 @@ class SupabaseRepository {
     final myId = _myUserId;
     final data = await _client
         .from('profiles')
-        .select('id, username, avatar_url, total_wins, total_games, total_score, rank_points')
+        .select('id, username, avatar_url, total_wins, total_games, total_score, rank_points, created_at')
         .ilike('username', '%${query.trim()}%')
         .neq('id', myId ?? '')
         .limit(20);
