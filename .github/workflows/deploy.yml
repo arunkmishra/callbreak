@@ -34,6 +34,9 @@ jobs:
         run: |
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+          echo "ADMOB_APP_ID=${{ secrets.ADMOB_APP_ID }}" >> .env
+          echo "ADMOB_INTERSTITIAL_UNIT_ID_ANDROID=${{ secrets.ADMOB_INTERSTITIAL_UNIT_ID_ANDROID }}" >> .env
+          echo "ADMOB_INTERSTITIAL_UNIT_ID_IOS=${{ secrets.ADMOB_INTERSTITIAL_UNIT_ID_IOS }}" >> .env
 
       - name: Build Web App
         working-directory: ./callbreak-client

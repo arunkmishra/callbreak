@@ -17,6 +17,7 @@ import '../../bloc/settings_cubit.dart';
 import '../../core/audio_service.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../core/ad_service.dart';
 import '../../core/tier_system.dart';
 import '../../data/models/emoticon_event.dart';
 import '../../data/models/game_state.dart';
@@ -833,9 +834,13 @@ class _GameScreenState extends State<GameScreen> {
         }
 
         if (state is GameInitial) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-            (route) => false,
+          AdService.instance.showInterstitialAd(
+            onDismissed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+                (route) => false,
+              );
+            },
           );
         }
         // Multiplayer rematch non-initiator: bloc emits GameLobby when
@@ -918,9 +923,13 @@ class _GameScreenState extends State<GameScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                       ),
                       onPressed: () {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const HomeScreen()),
-                          (route) => false,
+                        AdService.instance.showInterstitialAd(
+                          onDismissed: () {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (_) => const HomeScreen()),
+                              (route) => false,
+                            );
+                          },
                         );
                       },
                       child: Text(isUpdate ? 'OK' : 'Return to Home', style: const TextStyle(fontWeight: FontWeight.bold)),

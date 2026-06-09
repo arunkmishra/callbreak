@@ -15,6 +15,7 @@ import 'data/repositories/api_repository.dart';
 import 'data/repositories/socket_repository.dart';
 import 'data/repositories/supabase_repository.dart';
 import 'data/services/heartbeat_service.dart';
+import 'core/ad_service.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/login_screen.dart';
 import 'ui/screens/splash_screen.dart';
@@ -34,6 +35,9 @@ Future<void> main() async {
 
   // Load .env file before anything else
   await dotenv.load(fileName: '.env');
+
+  // Initialize AdMob after dotenv
+  await AdService.instance.initialize();
 
   // Initialize Supabase
   try {

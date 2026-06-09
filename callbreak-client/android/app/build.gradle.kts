@@ -23,6 +23,20 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        var admobAppId = "ca-app-pub-3940256099942544~3347511713"
+        val envFile = file("../../.env")
+        if (envFile.exists()) {
+            envFile.readLines().forEach { line ->
+                if (line.startsWith("ADMOB_APP_ID=")) {
+                    val envId = line.substringAfter("=").trim()
+                    if (envId.isNotEmpty()) {
+                        admobAppId = envId
+                    }
+                }
+            }
+        }
+        manifestPlaceholders += mapOf("admobAppId" to admobAppId)
     }
 
     buildTypes {

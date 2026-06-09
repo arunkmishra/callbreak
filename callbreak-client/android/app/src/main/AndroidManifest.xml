@@ -6,6 +6,11 @@
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:usesCleartextTraffic="true">
+        <!-- AdMob App ID (loaded from .env) -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="${admobAppId}"/>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
