@@ -64,6 +64,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     on<RematchRequested>(_onRematch);
     on<SendEmoticonRequested>(_onSendEmoticon);
     on<EmoticonEventReceived>(_onEmoticonReceived);
+    on<ClearEmoticonRequested>(_onClearEmoticonRequested);
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -448,18 +449,25 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     } else if (current is GameBidding) {
       emit(current.copyWith(pendingEmoticon: emoticonEvent));
     }
+    
     // The overlay widget handles its own display duration; the BLoC
     // clears the pending event after a brief delay to avoid Equatable
     // blocking future identical emotes from the same player.
+    // Instead of calling emit in a delayed future, we add a new event.
     Future.delayed(const Duration(milliseconds: 3500), () {
-      if (isClosed) return;
-      final s = state;
-      if (s is GameActive && s.pendingEmoticon?.playerId == event.playerId) {
-        emit(s.copyWith(clearEmoticon: true));
-      } else if (s is GameBidding && s.pendingEmoticon?.playerId == event.playerId) {
-        emit(s.copyWith(clearEmoticon: true));
+      if (!isClosed) {
+        add(ClearEmoticonRequested(event.playerId));
       }
     });
+  }
+
+  void _onClearEmoticonRequested(ClearEmoticonRequested event, Emitter<GameBlocState> emit) {
+    final s = state;
+    if (s is GameActive && s.pendingEmoticon?.playerId == event.playerId) {
+      emit(s.copyWith(clearEmoticon: true));
+    } else if (s is GameBidding && s.pendingEmoticon?.playerId == event.playerId) {
+      emit(s.copyWith(clearEmoticon: true));
+    }
   }
 
   Future<void> _onRematch(

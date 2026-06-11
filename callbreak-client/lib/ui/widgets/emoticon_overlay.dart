@@ -62,11 +62,11 @@ class EmoticonOverlayController extends State<EmoticonOverlay>
         builder: (context, child) {
           final t = _bounce.value; // 0.0 to 1.0 over 2 seconds
 
-          // Fade in (0 to 0.05), hold, fade out (0.95 to 1.0)
-          final opacity = t < 0.05
-              ? t / 0.05
-              : t > 0.95
-                  ? (1.0 - t) / 0.05
+          // Fade in (0 to 0.15), hold, fade out (0.85 to 1.0)
+          final opacity = t < 0.15
+              ? t / 0.15
+              : t > 0.85
+                  ? (1.0 - t) / 0.15
                   : 1.0;
 
           // Bounce effect: sin wave. Multiplying t by 4 * PI gives 2 full bounces.

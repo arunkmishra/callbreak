@@ -161,3 +161,11 @@ class EmoticonEventReceived extends GameEvent {
   @override
   List<Object?> get props => [playerId, emoticon];
 }
+
+class ClearEmoticonRequested extends GameEvent {
+  final String playerId;
+  const ClearEmoticonRequested(this.playerId);
+
+  @override
+  List<Object?> get props => [playerId];
+}
