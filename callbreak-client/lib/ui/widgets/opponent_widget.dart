@@ -14,6 +14,7 @@ class OpponentWidget extends StatelessWidget {
   final int? turnEndTime;
   final OpponentPosition position;
   final Color accentColor;
+  final String? calledTrumpSuit;
 
   const OpponentWidget({
     super.key,
@@ -22,6 +23,7 @@ class OpponentWidget extends StatelessWidget {
     this.turnEndTime,
     required this.position,
     this.accentColor = const Color(0xFF2563EB),
+    this.calledTrumpSuit,
   });
 
   @override
@@ -77,7 +79,7 @@ class OpponentWidget extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 4),
             child: TurnTimerWidget(turnEndTime: turnEndTime!, compact: true),
           ),
-        _Avatar(player: player, isCurrentTurn: isCurrentTurn, accentColor: accentColor),
+        _Avatar(player: player, isCurrentTurn: isCurrentTurn, accentColor: accentColor, calledTrumpSuit: calledTrumpSuit),
         const SizedBox(height: 6),
         _Name(player: player),
         const SizedBox(height: 4),
@@ -94,7 +96,7 @@ class OpponentWidget extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _Avatar(player: player, isCurrentTurn: isCurrentTurn, accentColor: accentColor),
+        _Avatar(player: player, isCurrentTurn: isCurrentTurn, accentColor: accentColor, calledTrumpSuit: calledTrumpSuit),
         const SizedBox(width: 10),
         Column(
           mainAxisSize: MainAxisSize.min,
@@ -130,12 +132,29 @@ class _Avatar extends StatelessWidget {
   final Player player;
   final bool isCurrentTurn;
   final Color accentColor;
+  final String? calledTrumpSuit;
 
-  const _Avatar({required this.player, required this.isCurrentTurn, required this.accentColor});
+  const _Avatar({required this.player, required this.isCurrentTurn, required this.accentColor, this.calledTrumpSuit});
+
+  String _getSuitSymbol(String suit) {
+    switch (suit.toLowerCase()) {
+      case 'spade': return '♠';
+      case 'heart': return '♥';
+      case 'diamond': return '♦';
+      case 'club': return '♣';
+      default: return suit;
+    }
+  }
+
+  Color _getSuitColor(String suit) {
+    return (suit.toLowerCase() == 'heart' || suit.toLowerCase() == 'diamond')
+        ? const Color(0xFFEF4444)
+        : const Color(0xFF1F2937);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    Widget avatarContent = Container(
       width: 44,
       height: 44,
       decoration: BoxDecoration(
@@ -165,6 +184,39 @@ class _Avatar extends StatelessWidget {
         ),
       ),
     );
+
+    if (calledTrumpSuit != null) {
+      avatarContent = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          avatarContent,
+          Positioned(
+            right: -4,
+            bottom: -4,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4),
+                ],
+              ),
+              child: Text(
+                _getSuitSymbol(calledTrumpSuit!),
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.0,
+                  color: _getSuitColor(calledTrumpSuit!),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return avatarContent;
   }
 }
 

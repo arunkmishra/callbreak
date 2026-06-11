@@ -1028,9 +1028,11 @@ class _GameScreenState extends State<GameScreen> {
                           turnEndTime: gameState.currentTurn == topOpponent.id ? gameState.turnEndTime : null,
                           position: OpponentPosition.top,
                           accentColor: schemeAccent,
+                          calledTrumpSuit: (gameState.allowCustomTrump && gameState.trumpBidState.highestBidderId == topOpponent.id) ? (gameState.trumpBidState.proposedSuit ?? gameState.currentTrumpSuit) : null,
                         ),
                         Positioned(
-                          top: -40,
+                          right: -40,
+                          top: 20,
                           child: EmoticonOverlay(key: _topOverlayKey),
                         ),
                       ],
@@ -1062,9 +1064,11 @@ class _GameScreenState extends State<GameScreen> {
                           turnEndTime: gameState.currentTurn == leftOpponent.id ? gameState.turnEndTime : null,
                           position: OpponentPosition.left,
                           accentColor: schemeAccent,
+                          calledTrumpSuit: (gameState.allowCustomTrump && gameState.trumpBidState.highestBidderId == leftOpponent.id) ? (gameState.trumpBidState.proposedSuit ?? gameState.currentTrumpSuit) : null,
                         ),
                         Positioned(
-                          top: -40,
+                          right: -40,
+                          top: 20,
                           child: EmoticonOverlay(key: _leftOverlayKey),
                         ),
                       ],
@@ -1089,9 +1093,11 @@ class _GameScreenState extends State<GameScreen> {
                           turnEndTime: gameState.currentTurn == rightOpponent.id ? gameState.turnEndTime : null,
                           position: OpponentPosition.right,
                           accentColor: schemeAccent,
+                          calledTrumpSuit: (gameState.allowCustomTrump && gameState.trumpBidState.highestBidderId == rightOpponent.id) ? (gameState.trumpBidState.proposedSuit ?? gameState.currentTrumpSuit) : null,
                         ),
                         Positioned(
-                          top: -40,
+                          left: -40,
+                          top: 20,
                           child: EmoticonOverlay(key: _rightOverlayKey),
                         ),
                       ],
@@ -1150,6 +1156,7 @@ class _GameScreenState extends State<GameScreen> {
                       _MyStatsBar(
                         player: myPlayer,
                         isMyTurn: isMyTurn,
+                        calledTrumpSuit: (gameState.allowCustomTrump && gameState.trumpBidState.highestBidderId == myPlayer.id) ? (gameState.trumpBidState.proposedSuit ?? gameState.currentTrumpSuit) : null,
                       ),
                       Positioned(
                         top: -46,
@@ -1292,8 +1299,25 @@ class _IconBtn extends StatelessWidget {
 class _MyStatsBar extends StatelessWidget {
   final Player player;
   final bool isMyTurn;
+  final String? calledTrumpSuit;
 
-  const _MyStatsBar({required this.player, required this.isMyTurn});
+  const _MyStatsBar({required this.player, required this.isMyTurn, this.calledTrumpSuit});
+
+  String _getSuitSymbol(String suit) {
+    switch (suit.toLowerCase()) {
+      case 'spade': return '♠';
+      case 'heart': return '♥';
+      case 'diamond': return '♦';
+      case 'club': return '♣';
+      default: return suit;
+    }
+  }
+
+  Color _getSuitColor(String suit) {
+    return (suit.toLowerCase() == 'heart' || suit.toLowerCase() == 'diamond')
+        ? const Color(0xFFEF4444)
+        : const Color(0xFF1F2937);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1309,6 +1333,23 @@ class _MyStatsBar extends StatelessWidget {
           _statItem('Bid', '${player.bid ?? "-"}', highlight: true),
           _divider(),
           _statItem('Won', '${player.tricksWon}'),
+          if (calledTrumpSuit != null) ...[
+            _divider(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Trump: ', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                Text(
+                  _getSuitSymbol(calledTrumpSuit!),
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.0,
+                    color: _getSuitColor(calledTrumpSuit!),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
