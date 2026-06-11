@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../models/emoticon_event.dart';
 import '../models/game_state.dart';
 
 /// Reconnect status events surfaced to the BLoC.
@@ -16,6 +17,7 @@ class SocketRepository {
   StreamSubscription? _channelSub;
   StreamController<GameState>? _controller;
   final _reconnectStatusController = StreamController<ReconnectStatus>.broadcast();
+  final _emoticonController = StreamController<EmoticonEvent>.broadcast();
 
   // ── Reconnect state ────────────────────────────────────────────────────────
   bool _intentionalDisconnect = false;
@@ -33,6 +35,9 @@ class SocketRepository {
   SocketRepository({required this.wsBaseUrl});
 
   Stream<ReconnectStatus> get reconnectStatusStream => _reconnectStatusController.stream;
+
+  /// Stream of emoticon events broadcast by the server.
+  Stream<EmoticonEvent> get emoticonStream => _emoticonController.stream;
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -131,6 +136,12 @@ class SocketRepository {
       } else if (type == 'ERROR') {
         final reason = json['reason'] as String? ?? 'Unknown server error';
         _controller?.addError(ServerError(reason));
+      } else if (type == 'EMOTICON_RECEIVED') {
+        final playerId = json['playerId'] as String? ?? '';
+        final emoticon = json['emoticon'] as String? ?? '';
+        if (playerId.isNotEmpty && emoticon.isNotEmpty) {
+          _emoticonController.add(EmoticonEvent(playerId: playerId, emoticon: emoticon));
+        }
       }
     } catch (e, stack) {
       print('🚨 SocketRepository JSON Parse Error: $e\n$stack');

@@ -64,6 +64,9 @@ class GameRoom(initialState: CallbreakState) {
     /** Active turn timers for human players, keyed by playerId. */
     private val turnTimers = ConcurrentHashMap<PlayerId, Job>()
 
+    /** Timestamp (ms) of last emoticon sent per player — used for rate limiting. */
+    private val emoticonTimestamps = ConcurrentHashMap<PlayerId, Long>()
+
     /**
      * IDs of players that were real humans at game-start.
      * Populated in [startGame] and never modified afterwards.
@@ -791,6 +794,59 @@ class GameRoom(initialState: CallbreakState) {
         CoroutineScope(Dispatchers.Default).launch {
             delay(5000)
             startNextRound()
+        }
+    }
+
+    // ─── Emoticons ────────────────────────────────────────────────────────────
+
+    /**
+     * Handles an incoming emoticon from a player.
+     *
+     * - Validates the emoticon (non-empty, max 8 chars, allowlisted set).
+     * - Enforces a 3-second per-player cooldown.
+     * - Broadcasts [ServerMessage.EmoticonReceived] to all sessions in the room.
+     */
+    suspend fun handleEmoticon(playerId: PlayerId, emoticon: String) {
+        // Basic validation
+        val trimmed = emoticon.trim()
+        if (trimmed.isEmpty() || trimmed.length > 8) {
+            logger.warn("⚠️  [Room ${state.roomId}] Invalid emoticon from $playerId: '$trimmed'")
+            return
+        }
+
+        // Allowlist: only the known catalog entries are accepted
+        val allowed = setOf("😂", "😤", "😭", "🤯", "😎", "🤬",
+                            "🎯", "👑", "💎", "🦁", "⚡", "🌪️", "🏆", "🤑", "🔥", "👏", "💀")
+        if (trimmed !in allowed) {
+            logger.warn("⚠️  [Room ${state.roomId}] Emoticon not in allowlist from $playerId: '$trimmed'")
+            return
+        }
+
+        // Rate limit: one emoticon per player per 3 seconds
+        val now = System.currentTimeMillis()
+        val last = emoticonTimestamps[playerId] ?: 0L
+        if (now - last < 3000L) {
+            logger.debug("🚫 [Room ${state.roomId}] Emoticon rate-limited for $playerId")
+            return
+        }
+        emoticonTimestamps[playerId] = now
+
+        val playerName = state.players.firstOrNull { it.id == playerId }?.name ?: playerId
+        logger.info("😊 [Room ${state.roomId}] '$playerName' sent emoticon: $trimmed")
+
+        broadcastEmoticon(playerId, trimmed)
+    }
+
+    /** Sends an EMOTICON_RECEIVED message to all connected sessions. */
+    private suspend fun broadcastEmoticon(playerId: PlayerId, emoticon: String) {
+        val message = ServerMessage.EmoticonReceived(playerId = playerId, emoticon = emoticon)
+        val encoded = appJson.encodeToString<ServerMessage>(message)
+        mutex.withLock {
+            sessions.values.forEach { session ->
+                try {
+                    session.send(encoded)
+                } catch (_: Exception) { /* session likely disconnected */ }
+            }
         }
     }
 

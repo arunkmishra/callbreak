@@ -14,3 +14,6 @@ yarn-error.log
 # Environment secrets — never commit these
 .env
 **/.env
+
+# Local notes
+publishing_checklist.md

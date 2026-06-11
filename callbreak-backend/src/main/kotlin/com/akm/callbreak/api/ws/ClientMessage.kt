@@ -46,4 +46,11 @@ sealed interface ClientMessage {
     @Serializable
     @SerialName("LEAVE_ROOM")
     object LeaveRoom : ClientMessage
+
+    @Serializable
+    @SerialName("SEND_EMOTICON")
+    data class SendEmoticon(
+        /** The emoticon string (e.g. "😂"). Max length enforced server-side. */
+        val emoticon: String,
+    ) : ClientMessage
 }

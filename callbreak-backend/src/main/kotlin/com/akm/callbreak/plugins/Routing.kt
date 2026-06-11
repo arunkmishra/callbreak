@@ -134,6 +134,11 @@ fun Application.configureRouting() {
                             room.leaveRoom(playerId)
                             null
                         }
+                        is ClientMessage.SendEmoticon -> {
+                            logger.debug("😊 [Room $roomId] '$playerName' sent emoticon: ${message.emoticon}")
+                            room.handleEmoticon(playerId, message.emoticon)
+                            null
+                        }
                     }
 
                     result?.onFailure { err ->
