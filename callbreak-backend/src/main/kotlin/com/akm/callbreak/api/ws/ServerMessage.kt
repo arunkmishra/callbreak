@@ -25,6 +25,14 @@ sealed interface ServerMessage {
     @Serializable
     @SerialName("ERROR")
     data class Error(val reason: String) : ServerMessage
+
+    /** Broadcast to all players in the room when someone sends an emoticon. */
+    @Serializable
+    @SerialName("EMOTICON_RECEIVED")
+    data class EmoticonReceived(
+        val playerId: String,
+        val emoticon: String,
+    ) : ServerMessage
 }
 
 // ─── DTO types (sent to clients, hand-filtered per player) ──────────────────

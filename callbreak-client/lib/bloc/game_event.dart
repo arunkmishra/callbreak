@@ -140,3 +140,24 @@ class RematchRequested extends GameEvent {
   @override
   List<Object?> get props => [finishedGameState];
 }
+
+// ─── Emoticon Events ─────────────────────────────────────────────────────────
+
+/// Player taps an emoticon in the picker — send to server.
+class SendEmoticonRequested extends GameEvent {
+  final String emoticon;
+  const SendEmoticonRequested(this.emoticon);
+
+  @override
+  List<Object?> get props => [emoticon];
+}
+
+/// Server broadcast received — an emoticon was sent by a player in this room.
+class EmoticonEventReceived extends GameEvent {
+  final String playerId;
+  final String emoticon;
+  const EmoticonEventReceived(this.playerId, this.emoticon);
+
+  @override
+  List<Object?> get props => [playerId, emoticon];
+}

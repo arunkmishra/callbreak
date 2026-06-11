@@ -143,44 +143,50 @@ class _TrickZoneWidgetState extends State<TrickZoneWidget>
           AnimatedBuilder(
             animation: _pulseAnimation,
             builder: (context, child) {
-              return Container(
-                width: size * _pulseAnimation.value,
-                height: size * 0.65 * _pulseAnimation.value,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(size),
-                  border: Border.all(
-                    color: widget.accentColor.withValues(alpha: 0.3 * _pulseAnimation.value),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: widget.accentColor.withValues(alpha: 0.15 * _pulseAnimation.value),
-                      blurRadius: 30,
-                      spreadRadius: 5,
+              return Transform.translate(
+                offset: const Offset(0, 60), // Push down to true screen center
+                child: Container(
+                  width: size * 0.80 * _pulseAnimation.value, // Reduced size
+                  height: size * 0.50 * _pulseAnimation.value, // Reduced size
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(size),
+                    border: Border.all(
+                      color: widget.accentColor.withValues(alpha: 0.3 * _pulseAnimation.value),
+                      width: 1.5,
                     ),
-                  ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.accentColor.withValues(alpha: 0.15 * _pulseAnimation.value),
+                        blurRadius: 30,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
           ),
 
           // ── Inner glowing oval ring ──────────────────────────────
-          Container(
-            width: size * 0.85,
-            height: size * 0.55,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(size),
-              border: Border.all(
-                color: widget.accentColor.withValues(alpha: 0.5),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.accentColor.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  spreadRadius: 2,
+          Transform.translate(
+            offset: const Offset(0, 60), // Push down to true screen center
+            child: Container(
+              width: size * 0.65, // Reduced size
+              height: size * 0.40, // Reduced size
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(size),
+                border: Border.all(
+                  color: widget.accentColor.withValues(alpha: 0.5),
+                  width: 2,
                 ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.accentColor.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
             ),
           ),
 

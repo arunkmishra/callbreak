@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../data/models/emoticon_event.dart';
 import '../data/models/game_state.dart';
 
 /// Base class for all GameBloc states.
@@ -60,22 +61,33 @@ class GameBidding extends GameBlocState {
   final GameState gameState;
   final String myPlayerId;
   final bool isReconnecting;
+  /// Non-null briefly when an emoticon broadcast arrives; the BLoC clears it
+  /// after a short delay so the overlay animation can play once.
+  final EmoticonEvent? pendingEmoticon;
 
   const GameBidding({
     required this.gameState,
     required this.myPlayerId,
     this.isReconnecting = false,
+    this.pendingEmoticon,
   });
 
-  GameBidding copyWith({GameState? gameState, String? myPlayerId, bool? isReconnecting}) =>
+  GameBidding copyWith({
+    GameState? gameState,
+    String? myPlayerId,
+    bool? isReconnecting,
+    EmoticonEvent? pendingEmoticon,
+    bool clearEmoticon = false,
+  }) =>
       GameBidding(
         gameState: gameState ?? this.gameState,
         myPlayerId: myPlayerId ?? this.myPlayerId,
         isReconnecting: isReconnecting ?? this.isReconnecting,
+        pendingEmoticon: clearEmoticon ? null : (pendingEmoticon ?? this.pendingEmoticon),
       );
 
   @override
-  List<Object?> get props => [gameState, myPlayerId, isReconnecting];
+  List<Object?> get props => [gameState, myPlayerId, isReconnecting, pendingEmoticon];
 }
 
 /// Active trick-taking gameplay phase.
@@ -86,12 +98,15 @@ class GameActive extends GameBlocState {
   /// Whether the local player just played a card and is awaiting confirmation.
   final bool awaitingServer;
   final bool isReconnecting;
+  /// Non-null briefly when an emoticon broadcast arrives; cleared by BLoC after delay.
+  final EmoticonEvent? pendingEmoticon;
 
   const GameActive({
     required this.gameState,
     required this.myPlayerId,
     this.awaitingServer = false,
     this.isReconnecting = false,
+    this.pendingEmoticon,
   });
 
   GameActive copyWith({
@@ -99,16 +114,19 @@ class GameActive extends GameBlocState {
     String? myPlayerId,
     bool? awaitingServer,
     bool? isReconnecting,
+    EmoticonEvent? pendingEmoticon,
+    bool clearEmoticon = false,
   }) =>
       GameActive(
         gameState: gameState ?? this.gameState,
         myPlayerId: myPlayerId ?? this.myPlayerId,
         awaitingServer: awaitingServer ?? this.awaitingServer,
         isReconnecting: isReconnecting ?? this.isReconnecting,
+        pendingEmoticon: clearEmoticon ? null : (pendingEmoticon ?? this.pendingEmoticon),
       );
 
   @override
-  List<Object?> get props => [gameState, myPlayerId, awaitingServer, isReconnecting];
+  List<Object?> get props => [gameState, myPlayerId, awaitingServer, isReconnecting, pendingEmoticon];
 }
 
 /// Round is over; showing scores.

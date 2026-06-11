@@ -17,8 +17,11 @@ import '../../core/audio_service.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../core/tier_system.dart';
+import '../../data/models/emoticon_event.dart';
 import '../../data/models/game_state.dart';
 import '../../data/models/player.dart';
+import '../widgets/emoticon_overlay.dart';
+import '../widgets/emoticon_picker.dart';
 import '../widgets/opponent_widget.dart';
 import '../widgets/playing_card_widget.dart';
 import '../widgets/score_board_widget.dart';
@@ -46,6 +49,12 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   bool _isDialogOpen = false;
   String? _lastTrumpBidderId;
+
+  // ── Emoticon overlay keys — one per seat (left, top, right, me) ──────────
+  final _leftOverlayKey  = GlobalKey<EmoticonOverlayController>();
+  final _topOverlayKey   = GlobalKey<EmoticonOverlayController>();
+  final _rightOverlayKey = GlobalKey<EmoticonOverlayController>();
+  final _myOverlayKey    = GlobalKey<EmoticonOverlayController>();
 
   @override
   void initState() {
@@ -753,6 +762,44 @@ class _GameScreenState extends State<GameScreen> {
           _lastTrumpBidderId = null;
         }
 
+        // ── Emoticon overlay trigger ────────────────────────────────────────
+        EmoticonEvent? pending;
+        if (state is GameActive) {
+          pending = state.pendingEmoticon;
+        } else if (state is GameBidding) {
+          pending = state.pendingEmoticon;
+        }
+        if (pending != null) {
+          String emoticonPlayerId = pending.playerId;
+          List players = [];
+          if (state is GameActive) {
+            players = state.gameState.players;
+          } else if (state is GameBidding) {
+            players = state.gameState.players;
+          }
+          if (players.isNotEmpty) {
+            final myPlayerId = state is GameActive
+                ? state.myPlayerId
+                : (state as GameBidding).myPlayerId;
+            final numPlayers = players.length;
+            int myIndex = players.indexWhere((p) => p.id == myPlayerId);
+            if (myIndex == -1) myIndex = 0;
+
+            if (emoticonPlayerId == myPlayerId) {
+              _myOverlayKey.currentState?.show(pending.emoticon);
+            } else if (numPlayers > 1 &&
+                emoticonPlayerId == players[(myIndex + 1) % numPlayers].id) {
+              _leftOverlayKey.currentState?.show(pending.emoticon);
+            } else if (numPlayers > 2 &&
+                emoticonPlayerId == players[(myIndex + 2) % numPlayers].id) {
+              _topOverlayKey.currentState?.show(pending.emoticon);
+            } else if (numPlayers > 3 &&
+                emoticonPlayerId == players[(myIndex + 3) % numPlayers].id) {
+              _rightOverlayKey.currentState?.show(pending.emoticon);
+            }
+          }
+        }
+
         if (state is GameInitial) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -971,12 +1018,22 @@ class _GameScreenState extends State<GameScreen> {
                   left: 0,
                   right: 0,
                   child: Center(
-                    child: OpponentWidget(
-                      player: topOpponent,
-                      isCurrentTurn: gameState.currentTurn == topOpponent.id,
-                      turnEndTime: gameState.currentTurn == topOpponent.id ? gameState.turnEndTime : null,
-                      position: OpponentPosition.top,
-                      accentColor: schemeAccent,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.topCenter,
+                      children: [
+                        OpponentWidget(
+                          player: topOpponent,
+                          isCurrentTurn: gameState.currentTurn == topOpponent.id,
+                          turnEndTime: gameState.currentTurn == topOpponent.id ? gameState.turnEndTime : null,
+                          position: OpponentPosition.top,
+                          accentColor: schemeAccent,
+                        ),
+                        Positioned(
+                          top: -40,
+                          child: EmoticonOverlay(key: _topOverlayKey),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -995,12 +1052,22 @@ class _GameScreenState extends State<GameScreen> {
                   top: 0,
                   bottom: 0,
                   child: Center(
-                    child: OpponentWidget(
-                      player: leftOpponent,
-                      isCurrentTurn: gameState.currentTurn == leftOpponent.id,
-                      turnEndTime: gameState.currentTurn == leftOpponent.id ? gameState.turnEndTime : null,
-                      position: OpponentPosition.left,
-                      accentColor: schemeAccent,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.topCenter,
+                      children: [
+                        OpponentWidget(
+                          player: leftOpponent,
+                          isCurrentTurn: gameState.currentTurn == leftOpponent.id,
+                          turnEndTime: gameState.currentTurn == leftOpponent.id ? gameState.turnEndTime : null,
+                          position: OpponentPosition.left,
+                          accentColor: schemeAccent,
+                        ),
+                        Positioned(
+                          top: -40,
+                          child: EmoticonOverlay(key: _leftOverlayKey),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1012,12 +1079,22 @@ class _GameScreenState extends State<GameScreen> {
                   top: 0,
                   bottom: 0,
                   child: Center(
-                    child: OpponentWidget(
-                      player: rightOpponent,
-                      isCurrentTurn: gameState.currentTurn == rightOpponent.id,
-                      turnEndTime: gameState.currentTurn == rightOpponent.id ? gameState.turnEndTime : null,
-                      position: OpponentPosition.right,
-                      accentColor: schemeAccent,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.topCenter,
+                      children: [
+                        OpponentWidget(
+                          player: rightOpponent,
+                          isCurrentTurn: gameState.currentTurn == rightOpponent.id,
+                          turnEndTime: gameState.currentTurn == rightOpponent.id ? gameState.turnEndTime : null,
+                          position: OpponentPosition.right,
+                          accentColor: schemeAccent,
+                        ),
+                        Positioned(
+                          top: -40,
+                          child: EmoticonOverlay(key: _rightOverlayKey),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1066,12 +1143,44 @@ class _GameScreenState extends State<GameScreen> {
                 right: 0,
                 bottom: 110,
                 child: Center(
-                  child: _MyStatsBar(
-                    player: myPlayer,
-                    isMyTurn: isMyTurn,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      _MyStatsBar(
+                        player: myPlayer,
+                        isMyTurn: isMyTurn,
+                      ),
+                      Positioned(
+                        top: -46,
+                        child: EmoticonOverlay(key: _myOverlayKey),
+                      ),
+                    ],
                   ),
                 ),
               ),
+
+              // ── Emoticon button (bottom-left) + flying overlay ────────────
+              Positioned(
+                left: 10,
+                bottom: 108,
+                child: _EmoticonButton(
+                  accentColor: schemeAccent,
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (_) => BlocProvider.value(
+                        value: context.read<GameBloc>(),
+                        child: EmoticonPicker(accentColor: schemeAccent),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+
 
               // ── My Hand (bottom) ───────────────────────────────────────
               Positioned(
@@ -1120,8 +1229,7 @@ class _NavyBackgroundPainter extends CustomPainter {
     for (double i = 0; i <= size.height; i += gridSize) {
       canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
     }
-
-    final center = Offset(size.width / 2, size.height / 2 - 40);
+    final center = Offset(size.width / 2, size.height / 2);
 
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -1130,7 +1238,7 @@ class _NavyBackgroundPainter extends CustomPainter {
 
     // Oval rings around center play area
     canvas.drawOval(
-      Rect.fromCenter(center: center, width: size.width * 0.55, height: size.height * 0.38),
+      Rect.fromCenter(center: center, width: size.width * 0.45, height: size.height * 0.22),
       ringPaint,
     );
 
@@ -1139,7 +1247,7 @@ class _NavyBackgroundPainter extends CustomPainter {
       ..color = accentColor.withValues(alpha: 0.05)
       ..strokeWidth = 1.0;
     canvas.drawOval(
-      Rect.fromCenter(center: center, width: size.width * 0.75, height: size.height * 0.55),
+      Rect.fromCenter(center: center, width: size.width * 0.65, height: size.height * 0.35),
       outerRingPaint,
     );
 
@@ -1937,6 +2045,145 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Emoticon Button with 5-second cooldown ring
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EmoticonButton extends StatefulWidget {
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  const _EmoticonButton({required this.accentColor, required this.onTap});
+
+  @override
+  State<_EmoticonButton> createState() => _EmoticonButtonState();
+}
+
+class _EmoticonButtonState extends State<_EmoticonButton>
+    with SingleTickerProviderStateMixin {
+  static const _cooldownSeconds = 10;
+
+  late final AnimationController _cooldown;
+  bool _onCooldown = false;
+  int _remaining = _cooldownSeconds;
+
+  @override
+  void initState() {
+    super.initState();
+    _cooldown = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: _cooldownSeconds),
+    );
+    _cooldown.addListener(_onTick);
+    _cooldown.addStatusListener((s) {
+      if (s == AnimationStatus.completed && mounted) {
+        setState(() {
+          _onCooldown = false;
+          _remaining = _cooldownSeconds;
+        });
+      }
+    });
+  }
+
+  void _onTick() {
+    final secs = (_cooldownSeconds * (1 - _cooldown.value)).ceil();
+    if (secs != _remaining && mounted) {
+      setState(() => _remaining = secs);
+    }
+  }
+
+  void _handleTap() {
+    if (_onCooldown) return;
+    widget.onTap();
+    setState(() {
+      _onCooldown = true;
+      _remaining = _cooldownSeconds;
+    });
+    _cooldown.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _cooldown.removeListener(_onTick);
+    _cooldown.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = widget.accentColor;
+    final enabled = !_onCooldown;
+
+    return GestureDetector(
+      onTap: _handleTap,
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Cooldown ring
+            if (_onCooldown)
+              AnimatedBuilder(
+                animation: _cooldown,
+                builder: (_, __) => SizedBox(
+                  width: 42,
+                  height: 42,
+                  child: CircularProgressIndicator(
+                    value: 1 - _cooldown.value,
+                    strokeWidth: 2.5,
+                    color: accent,
+                    backgroundColor: accent.withValues(alpha: 0.15),
+                  ),
+                ),
+              ),
+
+            // Button body
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: enabled
+                    ? Colors.black.withValues(alpha: 0.55)
+                    : Colors.black.withValues(alpha: 0.35),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: enabled
+                      ? accent.withValues(alpha: 0.55)
+                      : Colors.white.withValues(alpha: 0.12),
+                  width: 1.2,
+                ),
+                boxShadow: enabled
+                    ? [
+                        BoxShadow(
+                          color: accent.withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Center(
+                child: _onCooldown
+                    ? Text(
+                        '$_remaining',
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : const Text('😊', style: TextStyle(fontSize: 16)),
+              ),
             ),
           ],
         ),

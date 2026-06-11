@@ -277,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           children: [
             const Icon(Icons.access_time_rounded, color: AppColors.gold, size: 18),
             const SizedBox(width: 10),
-            Text('$feature — Coming Soon! 🚀',
+            Text('$feature — Coming Soon!',
                 style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
           ],
         ),
@@ -384,14 +384,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Left column
+              // Center (now Left) column
               Expanded(
-                flex: 23,
-                child: _buildLeftColumn(context),
-              ),
-              // Center column
-              Expanded(
-                flex: 50,
+                flex: 73,
                 child: _buildCenterColumn(context, isLoading),
               ),
               // Right column
@@ -984,6 +979,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildModeTiles(BuildContext context) {
     return Row(
       children: [
+        Expanded(
+          child: _ModeTile(
+            icon: Icons.public,
+            iconColor: const Color(0xFF60A5FA),
+            bgColor: const Color(0xFF0F172A),
+            borderColor: const Color(0xFF60A5FA),
+            title: 'PLAY ONLINE',
+            subtitle: 'Compete with players\naround the world',
+            badge: 'Coming Soon',
+            badgeColor: const Color(0xFF60A5FA),
+            comingSoon: true,
+            onTap: () => _showComingSoon(context, 'Play Online'),
+          ),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: _ModeTile(
             icon: Icons.group_add_outlined,

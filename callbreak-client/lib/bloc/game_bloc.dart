@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/audio_service.dart';
 import '../core/session_storage.dart';
 import '../core/stats_prefs.dart';
+import '../data/models/emoticon_event.dart';
 import '../data/models/game_state.dart';
 import '../data/repositories/api_repository.dart';
 import '../data/repositories/socket_repository.dart';
@@ -26,6 +27,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
   String? _myPlayerName;
   StreamSubscription<GameState>? _socketSubscription;
   StreamSubscription<ReconnectStatus>? _reconnectSubscription;
+  StreamSubscription<EmoticonEvent>? _emoticonSubscription;
 
   /// Supabase Realtime channel opened at game-over to coordinate rematches.
   RealtimeChannel? _rematchChannel;
@@ -60,6 +62,8 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     on<NextRoundRequested>(_onNextRound);
     on<DisconnectRequested>(_onDisconnect);
     on<RematchRequested>(_onRematch);
+    on<SendEmoticonRequested>(_onSendEmoticon);
+    on<EmoticonEventReceived>(_onEmoticonReceived);
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -198,6 +202,12 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
         isReconnecting: status == ReconnectStatus.reconnecting,
         hasFailed: status == ReconnectStatus.failed,
       ));
+    });
+
+    // Listen to emoticon broadcasts
+    await _emoticonSubscription?.cancel();
+    _emoticonSubscription = _socketRepository.emoticonStream.listen((event) {
+      add(EmoticonEventReceived(event.playerId, event.emoticon));
     });
 
     await _socketSubscription?.cancel();
@@ -424,6 +434,34 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
 
   // ─── Rematch ──────────────────────────────────────────────────────────────
 
+  // ─── Emoticons ────────────────────────────────────────────────────────────
+
+  void _onSendEmoticon(SendEmoticonRequested event, Emitter<GameBlocState> emit) {
+    _socketRepository.sendAction('SEND_EMOTICON', {'emoticon': event.emoticon});
+  }
+
+  void _onEmoticonReceived(EmoticonEventReceived event, Emitter<GameBlocState> emit) {
+    final emoticonEvent = EmoticonEvent(playerId: event.playerId, emoticon: event.emoticon);
+    final current = state;
+    if (current is GameActive) {
+      emit(current.copyWith(pendingEmoticon: emoticonEvent));
+    } else if (current is GameBidding) {
+      emit(current.copyWith(pendingEmoticon: emoticonEvent));
+    }
+    // The overlay widget handles its own display duration; the BLoC
+    // clears the pending event after a brief delay to avoid Equatable
+    // blocking future identical emotes from the same player.
+    Future.delayed(const Duration(milliseconds: 3500), () {
+      if (isClosed) return;
+      final s = state;
+      if (s is GameActive && s.pendingEmoticon?.playerId == event.playerId) {
+        emit(s.copyWith(clearEmoticon: true));
+      } else if (s is GameBidding && s.pendingEmoticon?.playerId == event.playerId) {
+        emit(s.copyWith(clearEmoticon: true));
+      }
+    });
+  }
+
   Future<void> _onRematch(
     RematchRequested event,
     Emitter<GameBlocState> emit,
@@ -508,6 +546,8 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
     _socketSubscription = null;
     _reconnectSubscription?.cancel();
     _reconnectSubscription = null;
+    _emoticonSubscription?.cancel();
+    _emoticonSubscription = null;
     _socketRepository.disconnect();
     _rematchChannel?.unsubscribe();
     _rematchChannel = null;
