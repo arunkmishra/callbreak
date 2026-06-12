@@ -580,7 +580,11 @@ class _GameScreenState extends State<GameScreen> {
                                 if (!await _checkInternetConnection(context)) return;
                                 _dismissDialog();
                                 if (!context.mounted) return;
-                                context.read<GameBloc>().add(RematchRequested(gameState));
+                                AdService.instance.showInterstitialAd(
+                                  onDismissed: () {
+                                    context.read<GameBloc>().add(RematchRequested(gameState));
+                                  },
+                                );
                               },
                               label: const Text(
                                 'Rematch',
@@ -601,7 +605,11 @@ class _GameScreenState extends State<GameScreen> {
                               icon: const Icon(Icons.home_rounded, size: 16),
                               onPressed: () {
                                 _dismissDialog();
-                                context.read<GameBloc>().add(const DisconnectRequested());
+                                AdService.instance.showInterstitialAd(
+                                  onDismissed: () {
+                                    context.read<GameBloc>().add(const DisconnectRequested());
+                                  },
+                                );
                               },
                               label: const Text(
                                 'Back to Lobby',
@@ -627,7 +635,11 @@ class _GameScreenState extends State<GameScreen> {
                         icon: const Icon(Icons.home_rounded, size: 20),
                         onPressed: () {
                           _dismissDialog();
-                          context.read<GameBloc>().add(const DisconnectRequested());
+                          AdService.instance.showInterstitialAd(
+                            onDismissed: () {
+                              context.read<GameBloc>().add(const DisconnectRequested());
+                            },
+                          );
                         },
                         label: const Text(
                           'Back to Lobby',

@@ -231,11 +231,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           final profile = await SupabaseRepository().getMyProfile();
           final playerName = profile?.username ?? 'Player';
           if (mounted) {
-            AdService.instance.showInterstitialAd(
-              onDismissed: () {
-                context.read<GameBloc>().add(JoinRoomRequested(roomId, playerName));
-              },
-            );
+            context.read<GameBloc>().add(JoinRoomRequested(roomId, playerName));
           }
         },
       ),
@@ -274,6 +270,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Quick Play: 3-round bot game, no sheet ────────────────────────────────
+
   Future<bool> _checkInternetConnection(BuildContext context) async {
     final hasInternet = await InternetConnection().hasInternetAccess;
     if (!hasInternet) {
@@ -303,68 +300,52 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _startPlayOnline(BuildContext context) async {
     if (!await _checkInternetConnection(context)) return;
     if (!context.mounted) return;
-    AdService.instance.showInterstitialAd(
-      onDismissed: () {
-        AudioService.preload();
-        setState(() => _isBotGame = false);
-        final username = _profile?.username ?? 'Player';
-        context.read<GameBloc>().add(FindMatchRequested(username));
-      },
-    );
+    AudioService.preload();
+    setState(() => _isBotGame = false);
+    final username = _profile?.username ?? 'Player';
+    context.read<GameBloc>().add(FindMatchRequested(username));
   }
 
   Future<void> _startQuickPlay(BuildContext context) async {
     if (!await _checkInternetConnection(context)) return;
     if (!context.mounted) return;
-    AdService.instance.showInterstitialAd(
-      onDismissed: () {
-        AudioService.preload();
-        setState(() => _isBotGame = true);
-        final username = _profile?.username ?? 'Player';
-        context.read<GameBloc>().add(CreateRoomRequested(username, totalRounds: 3));
-      },
-    );
+    AudioService.preload();
+    setState(() => _isBotGame = true);
+    final username = _profile?.username ?? 'Player';
+    context.read<GameBloc>().add(CreateRoomRequested(username, totalRounds: 3));
   }
 
   Future<void> _openPracticeSheet(BuildContext context) async {
     if (!await _checkInternetConnection(context)) return;
     if (!context.mounted) return;
-    AdService.instance.showInterstitialAd(
-      onDismissed: () {
-        AudioService.preload();
-        setState(() => _isBotGame = true);
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => BlocProvider.value(
-            value: context.read<GameBloc>(),
-            child: _BotGameSheet(defaultUsername: _profile?.username ?? 'Player'),
-          ),
-        );
-      },
+    AudioService.preload();
+    setState(() => _isBotGame = true);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BlocProvider.value(
+        value: context.read<GameBloc>(),
+        child: _BotGameSheet(defaultUsername: _profile?.username ?? 'Player'),
+      ),
     );
   }
 
   Future<void> _openMultiplayerSheet(BuildContext context, {String? initialRoomCode}) async {
     if (!await _checkInternetConnection(context)) return;
     if (!context.mounted) return;
-    AdService.instance.showInterstitialAd(
-      onDismissed: () {
-        AudioService.preload();
-        setState(() => _isBotGame = false);
-        showDialog(
-          context: context,
-          barrierColor: Colors.black.withValues(alpha: 0.75),
-          builder: (_) => BlocProvider.value(
-            value: context.read<GameBloc>(),
-            child: _MultiplayerSheet(
-              initialRoomCode: initialRoomCode,
-              defaultUsername: _profile?.username ?? 'Player',
-            ),
-          ),
-        );
-      },
+    AudioService.preload();
+    setState(() => _isBotGame = false);
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.75),
+      builder: (_) => BlocProvider.value(
+        value: context.read<GameBloc>(),
+        child: _MultiplayerSheet(
+          initialRoomCode: initialRoomCode,
+          defaultUsername: _profile?.username ?? 'Player',
+        ),
+      ),
     );
   }
 
