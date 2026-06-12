@@ -74,9 +74,57 @@ class LobbyScreen extends StatelessWidget {
         },
         builder: (context, state) {
           if (state is! GameLobby) {
-            return const Scaffold(
-              backgroundColor: Color(0xFF050810),
-              body: Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED))),
+            return Scaffold(
+              backgroundColor: const Color(0xFF050810),
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF7C3AED),
+                        strokeWidth: 3,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      state is GameMatchmaking ? 'Searching for Match...' : 'Connecting...',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    if (state is GameMatchmaking) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Finding the best opponents for you',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      TextButton(
+                        onPressed: () {
+                          context.read<GameBloc>().add(const DisconnectRequested());
+                        },
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Color(0xFF7C3AED),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             );
           }
 
@@ -92,7 +140,7 @@ class LobbyScreen extends StatelessWidget {
             body: SafeArea(
               child: Column(
                 children: [
-                  _buildHeader(context, isHost, canStart),
+                  _buildHeader(context, isHost, canStart, gameState.isPublic),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -113,7 +161,7 @@ class LobbyScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isHost, bool canStart) {
+  Widget _buildHeader(BuildContext context, bool isHost, bool canStart, bool isPublic) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
@@ -151,7 +199,7 @@ class LobbyScreen extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          _StartGameSection(isHost: isHost, canStart: canStart),
+          _StartGameSection(isHost: isHost, canStart: canStart, isPublic: isPublic),
         ],
       ),
     );
@@ -175,11 +223,15 @@ class LobbyScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _RoomCodeSection(roomCode: gameState.roomId, myName: myName),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _OnlineFriendsSection(roomId: gameState.roomId, myName: myName),
-                ),
+                if (gameState.isPublic)
+                  const Expanded(child: _PublicMatchmakingStats())
+                else ...[
+                  _RoomCodeSection(roomCode: gameState.roomId, myName: myName),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _OnlineFriendsSection(roomId: gameState.roomId, myName: myName),
+                  ),
+                ],
               ],
             ),
           ),
@@ -209,8 +261,13 @@ class LobbyScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _RoomCodeSection(roomCode: gameState.roomId, myName: myName),
-          const SizedBox(height: 16),
+          if (gameState.isPublic) ...[
+            const SizedBox(height: 210, child: _PublicMatchmakingStats()),
+            const SizedBox(height: 16),
+          ] else ...[
+            _RoomCodeSection(roomCode: gameState.roomId, myName: myName),
+            const SizedBox(height: 16),
+          ],
           _PlayersHeader(players: players),
           const SizedBox(height: 16),
           SizedBox(
@@ -219,11 +276,13 @@ class LobbyScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _GameSettingsCard(gameState: gameState),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 350,
-            child: _OnlineFriendsSection(roomId: gameState.roomId, myName: myName),
-          ),
+          if (!gameState.isPublic) ...[
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 350,
+              child: _OnlineFriendsSection(roomId: gameState.roomId, myName: myName),
+            ),
+          ],
         ],
       ),
     );
@@ -771,7 +830,8 @@ class _SettingItem extends StatelessWidget {
 class _StartGameSection extends StatelessWidget {
   final bool isHost;
   final bool canStart;
-  const _StartGameSection({required this.isHost, required this.canStart});
+  final bool isPublic;
+  const _StartGameSection({required this.isHost, required this.canStart, this.isPublic = false});
 
   @override
   Widget build(BuildContext context) {
@@ -789,7 +849,7 @@ class _StartGameSection extends StatelessWidget {
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
         ),
-        onPressed: (isHost && canStart) ? () => context.read<GameBloc>().add(const StartGameRequested()) : null,
+        onPressed: (!isPublic && isHost && canStart) ? () => context.read<GameBloc>().add(const StartGameRequested()) : null,
         child: Ink(
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -802,14 +862,14 @@ class _StartGameSection extends StatelessWidget {
           child: Container(
             alignment: Alignment.center,
             child: Opacity(
-              opacity: (isHost && canStart) ? 1.0 : 0.5,
+              opacity: (!isPublic && isHost && canStart) ? 1.0 : 0.5,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (isHost && canStart) const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
-                  if (isHost && canStart) const SizedBox(width: 8),
+                  if (!isPublic && isHost && canStart) const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
+                  if (!isPublic && isHost && canStart) const SizedBox(width: 8),
                   Text(
-                    isHost ? 'START GAME' : 'WAITING FOR HOST TO START...',
+                    isPublic ? 'WAITING FOR PLAYERS...' : (isHost ? 'START GAME' : 'WAITING FOR HOST TO START...'),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: isHost ? 14 : 10,
@@ -827,3 +887,166 @@ class _StartGameSection extends StatelessWidget {
     );
   }
 }
+
+// ─── Public Matchmaking Stats ────────────────────────────────────────────────
+
+class _PublicMatchmakingStats extends StatefulWidget {
+  const _PublicMatchmakingStats();
+
+  @override
+  State<_PublicMatchmakingStats> createState() => _PublicMatchmakingStatsState();
+}
+
+class _PublicMatchmakingStatsState extends State<_PublicMatchmakingStats> with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  int _baseOnlineCount = getSimulatedOnlineCount();
+  int _onlineCount = getSimulatedOnlineCount();
+  int _activeGames = (getSimulatedOnlineCount() / 4).floor() + 12;
+  int _elapsedSeconds = 0;
+  Timer? _pollingTimer;
+  Timer? _waitTimer;
+  Timer? _fluctuationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        setState(() {
+          _baseOnlineCount = getSimulatedOnlineCount();
+        });
+      }
+    });
+
+    // Fluctuate the numbers every 3 seconds to make them look live
+    _fluctuationTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
+        setState(() {
+          // Slight random fluctuation between -2 and +3
+          int change = (DateTime.now().millisecondsSinceEpoch % 6) - 2;
+          _onlineCount = _baseOnlineCount + change;
+          if (_onlineCount < 100) _onlineCount = 100;
+          
+          // Slight fluctuation for active games
+          int gamesChange = (DateTime.now().millisecondsSinceEpoch % 3) - 1;
+          _activeGames += gamesChange;
+          if (_activeGames < 20) _activeGames = 20;
+        });
+      }
+    });
+
+    _waitTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _elapsedSeconds++;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _pollingTimer?.cancel();
+    _waitTimer?.cancel();
+    _fluctuationTimer?.cancel();
+    super.dispose();
+  }
+
+  String _formatTime(int seconds) {
+    if (seconds < 60) return '${seconds}s';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '${m}m ${s}s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0F1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3B82F6).withValues(alpha: 0.05),
+            blurRadius: 15,
+            spreadRadius: 3,
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                ScaleTransition(
+                  scale: Tween<double>(begin: 0.8, end: 1.2).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut)),
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                    ),
+                  ),
+                ),
+                ScaleTransition(
+                  scale: Tween<double>(begin: 0.9, end: 1.1).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut)),
+                  child: Container(
+                    width: 35,
+                    height: 35,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF3B82F6).withValues(alpha: 0.2),
+                    ),
+                  ),
+                ),
+                const Icon(Icons.public, color: Color(0xFF60A5FA), size: 24),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'MATCHMAKING',
+              style: TextStyle(color: Color(0xFF60A5FA), fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 2),
+            ),
+            const SizedBox(height: 12),
+            _buildStatRow(Icons.timer_outlined, 'Elapsed Wait', _formatTime(_elapsedSeconds)),
+            const SizedBox(height: 6),
+            _buildStatRow(Icons.access_time_filled, 'Avg Wait', '~15s'),
+            const SizedBox(height: 6),
+            _buildStatRow(Icons.group, 'Online Players', '$_onlineCount'),
+            const SizedBox(height: 6),
+            _buildStatRow(Icons.videogame_asset, 'Active Matches', '$_activeGames'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow(IconData icon, String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: Colors.white54, size: 14),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          ],
+        ),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+}
+

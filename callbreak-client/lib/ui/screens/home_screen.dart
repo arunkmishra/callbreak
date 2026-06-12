@@ -29,7 +29,21 @@ import 'rank_screen.dart';
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 
+
+/// Returns a simulated "players online" count based on time of day.
+/// Oscillates 150–450 using a sine curve keyed to IST hour, with ±15 jitter.
+int getSimulatedOnlineCount() {
+  final now = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
+  final hour = now.hour + now.minute / 60.0;
+  // Peak at ~21:00 IST (evening), trough at ~05:00 IST (dawn)
+  final sinValue = math.sin((hour - 5) * math.pi / 16.0);
+  final base = (300 + 150 * sinValue).round(); // 150..450 range
+  final jitter = (math.Random().nextInt(31) - 15); // -15..+15
+  return (base + jitter).clamp(100, 500);
+}
+
 class HomeScreen extends StatefulWidget {
+
   const HomeScreen({super.key});
 
   @override
@@ -54,6 +68,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   int _selectedNavIndex = 0;
 
+  int _simulatedOnlineCount = getSimulatedOnlineCount();
+  Timer? _counterTimer;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +93,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _fetchOnlineUsers();
     _onlineTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       _fetchOnlineUsers();
+    });
+
+    _counterTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() => _simulatedOnlineCount = getSimulatedOnlineCount());
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -233,6 +254,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Quick Play: 3-round bot game, no sheet ────────────────────────────────
+  void _startPlayOnline(BuildContext context) {
+    AudioService.preload();
+    setState(() => _isBotGame = false);
+    final username = _profile?.username ?? 'Player';
+    context.read<GameBloc>().add(FindMatchRequested(username));
+  }
+
   void _startQuickPlay(BuildContext context) {
     AudioService.preload();
     setState(() => _isBotGame = true);
@@ -296,7 +324,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return BlocConsumer<GameBloc, GameBlocState>(
       listener: (context, state) {
-        if (state is GameLobby) {
+        if (state is GameMatchmaking) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LobbyScreen()),
+            (route) => false,
+          );
+        } else if (state is GameLobby) {
           if (_isBotGame) {
             context.read<GameBloc>().add(const StartGameRequested());
           } else {
@@ -907,7 +940,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '1,248 Players Online',
+                          '$_simulatedOnlineCount Players Online',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.55),
                             fontSize: 11,
@@ -987,10 +1020,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             borderColor: const Color(0xFF60A5FA),
             title: 'PLAY ONLINE',
             subtitle: 'Compete with players\naround the world',
-            badge: 'Coming Soon',
+            badge: 'Play Now',
             badgeColor: const Color(0xFF60A5FA),
-            comingSoon: true,
-            onTap: () => _showComingSoon(context, 'Play Online'),
+            comingSoon: false,
+            onTap: () => _startPlayOnline(context),
           ),
         ),
         const SizedBox(width: 12),
@@ -1580,44 +1613,50 @@ class _ModeTileState extends State<_ModeTile>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Icon
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: widget.iconColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: widget.iconColor.withValues(alpha: 0.25),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Icon
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: widget.iconColor.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: widget.iconColor.withValues(alpha: 0.25),
+                                ),
+                              ),
+                              child: Icon(widget.icon, color: widget.iconColor, size: 28),
                             ),
-                          ),
-                child: Icon(widget.icon, color: widget.iconColor, size: 20),
-              ),
-              // Title
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    widget.subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 9,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-              // Badge / action
+                            const SizedBox(width: 12),
+                            // Title & Subtitle
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.subtitle,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.4),
+                                    fontSize: 10,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        // Badge / action
               Row(
                 children: [
                   if (widget.comingSoon)

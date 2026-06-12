@@ -22,6 +22,11 @@ class GameLoading extends GameBlocState {
   const GameLoading();
 }
 
+/// The player is searching for a match.
+class GameMatchmaking extends GameBlocState {
+  const GameMatchmaking();
+}
+
 /// An error occurred (network, server, or validation).
 class GameError extends GameBlocState {
   final String message;

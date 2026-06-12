@@ -57,7 +57,15 @@ object SupabaseService {
      * @param originalRealPlayerIds The players who are eligible for leaderboard updates.
      */
     suspend fun calculateEloChangesForState(state: CallbreakState, originalRealPlayerIds: Set<String>): CallbreakState {
-        if (originalRealPlayerIds.size < 2) return state
+        if (originalRealPlayerIds.size < 2) {
+            return state.copy(players = state.players.map { p ->
+                if (p.id in originalRealPlayerIds) {
+                    p.copy(rpChange = 2)
+                } else {
+                    p.copy(rpChange = 0)
+                }
+            })
+        }
         
         try {
             val idsQuery = originalRealPlayerIds.joinToString(",") { "\"$it\"" }
@@ -87,9 +95,23 @@ object SupabaseService {
             val rpChanges = com.akm.callbreak.domain.rules.EloCalculator.calculateEloChanges(state.players, currentRps)
             
             return state.copy(players = state.players.map { p ->
+                val baseChange = rpChanges[p.id] ?: 0
+                
+                var finalChange = baseChange
+                if (p.hasAbandoned) {
+                    finalChange = -5
+                } else {
+                    val staticBonus = if (p.rank == 1 || p.rank == 2) 2 else 1
+                    finalChange += staticBonus
+                    
+                    if (p.rank == 1 || p.rank == 2) {
+                        finalChange = maxOf(0, finalChange)
+                    }
+                }
+
                 p.copy(
                     currentRp = currentRps[p.id] ?: 1000,
-                    rpChange = rpChanges[p.id]
+                    rpChange = finalChange
                 )
             })
             
@@ -99,9 +121,24 @@ object SupabaseService {
         }
     }
 
-    suspend fun saveMatchResultsWithElo(
+    suspend fun saveOfflineMatchResults(
         state: CallbreakState,
         originalRealPlayerIds: Set<PlayerId>
+    ) {
+        val updatedState = state.copy(players = state.players.map { p ->
+            if (p.id in originalRealPlayerIds) {
+                p.copy(rpChange = 2)
+            } else {
+                p.copy(rpChange = 0)
+            }
+        })
+        saveMatchResultsWithElo(updatedState, originalRealPlayerIds, skipEloCalc = true)
+    }
+
+    suspend fun saveMatchResultsWithElo(
+        state: CallbreakState,
+        originalRealPlayerIds: Set<PlayerId>,
+        skipEloCalc: Boolean = false
     ) {
         try {
             // 1. Fetch current profiles for real players to check existence

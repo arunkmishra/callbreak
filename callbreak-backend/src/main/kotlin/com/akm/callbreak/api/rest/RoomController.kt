@@ -1,5 +1,6 @@
 package com.akm.callbreak.api.rest
 
+import com.akm.callbreak.services.MatchmakingService
 import com.akm.callbreak.room.GameRoomManager
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -69,6 +70,58 @@ fun Route.roomRoutes() {
                         call.respond(HttpStatusCode.BadRequest, ApiError(error.message ?: "Join failed"))
                     }
                 )
+        }
+        /**
+         * POST /api/rooms/find-match
+         */
+        post("/find-match") {
+            val request = runCatching { call.receive<FindMatchRequest>() }.getOrElse {
+                call.respond(HttpStatusCode.BadRequest, ApiError("Invalid request body"))
+                return@post
+            }
+            if (request.playerName.isBlank()) {
+                call.respond(HttpStatusCode.BadRequest, ApiError("playerName must not be blank"))
+                return@post
+            }
+
+            val existingRoom = GameRoomManager.findPublicLobby()
+            if (existingRoom != null) {
+                // Join existing public lobby
+                val state = existingRoom.getState()
+                GameRoomManager.joinRoom(state.roomId, request.playerName.trim(), request.playerId)
+                    .fold(
+                        onSuccess = { (playerId, sessionToken) ->
+                            logger.info("✅ POST /api/rooms/find-match — '${request.playerName.trim()}' joined existing room '${state.roomId}'")
+                            call.respond(HttpStatusCode.OK, FindMatchResponse(state.roomId, playerId, sessionToken))
+                        },
+                        onFailure = { error ->
+                            logger.info("⚠️ POST /api/rooms/find-match — join failed (${error.message}), creating new room")
+                            val (roomId, playerId, sessionToken) = GameRoomManager.createRoom(
+                                playerName = request.playerName.trim(),
+                                playerId = request.playerId,
+                                isPublic = true,
+                                minBid = 2,
+                                greedPenalty = true,
+                                allowCustomTrump = true,
+                            )
+                            MatchmakingService.startBackfill(roomId)
+                            call.respond(HttpStatusCode.Created, FindMatchResponse(roomId, playerId, sessionToken))
+                        }
+                    )
+            } else {
+                // No public lobby available — create a new one
+                val (roomId, playerId, sessionToken) = GameRoomManager.createRoom(
+                    playerName = request.playerName.trim(),
+                    playerId = request.playerId,
+                    isPublic = true,
+                    minBid = 2,
+                    greedPenalty = true,
+                    allowCustomTrump = true,
+                )
+                logger.info("✅ POST /api/rooms/find-match — '${request.playerName.trim()}' created new public room '$roomId'")
+                MatchmakingService.startBackfill(roomId)
+                call.respond(HttpStatusCode.Created, FindMatchResponse(roomId, playerId, sessionToken))
+            }
         }
     }
 }

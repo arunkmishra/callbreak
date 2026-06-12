@@ -56,6 +56,29 @@ data class JoinRoomResponse(
     val sessionToken: String,
 )
 
+// ─── Find Match ──────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/rooms/find-match
+ *
+ * Body: { "playerName": "Alice" }
+ */
+@Serializable
+data class FindMatchRequest(
+    val playerName: String,
+    val playerId: String? = null,
+)
+
+/**
+ * Response: { "roomId": "ABCDE", "playerId": "uuid", "sessionToken": "uuid" }
+ */
+@Serializable
+data class FindMatchResponse(
+    val roomId: String,
+    val playerId: String,
+    val sessionToken: String,
+)
+
 // ─── Error ───────────────────────────────────────────────────────────────────
 
 /** Generic REST error body. */

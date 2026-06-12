@@ -51,23 +51,25 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: const Color(0xFF080B14),
       body: Center(
-        child: FadeTransition(
-          opacity: _animation,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                'assets/app_logo.png',
-                width: 280,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  // Fallback until user saves the image
-                  return const Icon(Icons.casino, color: AppColors.gold, size: 120);
-                },
-              ),
-              const SizedBox(height: 32),
-              const CircularProgressIndicator(color: AppColors.gold),
-            ],
+        child: SingleChildScrollView(
+          child: FadeTransition(
+            opacity: _animation,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/app_logo.png',
+                  width: 280,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    // Fallback until user saves the image
+                    return const Icon(Icons.casino, color: AppColors.gold, size: 120);
+                  },
+                ),
+                const SizedBox(height: 32),
+                const CircularProgressIndicator(color: AppColors.gold),
+              ],
+            ),
           ),
         ),
       ),

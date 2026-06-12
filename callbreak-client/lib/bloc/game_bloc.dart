@@ -50,6 +50,7 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
         super(const GameInitial()) {
     on<CreateRoomRequested>(_onCreateRoom);
     on<JoinRoomRequested>(_onJoinRoom);
+    on<FindMatchRequested>(_onFindMatch);
     on<ConnectToRoom>(_onConnectToRoom);
     on<AppResumed>(_onAppResumed);
     on<ReconnectStatusChanged>(_onReconnectStatusChanged);
@@ -183,6 +184,32 @@ class GameBloc extends Bloc<GameEvent, GameBlocState> with WidgetsBindingObserve
       emit(GameError(e.message));
     } catch (e) {
       emit(GameError('Failed to join room: $e'));
+    }
+  }
+
+  Future<void> _onFindMatch(
+    FindMatchRequested event,
+    Emitter<GameBlocState> emit,
+  ) async {
+    _cleanUp();
+    _sessionStorage.clear();
+    _myPlayerName = event.playerName;
+
+    emit(const GameMatchmaking());
+    try {
+      final supabaseId = Supabase.instance.client.auth.currentUser?.id;
+      final result = await _apiRepository.findMatch(event.playerName, supabaseId);
+      _myPlayerId = result.playerId;
+      await _sessionStorage.save(
+        roomId: result.roomId,
+        playerId: result.playerId,
+        sessionToken: result.sessionToken,
+      );
+      add(ConnectToRoom(result.roomId, result.playerId, result.sessionToken));
+    } on ApiException catch (e) {
+      emit(GameError(e.message));
+    } catch (e) {
+      emit(GameError('Failed to find match: $e'));
     }
   }
 

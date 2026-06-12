@@ -83,6 +83,33 @@ class ApiRepository {
     );
   }
 
+  /// POST /api/rooms/find-match
+  ///
+  /// Finds or creates a public matchmaking room.
+  /// Throws [ApiException] on non-2xx response or network error.
+  Future<RoomJoinResult> findMatch(String playerName, String? playerId) async {
+    final body = <String, dynamic>{
+      'playerName': playerName,
+    };
+    if (playerId != null) {
+      body['playerId'] = playerId;
+    }
+
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/rooms/find-match'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+
+    _assertSuccess(response, 'Find match');
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return RoomJoinResult(
+      roomId: json['roomId'] as String,
+      playerId: json['playerId'] as String,
+      sessionToken: json['sessionToken'] as String,
+    );
+  }
+
   void _assertSuccess(http.Response response, String operation) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       String message = '$operation failed (${response.statusCode})';

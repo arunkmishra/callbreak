@@ -61,6 +61,7 @@ data class GameStateDto(
     val trumpBidState: com.akm.callbreak.domain.models.TrumpBidState?,
     val roundScores: List<Map<PlayerId, Double>>,
     val turnEndTime: Long?,
+    val isPublic: Boolean,
 )
 
 @Serializable

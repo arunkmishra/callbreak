@@ -27,7 +27,7 @@ fun toDto(state: CallbreakState, requestingPlayerId: PlayerId): GameStateDto =
                 cardCount = state.hands[p.id]?.size ?: p.cardCount,
                 cumulativeScore = p.cumulativeScore,
                 isOnline = p.isOnline,
-                isBot = p.isBot,
+                isBot = p.isBot && !p.id.startsWith("shadow_"),
                 rank = p.rank,
                 currentRp = p.currentRp,
                 rpChange = p.rpChange,
@@ -49,4 +49,5 @@ fun toDto(state: CallbreakState, requestingPlayerId: PlayerId): GameStateDto =
         trumpBidState = state.trumpBidState,
         roundScores = state.roundScores,
         turnEndTime = state.turnEndTime,
+        isPublic = state.isPublic,
     )

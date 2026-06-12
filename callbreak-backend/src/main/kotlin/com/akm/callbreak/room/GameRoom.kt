@@ -122,11 +122,11 @@ class GameRoom(initialState: CallbreakState) {
             sessions.remove(playerId)
             logger.info("🔌 [Room ${state.roomId}] Session removed for player $playerId (phase=${state.phase})")
 
-            // If the game is active (not LOBBY and not GAME_OVER), mark player offline
+            // If the game is active (not LOBBY and not GAME_OVER), mark player offline and abandoned
             if (state.phase != GamePhase.LOBBY && state.phase != GamePhase.GAME_OVER) {
                 state = state.copy(
                     players = state.players.map { p ->
-                        if (p.id == playerId) p.copy(isOnline = false) else p
+                        if (p.id == playerId) p.copy(isOnline = false, hasAbandoned = true) else p
                     }
                 )
 
@@ -899,9 +899,10 @@ class GameRoom(initialState: CallbreakState) {
 
             if (realPlayerCount < 2) {
                 logger.info(
-                    "⏭️  [Room ${finalState.roomId}] Skipping leaderboard update — only $realPlayerCount real player(s) " +
-                    "participated (need ≥ 2). originalRealPlayerIds=$originalRealPlayerIds"
+                    "⏭️  [Room ${finalState.roomId}] Saving offline match results — only $realPlayerCount real player(s) " +
+                    "participated. originalRealPlayerIds=$originalRealPlayerIds"
                 )
+                SupabaseService.saveOfflineMatchResults(finalState, originalRealPlayerIds)
                 return@launch
             }
 

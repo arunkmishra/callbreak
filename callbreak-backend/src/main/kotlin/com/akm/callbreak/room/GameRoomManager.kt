@@ -36,7 +36,8 @@ object GameRoomManager {
         minBid: Int? = null,
         greedPenalty: Boolean = false,
         allowCustomTrump: Boolean = false,
-        playerId: String? = null
+        playerId: String? = null,
+        isPublic: Boolean = false
     ): Triple<String, String, String> {
         val roomId = generateUniqueRoomId()
         val finalPlayerId = playerId ?: UUID.randomUUID().toString()
@@ -48,7 +49,8 @@ object GameRoomManager {
             totalRounds = totalRounds,
             minBid = minBid,
             greedPenalty = greedPenalty,
-            allowCustomTrump = allowCustomTrump
+            allowCustomTrump = allowCustomTrump,
+            isPublic = isPublic
         )
         val room = GameRoom(initialState)
         room.registerSessionToken(finalPlayerId, sessionToken)
@@ -126,6 +128,15 @@ object GameRoomManager {
     fun getRoom(roomId: String): GameRoom? = rooms[roomId.uppercase()]
 
     fun roomExists(roomId: String): Boolean = rooms.containsKey(roomId.uppercase())
+
+    /**
+     * Returns the first public lobby that still has room for more players,
+     * or `null` if none exists.
+     */
+    fun findPublicLobby(): GameRoom? = rooms.values.firstOrNull { room ->
+        val state = room.getState()
+        state.isPublic && state.phase == GamePhase.LOBBY && state.players.size < CallbreakState.PLAYERS_REQUIRED
+    }
 
     // ─── Cleanup ─────────────────────────────────────────────────────────────
 

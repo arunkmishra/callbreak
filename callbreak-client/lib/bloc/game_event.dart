@@ -34,6 +34,15 @@ class JoinRoomRequested extends GameEvent {
   List<Object?> get props => [roomId, playerName];
 }
 
+/// User taps "Play Online" to find a public match.
+class FindMatchRequested extends GameEvent {
+  final String playerName;
+  const FindMatchRequested(this.playerName);
+
+  @override
+  List<Object?> get props => [playerName];
+}
+
 // ─── WebSocket Lifecycle ─────────────────────────────────────────────────────
 
 /// Triggered internally when the WS connection is established.

@@ -27,4 +27,5 @@ data class Player(
     val consecutiveBotMoves: Int = 0,
     val currentRp: Int? = null,
     val rpChange: Int? = null,
+    val hasAbandoned: Boolean = false
 )
