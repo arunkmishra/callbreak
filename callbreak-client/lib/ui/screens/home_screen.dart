@@ -2036,6 +2036,9 @@ class _BotGameSheet extends StatefulWidget {
 class _BotGameSheetState extends State<_BotGameSheet> {
   final _formKey = GlobalKey<FormState>();
   int _rounds = 5;
+  int? _minBid = 1;
+  bool _greedPenalty = false;
+  bool _allowCustomTrump = false;
   late String _username;
 
   @override
@@ -2102,30 +2105,115 @@ class _BotGameSheetState extends State<_BotGameSheet> {
                   ),
                   const SizedBox(height: 28),
 
-                  // Rounds picker
-                  DropdownButtonFormField<int>(
-                    initialValue: _rounds,
-                    decoration: const InputDecoration(
-                      labelText: 'Number of Rounds',
-                      prefixIcon: Icon(Icons.loop_outlined,
-                          color: Color(0xFFFB923C)),
+                  // Section: GAME SETTINGS
+                  const Text(
+                    'GAME SETTINGS',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
                     ),
-                    dropdownColor: AppColors.surfaceElevated,
-                    style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 16),
-                    items: const [
-                      DropdownMenuItem(value: 1, child: Text('1 Round  ·  Quick')),
-                      DropdownMenuItem(value: 3, child: Text('3 Rounds  ·  Short')),
-                      DropdownMenuItem(value: 5, child: Text('5 Rounds  ·  Standard')),
-                      DropdownMenuItem(value: 10, child: Text('10 Rounds  ·  Marathon')),
-                    ],
-                    onChanged: isLoading
-                        ? null
-                        : (v) {
-                            if (v != null) setState(() => _rounds = v);
-                          },
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 12),
+                  
+                  _SettingsRow(
+                    icon: Icons.sync_rounded,
+                    iconColor: const Color(0xFFFB923C), // Orange
+                    title: 'Match Duration',
+                    subtitle: 'Choose number of rounds and game type',
+                    trailing: _CustomDropdown<int>(
+                      value: _rounds,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('1 Round · Quick')),
+                        DropdownMenuItem(value: 3, child: Text('3 Rounds · Short')),
+                        DropdownMenuItem(value: 5, child: Text('5 Rounds · Standard')),
+                        DropdownMenuItem(value: 10, child: Text('10 Rounds · Marathon')),
+                      ],
+                      onChanged: isLoading
+                          ? null
+                          : (v) {
+                              if (v != null) setState(() => _rounds = v);
+                            },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  _SettingsRow(
+                    icon: Icons.arrow_upward_rounded,
+                    iconColor: const Color(0xFFFB923C), // Orange
+                    title: 'Minimum Bid',
+                    subtitle: 'Set minimum bid required to play',
+                    trailing: _CustomDropdown<int?>(
+                      value: _minBid,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('None')),
+                        DropdownMenuItem(value: 1, child: Text('1 Bid (Default)')),
+                        DropdownMenuItem(value: 2, child: Text('2 Bids')),
+                        DropdownMenuItem(value: 3, child: Text('3 Bids')),
+                      ],
+                      onChanged: isLoading
+                          ? null
+                          : (v) {
+                              setState(() => _minBid = v);
+                            },
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Section: ADVANCED OPTIONS
+                  const Text(
+                    'ADVANCED OPTIONS',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  _SettingsRow(
+                    icon: Icons.balance_rounded,
+                    iconColor: const Color(0xFF9333EA), // Purple
+                    title: 'Greed Penalty',
+                    subtitle: '0 points if player wins 2x their bid',
+                    trailing: Switch(
+                      value: _greedPenalty,
+                      onChanged: isLoading
+                          ? null
+                          : (v) {
+                              setState(() => _greedPenalty = v);
+                            },
+                      activeColor: Colors.white,
+                      activeTrackColor: const Color(0xFFFB923C), // Orange track
+                      inactiveThumbColor: Colors.white70,
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  _SettingsRow(
+                    icon: Icons.style_rounded,
+                    iconColor: const Color(0xFF9333EA), // Purple
+                    title: 'Dynamic Trump Rules',
+                    subtitle: 'Split deal & dynamic trump suit selection',
+                    trailing: Switch(
+                      value: _allowCustomTrump,
+                      onChanged: isLoading
+                          ? null
+                          : (v) {
+                              setState(() => _allowCustomTrump = v);
+                            },
+                      activeColor: Colors.white,
+                      activeTrackColor: const Color(0xFFFB923C), // Orange track
+                      inactiveThumbColor: Colors.white70,
+                      inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
 
                   // Start button
                   ElevatedButton.icon(
@@ -2165,9 +2253,13 @@ class _BotGameSheetState extends State<_BotGameSheet> {
 
   void _startGame() {
     if (!_formKey.currentState!.validate()) return;
-    context
-        .read<GameBloc>()
-        .add(CreateRoomRequested(_username, totalRounds: _rounds));
+    context.read<GameBloc>().add(CreateRoomRequested(
+          _username,
+          totalRounds: _rounds,
+          minBid: _minBid,
+          greedPenalty: _greedPenalty,
+          allowCustomTrump: _allowCustomTrump,
+        ));
   }
 }
 
