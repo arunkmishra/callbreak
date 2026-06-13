@@ -35,9 +35,10 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
 
       final offset = (_currentPage - 1) * _limit;
       final response = await _supabase
-          .from('user_match_records')
-          .select('match_id(*)')
-          .eq('user_id', user.id)
+          .from('match_scorecards')
+          .select('*, user_match_records!inner(user_id)')
+          .eq('user_match_records.user_id', user.id)
+          .order('played_at', ascending: _sort == MatchSort.oldest)
           .range(offset, offset + _limit - 1)
           .count(CountOption.exact);
 
@@ -45,17 +46,8 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
 
       final List<Map<String, dynamic>> fetched = [];
       for (var row in response.data as List<dynamic>) {
-        if (row['match_id'] != null) {
-          fetched.add(row['match_id'] as Map<String, dynamic>);
-        }
+        fetched.add(row as Map<String, dynamic>);
       }
-
-      // Sort current page
-      fetched.sort((a, b) {
-        final dateA = a['played_at'] != null ? DateTime.parse(a['played_at'].toString()) : DateTime.fromMillisecondsSinceEpoch(0);
-        final dateB = b['played_at'] != null ? DateTime.parse(b['played_at'].toString()) : DateTime.fromMillisecondsSinceEpoch(0);
-        return _sort == MatchSort.newest ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
-      });
 
       setState(() {
         _history = fetched;

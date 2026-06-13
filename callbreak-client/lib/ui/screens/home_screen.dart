@@ -610,20 +610,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   value: '0',
                   onTap: () => _showComingSoon(context, 'Coins'),
                 ),
-                const SizedBox(width: 8),
-                _CurrencyBadge(
-                  icon: Icons.diamond_outlined,
-                  iconColor: const Color(0xFF60A5FA),
-                  value: '0',
-                  onTap: () => _showComingSoon(context, 'Diamonds'),
-                ),
                 const SizedBox(width: 10),
-                _TopBarIcon(
-                  icon: Icons.mail_outline_rounded,
-                  badge: 0,
-                  onTap: () => _showComingSoon(context, 'Messages'),
-                ),
-                const SizedBox(width: 4),
                 _TopBarIcon(
                   icon: Icons.notifications_outlined,
                   badge: 0,
@@ -898,110 +885,129 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'QUICK PLAY',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
+                child: SizedBox(
+                  width: 380,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // QUICK PLAY Title
+                          const Text(
+                            'QUICK PLAY',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          // Message on the right
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Play a fast 3-round match\nagainst AI bots',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    fontSize: 11,
+                                    height: 1.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Color(0xFF60A5FA),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Color(0x6660A5FA),
+                                            blurRadius: 6,
+                                            spreadRadius: 1,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '$_simulatedOnlineCount Players Online',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.55),
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Join thousands of players\nin a quick match',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFF22C55E),
+                      const SizedBox(height: 12),
+                      // PLAY NOW button
+                      GestureDetector(
+                        onTap: isLoading ? null : () => _startQuickPlay(context),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
-                                color: Color(0x6622C55E),
-                                blurRadius: 6,
-                                spreadRadius: 1,
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '$_simulatedOnlineCount Players Online',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            fontSize: 11,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isLoading)
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else ...[
+                                const Text(
+                                  'PLAY NOW',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(Icons.arrow_forward_rounded,
+                                    color: Colors.white, size: 16),
+                              ],
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    // PLAY NOW button
-                    GestureDetector(
-                      onTap: isLoading ? null : () => _startQuickPlay(context),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF2563EB).withValues(alpha: 0.4),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isLoading)
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          else ...[
-                            const Text(
-                              'PLAY NOW',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.arrow_forward_rounded,
-                                color: Colors.white, size: 16),
-                          ],
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
           ),
         ),
       ],
@@ -1023,6 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             badge: 'Play Now',
             badgeColor: const Color(0xFF60A5FA),
             comingSoon: false,
+            onlineCount: _simulatedOnlineCount,
             onTap: () => _startPlayOnline(context),
           ),
         ),
@@ -1539,6 +1546,7 @@ class _ModeTile extends StatefulWidget {
   final Color badgeColor;
   final bool comingSoon;
   final VoidCallback onTap;
+  final int? onlineCount;
 
   const _ModeTile({
     required this.icon,
@@ -1551,6 +1559,7 @@ class _ModeTile extends StatefulWidget {
     required this.badgeColor,
     required this.comingSoon,
     required this.onTap,
+    this.onlineCount,
   });
 
   @override
@@ -1652,6 +1661,37 @@ class _ModeTileState extends State<_ModeTile>
                                     height: 1.3,
                                   ),
                                 ),
+                                if (widget.onlineCount != null) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Color(0xFF22C55E),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Color(0x6622C55E),
+                                              blurRadius: 4,
+                                              spreadRadius: 1,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${widget.onlineCount} Players Online',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.55),
+                                          fontSize: 9,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
                           ],

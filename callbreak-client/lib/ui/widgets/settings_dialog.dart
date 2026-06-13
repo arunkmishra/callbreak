@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../bloc/settings_cubit.dart';
 import '../../core/theme.dart';
@@ -567,6 +568,24 @@ class _AboutPageState extends State<_AboutPage> {
   bool _showTerms = false;
   bool _showLicense = false;
   bool _showPrivacy = false;
+  String _appVersion = 'Loading...';
+  String _buildNumber = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackageInfo();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = info.version;
+        _buildNumber = info.buildNumber;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -601,8 +620,8 @@ class _AboutPageState extends State<_AboutPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              _infoRow('Version', SocketRepository.APP_PROTOCOL_VERSION.toString()),
-              _infoRow('Build', 'Release'),
+              _infoRow('Version', _appVersion),
+              _infoRow('Build', _buildNumber.isNotEmpty ? _buildNumber : 'Release'),
             ],
           ),
         ),
