@@ -30,6 +30,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   bool _isLoadingFriends = true;
   bool _isLoadingRequests = true;
   bool _isSearching = false;
+  bool _isSearchVisible = false;
 
   List<Friendship> _friends = [];
   List<Friendship> _requests = [];
@@ -263,7 +264,12 @@ class _FriendsScreenState extends State<FriendsScreen>
         child: Column(
           children: [
             _buildHeader(context),
-            _buildSearchBar(),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: _isSearchVisible ? _buildSearchBar() : const SizedBox.shrink(),
+            ),
             _buildTabBar(),
             Expanded(
               child: _searchQuery.isEmpty
@@ -328,7 +334,19 @@ class _FriendsScreenState extends State<FriendsScreen>
 
           // Add Friend Button
           InkWell(
-            onTap: () => _searchFocus.requestFocus(),
+            onTap: () {
+              setState(() {
+                _isSearchVisible = !_isSearchVisible;
+                if (_isSearchVisible) {
+                  _searchFocus.requestFocus();
+                } else {
+                  _searchFocus.unfocus();
+                  _searchController.clear();
+                  _searchQuery = '';
+                  _searchResults = [];
+                }
+              });
+            },
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

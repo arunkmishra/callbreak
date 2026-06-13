@@ -205,14 +205,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         inviterName: inviterName,
         roomId: roomId,
         onDecline: () {
-          if (Navigator.of(ctx).canPop()) {
-            Navigator.of(ctx).pop();
-          }
+          Navigator.of(ctx).pop();
         },
         onAccept: () async {
-          if (Navigator.of(ctx).canPop()) {
-            Navigator.of(ctx).pop();
-          }
+          Navigator.of(ctx).pop();
           final profile = await SupabaseRepository().getMyProfile();
           final playerName = profile?.username ?? 'Player';
           if (mounted) {
@@ -919,35 +915,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                     height: 1.3,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 7,
-                                      height: 7,
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Color(0xFF60A5FA),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Color(0x6660A5FA),
-                                            blurRadius: 6,
-                                            spreadRadius: 1,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '$_simulatedOnlineCount Players Online',
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.55),
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+
                               ],
                             ),
                           ),

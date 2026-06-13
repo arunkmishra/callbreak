@@ -57,9 +57,9 @@ class _RankScreenState extends State<RankScreen> {
           content: const Text(
             'Rank Points (RP) represent your skill level.\n\n'
             'How to earn RP:\n'
-            '• Practice & Quick Play: +2 RP for finishing.\n'
+            '• Practice & Quick Play: +2 RP for finishing (3+ rounds).\n'
             '• Online Matches: Dynamic rating + 4 RP for finishing.\n'
-            '• Private Matches: Dynamic rating + 1 RP (+2 RP if 1st or 2nd).\n\n'
+            '• Private Matches: Dynamic rating + 1 RP (+2 RP if 1st or 2nd) (3+ rounds).\n\n'
             'Warning: Abandoning a multiplayer match incurs a -5 RP penalty!\n\n'
             'Outsmart your opponents to reach the prestigious Grandmaster tier!',
             style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),

@@ -44,7 +44,7 @@ class _GameInviteDialogState extends State<GameInviteDialog> with SingleTickerPr
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
+      if (_remainingSeconds > 1) {
         if (mounted) setState(() => _remainingSeconds--);
       } else {
         _timer?.cancel();

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme.dart';
+import '../../data/repositories/supabase_repository.dart';
+import 'profile_screen.dart';
 
 // ─── Data Model ───────────────────────────────────────────────────────────────
 
@@ -522,8 +524,24 @@ class _LeaderboardRow extends StatelessWidget {
               width: isTop3 ? 1.5 : 1.0,
             ),
           ),
-          child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: InkWell(
+            onTap: () {
+              final profile = UserProfile(
+                id: entry.id,
+                username: entry.username,
+                totalWins: entry.totalWins,
+                totalGames: entry.totalGames,
+                totalScore: entry.totalScore,
+                rankPoints: entry.rankPoints,
+              );
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ProfileScreen(userProfile: profile)),
+              );
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
             // ── Rank badge / number ────────────────────────────────────
@@ -599,6 +617,7 @@ class _LeaderboardRow extends StatelessWidget {
         ),
       ),
     ),
+      ),
       ),
     );
   }

@@ -1169,10 +1169,10 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
 
-              // ── Emoticon button (bottom-left) + flying overlay ────────────
+              // ── Emoticon button (right-side) + flying overlay ────────────
               Positioned(
-                left: 10,
-                bottom: 108,
+                right: 110,
+                bottom: 150,
                 child: _EmoticonButton(
                   accentColor: schemeAccent,
                   onTap: () {
@@ -2168,8 +2168,8 @@ class _EmoticonButtonState extends State<_EmoticonButton>
     return GestureDetector(
       onTap: _handleTap,
       child: SizedBox(
-        width: 42,
-        height: 42,
+        width: 56,
+        height: 56,
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -2178,11 +2178,11 @@ class _EmoticonButtonState extends State<_EmoticonButton>
               AnimatedBuilder(
                 animation: _cooldown,
                 builder: (_, __) => SizedBox(
-                  width: 42,
-                  height: 42,
+                  width: 56,
+                  height: 56,
                   child: CircularProgressIndicator(
                     value: 1 - _cooldown.value,
-                    strokeWidth: 2.5,
+                    strokeWidth: 3.5,
                     color: accent,
                     backgroundColor: accent.withValues(alpha: 0.15),
                   ),
@@ -2192,8 +2192,8 @@ class _EmoticonButtonState extends State<_EmoticonButton>
             // Button body
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 34,
-              height: 34,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 color: enabled
                     ? Colors.black.withValues(alpha: 0.55)
@@ -2221,11 +2221,11 @@ class _EmoticonButtonState extends State<_EmoticonButton>
                         '$_remaining',
                         style: TextStyle(
                           color: accent,
-                          fontSize: 13,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       )
-                    : const Text('😊', style: TextStyle(fontSize: 16)),
+                    : const Text('😊', style: TextStyle(fontSize: 22)),
               ),
             ),
           ],

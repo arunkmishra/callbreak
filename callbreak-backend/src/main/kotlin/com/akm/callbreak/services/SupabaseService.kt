@@ -60,7 +60,8 @@ object SupabaseService {
         if (originalRealPlayerIds.size < 2) {
             return state.copy(players = state.players.map { p ->
                 if (p.id in originalRealPlayerIds) {
-                    p.copy(rpChange = 2)
+                    val earnedRp = if (!state.isPublic && state.totalRounds < 3) 0 else 2
+                    p.copy(rpChange = earnedRp)
                 } else {
                     p.copy(rpChange = 0)
                 }
@@ -101,11 +102,15 @@ object SupabaseService {
                 if (p.hasAbandoned) {
                     finalChange = -5
                 } else {
-                    val staticBonus = if (p.rank == 1 || p.rank == 2) 2 else 1
-                    finalChange += staticBonus
-                    
-                    if (p.rank == 1 || p.rank == 2) {
-                        finalChange = maxOf(0, finalChange)
+                    if (!state.isPublic && state.totalRounds < 3) {
+                        finalChange = 0
+                    } else {
+                        val staticBonus = if (p.rank == 1 || p.rank == 2) 2 else 1
+                        finalChange += staticBonus
+                        
+                        if (p.rank == 1 || p.rank == 2) {
+                            finalChange = maxOf(0, finalChange)
+                        }
                     }
                 }
 
@@ -127,8 +132,12 @@ object SupabaseService {
     ) {
         val updatedState = state.copy(players = state.players.map { p ->
             if (p.id in originalRealPlayerIds) {
-                if (p.hasAbandoned) p.copy(rpChange = -5)
-                else p.copy(rpChange = 2)
+                if (p.hasAbandoned) {
+                    p.copy(rpChange = -5)
+                } else {
+                    val earnedRp = if (!state.isPublic && state.totalRounds < 3) 0 else 2
+                    p.copy(rpChange = earnedRp)
+                }
             } else {
                 p.copy(rpChange = 0)
             }
