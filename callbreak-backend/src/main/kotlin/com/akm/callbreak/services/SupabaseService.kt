@@ -127,7 +127,8 @@ object SupabaseService {
     ) {
         val updatedState = state.copy(players = state.players.map { p ->
             if (p.id in originalRealPlayerIds) {
-                p.copy(rpChange = 2)
+                if (p.hasAbandoned) p.copy(rpChange = -5)
+                else p.copy(rpChange = 2)
             } else {
                 p.copy(rpChange = 0)
             }

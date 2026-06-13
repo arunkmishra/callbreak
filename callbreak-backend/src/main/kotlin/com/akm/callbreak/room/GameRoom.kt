@@ -74,6 +74,8 @@ class GameRoom(initialState: CallbreakState) {
      */
     private val originalRealPlayerIds = mutableSetOf<PlayerId>()
 
+    private var emptyRoomTeardownJob: Job? = null
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private fun cancelTurnTimer(playerId: PlayerId?) {
@@ -96,6 +98,11 @@ class GameRoom(initialState: CallbreakState) {
      */
     private suspend fun tearDownRoom(reason: String) {
         logger.warn("🔴 [Room ${state.roomId}] Tearing down room — $reason")
+        
+        if (state.phase != GamePhase.LOBBY && state.phase != GamePhase.GAME_OVER) {
+            saveResultsToSupabase(state)
+        }
+        
         state = state.copy(phase = GamePhase.GAME_OVER)
         broadcastState()
         GameRoomManager.removeRoom(state.roomId)
@@ -122,11 +129,11 @@ class GameRoom(initialState: CallbreakState) {
             sessions.remove(playerId)
             logger.info("🔌 [Room ${state.roomId}] Session removed for player $playerId (phase=${state.phase})")
 
-            // If the game is active (not LOBBY and not GAME_OVER), mark player offline and abandoned
+            // If the game is active (not LOBBY and not GAME_OVER), mark player offline and abandoned (if public)
             if (state.phase != GamePhase.LOBBY && state.phase != GamePhase.GAME_OVER) {
                 state = state.copy(
                     players = state.players.map { p ->
-                        if (p.id == playerId) p.copy(isOnline = false, hasAbandoned = true) else p
+                        if (p.id == playerId) p.copy(isOnline = false, hasAbandoned = state.isPublic) else p
                     }
                 )
 
@@ -135,8 +142,16 @@ class GameRoom(initialState: CallbreakState) {
 
                 // Check if all real players are now gone
                 if (!hasOnlineRealPlayers()) {
-                    logger.warn("⚠️  [Room ${state.roomId}] No real players remaining online — scheduling room teardown")
-                    shouldTearDown = true
+                    logger.warn("⚠️  [Room ${state.roomId}] No real players remaining online — scheduling room teardown in 15 seconds")
+                    emptyRoomTeardownJob?.cancel()
+                    emptyRoomTeardownJob = CoroutineScope(Dispatchers.Default).launch {
+                        delay(15000)
+                        mutex.withLock {
+                            if (!hasOnlineRealPlayers() && state.phase != GamePhase.GAME_OVER) {
+                                tearDownRoom("all real players disconnected and 15s timer expired")
+                            }
+                        }
+                    }
                 } else {
                     broadcastState()
                     // If it is currently this player's turn, start the 60-second timer
@@ -180,6 +195,7 @@ class GameRoom(initialState: CallbreakState) {
                             player.copy(
                                 isOnline = false,
                                 isBot = true,
+                                hasAbandoned = state.isPublic,
                                 name = botName
                             )
                         } else player
@@ -250,6 +266,9 @@ class GameRoom(initialState: CallbreakState) {
                 } else p
             }
         )
+        if (hasOnlineRealPlayers()) {
+            emptyRoomTeardownJob?.cancel()
+        }
         broadcastState()
     }
 
@@ -907,7 +926,10 @@ class GameRoom(initialState: CallbreakState) {
             }
 
             logger.info("📈 [Room ${finalState.roomId}] Saving leaderboard results with Elo calculation")
-            SupabaseService.saveMatchResultsWithElo(finalState, originalRealPlayerIds)
+            val stateToSave = if (finalState.players.any { it.rpChange == null }) {
+                SupabaseService.calculateEloChangesForState(finalState, originalRealPlayerIds.map { it }.toSet())
+            } else finalState
+            SupabaseService.saveMatchResultsWithElo(stateToSave, originalRealPlayerIds)
         }
     }
 }

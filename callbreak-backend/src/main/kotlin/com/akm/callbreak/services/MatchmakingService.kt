@@ -39,13 +39,13 @@ object MatchmakingService {
     /**
      * Starts the staggered shadow-bot backfill coroutine for [roomId].
      *
-     * The total fill window is randomised between 40–75 seconds.
-     * Within that window, each needed bot is scheduled at a random offset
+     * The total fill window is randomised between 40–60 seconds.
+     * Bots are spawned at random intervals within this window, each needed bot is scheduled at a random offset
      * (roughly 30%, 60%, 85% of the fill time) so joins look organic.
      */
     fun startBackfill(roomId: String) {
         val job = CoroutineScope(Dispatchers.Default).launch {
-            val totalFillMs = (40_000L..75_000L).random()
+            val totalFillMs = (40_000L..60_000L).random()
             logger.info("🎯 [Room $roomId] Backfill started — fill window ${totalFillMs / 1000}s")
 
             // Schedule up to 3 bot joins at staggered times

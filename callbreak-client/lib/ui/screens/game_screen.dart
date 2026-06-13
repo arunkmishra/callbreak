@@ -523,86 +523,28 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // ── Rematch (host only) + Back to Lobby ───────────────
-                  Builder(builder: (context) {
-                    // The host is the first non-bot player (room creator).
-                    final hostId = gameState.players
-                        .firstWhere((p) => !p.isBot,
-                            orElse: () => gameState.players.first)
-                        .id;
-                    final isHost = state.myPlayerId == hostId;
-
-                    if (isHost) {
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF16A34A),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 11),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
-                              ),
-                              icon: const Icon(Icons.refresh_rounded, size: 16),
-                              onPressed: () {
-                                _dismissDialog();
-                                context.read<GameBloc>().add(RematchRequested(gameState));
-                              },
-                              label: const Text(
-                                'Rematch',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFF59E0B),
-                                foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(vertical: 11),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
-                              ),
-                              icon: const Icon(Icons.home_rounded, size: 16),
-                              onPressed: () {
-                                _dismissDialog();
-                                context.read<GameBloc>().add(const DisconnectRequested());
-                              },
-                              label: const Text(
-                                'Back to Lobby',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-
-                    // Non-host: full-width Back to Lobby only
-                    return SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF59E0B),
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                        icon: const Icon(Icons.home_rounded, size: 20),
-                        onPressed: () {
-                          _dismissDialog();
-                          context.read<GameBloc>().add(const DisconnectRequested());
-                        },
-                        label: const Text(
-                          'Back to Lobby',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
+                  // ── Back to Lobby ───────────────
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF59E0B),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
                       ),
-                    );
-                  }),
+                      icon: const Icon(Icons.home_rounded, size: 20),
+                      onPressed: () {
+                        _dismissDialog();
+                        context.read<GameBloc>().add(const DisconnectRequested());
+                      },
+                      label: const Text(
+                        'Back to Lobby',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                    ),
+                  ),
                 ] else ...[
                   // ── Round over (not game over) ──────────────────────────
                   Text(
