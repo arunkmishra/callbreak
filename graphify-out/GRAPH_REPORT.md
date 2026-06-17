@@ -1,16 +1,16 @@
-# Graph Report - callbreak  (2026-06-13)
+# Graph Report - callbreak  (2026-06-18)
 
 ## Corpus Check
-- 130 files · ~174,659 words
+- 131 files · ~175,377 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1538 nodes · 1586 edges · 128 communities (92 shown, 36 thin omitted)
-- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 60 edges (avg confidence: 0.8)
+- 1545 nodes · 1595 edges · 127 communities (91 shown, 36 thin omitted)
+- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 61 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b65110ad`
+- Built from commit: `828c02de`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -116,7 +116,6 @@
 - [[_COMMUNITY_Community 98|Community 98]]
 - [[_COMMUNITY_Community 99|Community 99]]
 - [[_COMMUNITY_Community 100|Community 100]]
-- [[_COMMUNITY_Community 101|Community 101]]
 - [[_COMMUNITY_Community 102|Community 102]]
 - [[_COMMUNITY_Community 103|Community 103]]
 - [[_COMMUNITY_Community 104|Community 104]]
@@ -127,7 +126,7 @@
 - [[_COMMUNITY_Community 109|Community 109]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `GameRoom` - 29 edges
+1. `GameRoom` - 30 edges
 2. `LibrariesForLibsInPluginsBlock` - 12 edges
 3. `LibrariesForLibs` - 12 edges
 4. `KtorServerLibraryAccessors` - 11 edges
@@ -150,7 +149,7 @@
 - `module()` --calls--> `configureWebSockets()`  [INFERRED]
   callbreak-backend/src/main/kotlin/com/akm/callbreak/Application.kt → callbreak-backend/src/main/kotlin/com/akm/callbreak/plugins/WebSockets.kt
 
-## Communities (128 total, 36 thin omitted)
+## Communities (127 total, 36 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.02
@@ -165,12 +164,12 @@ Cohesion: 0.03
 Nodes (57): ../../bloc/game_bloc.dart, ../../bloc/game_event.dart, ../../bloc/game_state.dart, ../../core/constants.dart, ../../core/theme.dart, dart:async, ../../data/repositories/supabase_repository.dart, ../../data/services/heartbeat_service.dart (+49 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.08
-Nodes (14): createDeck(), PlayingCard, Rank, Suit, GameRoom, calculateBotBid(), selectBotCard(), BotAiTest (+6 more)
+Cohesion: 0.07
+Nodes (15): createDeck(), PlayingCard, Rank, Suit, GameRoom, GameRoomManagerTest, calculateBotBid(), selectBotCard() (+7 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.04
-Nodes (45): ../../bloc/settings_cubit.dart, ../../core/theme.dart, ../../data/repositories/socket_repository.dart, package:flutter_bloc/flutter_bloc.dart, package:flutter/material.dart, _AboutPage, _AboutPageState, AnimatedSwitcher (+37 more)
+Nodes (47): ../../bloc/settings_cubit.dart, ../../core/theme.dart, ../../data/repositories/socket_repository.dart, package:flutter_bloc/flutter_bloc.dart, package:flutter/material.dart, package:package_info_plus/package_info_plus.dart, _AboutPage, _AboutPageState (+39 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.05
@@ -178,7 +177,7 @@ Nodes (41): ../../core/theme.dart, ../../core/tier_system.dart, dart:async, ../.
 
 ### Community 6 - "Community 6"
 Cohesion: 0.05
-Nodes (41): ../../core/theme.dart, dart:math, package:flutter/material.dart, package:supabase_flutter/supabase_flutter.dart, AnimatedBuilder, _avatarColor, build, _buildBody (+33 more)
+Nodes (43): ../../core/theme.dart, dart:math, ../../data/repositories/supabase_repository.dart, package:flutter/material.dart, package:supabase_flutter/supabase_flutter.dart, profile_screen.dart, AnimatedBuilder, _avatarColor (+35 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.05
@@ -217,12 +216,12 @@ Cohesion: 0.08
 Nodes (24): Background, Callbreak — Implementation Plan, Client → Server (`ClientMessage`), code:json ({), code:block2 (callbreak/), code:kotlin (sealed interface Suit {), code:kotlin (typealias PlayerId = String), code:kotlin (// Returns winning PlayerId, or null if trick is empty) (+16 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.08
-Nodes (8): BundleAccessors, KotlinLibraryAccessors, KotlinTestLibraryAccessors, KotlinxLibraryAccessors, KtorSerializationLibraryAccessors, KtorServerCallLibraryAccessors, KtorServerContentLibraryAccessors, LogbackLibraryAccessors
+Cohesion: 0.06
+Nodes (14): DotenvLibraryAccessors, KotlinLibraryAccessors, KotlinTestLibraryAccessors, KotlinxCoroutinesLibraryAccessors, KotlinxSerializationLibraryAccessors, KtorClientContentLibraryAccessors, KtorSerializationKotlinxLibraryAccessors, KtorSerializationLibraryAccessors (+6 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.08
-Nodes (9): BundleFactory, BundleAccessors, DotenvLibraryAccessors, KotlinLibraryAccessors, KtorClientContentLibraryAccessors, KtorSerializationKotlinxLibraryAccessors, KtorServerTestLibraryAccessors, LettuceLibraryAccessors (+1 more)
+Cohesion: 0.07
+Nodes (10): BundleFactory, BundleAccessors, BundleAccessors, DotenvLibraryAccessors, KotlinLibraryAccessors, KotlinTestLibraryAccessors, KotlinxSerializationLibraryAccessors, KtorClientContentLibraryAccessors (+2 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.09
@@ -239,10 +238,6 @@ Nodes (21): ../data/models/playing_card.dart, package:equatable/equatable.dart, 
 ### Community 21 - "Community 21"
 Cohesion: 0.10
 Nodes (20): target_ndk_api, assets, ar, cc, ld, android, c_compiler, link_mode_preference (+12 more)
-
-### Community 22 - "Community 22"
-Cohesion: 0.10
-Nodes (7): DotenvLibraryAccessors, KotlinxSerializationLibraryAccessors, KtorServerTestLibraryAccessors, LettuceLibraryAccessors, KotlinxCoroutinesLibraryAccessors, KotlinxSerializationLibraryAccessors, SubDependencyFactory
 
 ### Community 23 - "Community 23"
 Cohesion: 0.11
@@ -449,23 +444,23 @@ Cohesion: 0.50
 Nodes (3): configVersion, packages, roots
 
 ## Knowledge Gaps
-- **1042 isolated node(s):** `CreateRoomRequest`, `JoinRoomRequest`, `FindMatchRequest`, `ServerMessage`, `StateUpdate` (+1037 more)
+- **1046 isolated node(s):** `CreateRoomRequest`, `JoinRoomRequest`, `FindMatchRequest`, `ServerMessage`, `StateUpdate` (+1041 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **36 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `KtorServerLibraryAccessors` connect `Community 52` to `Community 17`, `Community 22`?**
+- **Why does `KtorServerLibraryAccessors` connect `Community 52` to `Community 16`, `Community 17`?**
   _High betweenness centrality (0.004) - this node is a cross-community bridge._
 - **Why does `VersionAccessors` connect `Community 12` to `Community 17`?**
   _High betweenness centrality (0.004) - this node is a cross-community bridge._
-- **Why does `configureRouting()` connect `Community 61` to `Community 39`, `Community 45`, `Community 46`, `Community 47`, `Community 62`?**
+- **Why does `GameRoom` connect `Community 3` to `Community 9`, `Community 39`?**
   _High betweenness centrality (0.003) - this node is a cross-community bridge._
-- **Are the 2 inferred relationships involving `GameRoom` (e.g. with `.createRoom()` and `restoreAllGames()`) actually correct?**
-  _`GameRoom` has 2 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 3 inferred relationships involving `GameRoom` (e.g. with `.testSessionTokensSurviveRoomRestore()` and `.createRoom()`) actually correct?**
+  _`GameRoom` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `CreateRoomRequest`, `JoinRoomRequest`, `FindMatchRequest` to the rest of the system?**
-  _1042 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1046 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.021052631578947368 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

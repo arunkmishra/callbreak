@@ -16,6 +16,7 @@ class _LeaderboardEntry {
   final int totalGames;
   final double totalScore;
   final int rankPoints;
+  final DateTime? createdAt;
 
   const _LeaderboardEntry({
     required this.id,
@@ -24,6 +25,7 @@ class _LeaderboardEntry {
     required this.totalGames,
     required this.totalScore,
     required this.rankPoints,
+    this.createdAt,
   });
 
   factory _LeaderboardEntry.fromMap(Map<String, dynamic> map) {
@@ -34,6 +36,7 @@ class _LeaderboardEntry {
       totalGames: (map['total_games'] as num?)?.toInt() ?? 0,
       totalScore: (map['total_score'] as num?)?.toDouble() ?? 0.0,
       rankPoints: (map['rank_points'] as num?)?.toInt() ?? 1000,
+      createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at'] as String) : null,
     );
   }
 }
@@ -93,7 +96,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     try {
       final data = await Supabase.instance.client
           .from('profiles')
-          .select('id, username, total_wins, total_games, total_score, rank_points')
+          .select('id, username, total_wins, total_games, total_score, rank_points, created_at')
           .order('rank_points', ascending: false)
           .order('total_wins', ascending: false)
           .order('total_score', ascending: false)
@@ -122,7 +125,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           // User not in top 100, fetch specifically
           final userData = await Supabase.instance.client
               .from('profiles')
-              .select('id, username, total_wins, total_games, total_score, rank_points')
+              .select('id, username, total_wins, total_games, total_score, rank_points, created_at')
               .eq('id', userId)
               .maybeSingle();
 
@@ -533,6 +536,7 @@ class _LeaderboardRow extends StatelessWidget {
                 totalGames: entry.totalGames,
                 totalScore: entry.totalScore,
                 rankPoints: entry.rankPoints,
+                createdAt: entry.createdAt,
               );
               Navigator.push(
                 context,

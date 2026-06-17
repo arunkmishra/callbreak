@@ -164,7 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (widget.userProfile == null)
+          if (widget.userProfile == null || widget.userProfile?.id == Supabase.instance.client.auth.currentUser?.id)
             Padding(
               padding: const EdgeInsets.only(right: 16.0, top: 12.0, bottom: 12.0),
               child: OutlinedButton.icon(
@@ -522,7 +522,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: _buildStatItem(
                   Icons.style, 
                   AppColors.spadeBlue, 
-                  'Best Score', 
+                  'Total Score', 
                   p.totalScore.toStringAsFixed(1)
                 ),
               ),

@@ -50,10 +50,10 @@ object GameRoomManager {
             minBid = minBid,
             greedPenalty = greedPenalty,
             allowCustomTrump = allowCustomTrump,
-            isPublic = isPublic
+            isPublic = isPublic,
+            sessionTokens = mapOf(finalPlayerId to sessionToken)
         )
         val room = GameRoom(initialState)
-        room.registerSessionToken(finalPlayerId, sessionToken)
         rooms[roomId] = room
         logger.info(
             "🏠 Room '$roomId' created by '$playerName' ($finalPlayerId) — " +

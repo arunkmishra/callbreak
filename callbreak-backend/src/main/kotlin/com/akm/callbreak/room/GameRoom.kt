@@ -55,8 +55,7 @@ class GameRoom(initialState: CallbreakState) {
     /** Connected WebSocket sessions, keyed by playerId. */
     private val sessions = mutableMapOf<PlayerId, DefaultWebSocketSession>()
 
-    /** Active session tokens generated at room create/join, keyed by playerId. */
-    private val sessionTokens = ConcurrentHashMap<PlayerId, String>()
+    /** Active session tokens are stored in the state itself to persist across server restarts. */
 
     /** Takeover timers for players who are offline, keyed by playerId. */
     private val offlineTimers = ConcurrentHashMap<PlayerId, Job>()
@@ -175,7 +174,7 @@ class GameRoom(initialState: CallbreakState) {
     suspend fun leaveRoom(playerId: PlayerId) {
         var shouldTearDown = false
         mutex.withLock {
-            sessionTokens.remove(playerId)
+            state = state.copy(sessionTokens = state.sessionTokens - playerId)
             val playerName = state.players.firstOrNull { it.id == playerId }?.name ?: playerId
             logger.info("🚪 [Room ${state.roomId}] Player '$playerName' ($playerId) explicitly left the room (phase=${state.phase})")
 
@@ -228,17 +227,19 @@ class GameRoom(initialState: CallbreakState) {
         }
     }
 
-    fun registerSessionToken(playerId: PlayerId, token: String) {
-        sessionTokens[playerId] = token
+    suspend fun registerSessionToken(playerId: PlayerId, token: String) {
+        mutex.withLock {
+            state = state.copy(sessionTokens = state.sessionTokens + (playerId to token))
+        }
     }
 
     fun validateSessionToken(playerId: PlayerId, token: String): Boolean {
         val exists = state.players.any { it.id == playerId }
-        return exists && sessionTokens[playerId] == token
+        return exists && state.sessionTokens[playerId] == token
     }
 
     fun getSessionToken(playerId: PlayerId): String? {
-        return sessionTokens[playerId]
+        return state.sessionTokens[playerId]
     }
 
     suspend fun playerReconnected(playerId: PlayerId) = mutex.withLock {
@@ -316,6 +317,7 @@ class GameRoom(initialState: CallbreakState) {
             // Fill empty seats with bots to reach 4 players
             val botsNeeded = CallbreakState.PLAYERS_REQUIRED - humanCount
             val updatedPlayers = state.players.toMutableList()
+            var newTokens = state.sessionTokens
             for (i in 1..botsNeeded) {
                 val botId = "bot_$i"
                 val bot = Player(
@@ -326,13 +328,14 @@ class GameRoom(initialState: CallbreakState) {
                 )
                 updatedPlayers.add(bot)
                 // Register an ephemeral session token for bots
-                registerSessionToken(botId, "bot-token-$botId")
+                newTokens = newTokens + (botId to "bot-token-$botId")
                 logger.debug("🤖 [Room ${state.roomId}] Added bot: ${bot.name} (${bot.id})")
             }
 
             val shuffled = createDeck().shuffled()
             val stateWithBots = state.copy(
-                players = updatedPlayers.map { it.copy(cumulativeScore = 0.0) }
+                players = updatedPlayers.map { it.copy(cumulativeScore = 0.0) },
+                sessionTokens = newTokens
             )
 
             state = startDealPhase1(stateWithBots, shuffled)

@@ -96,6 +96,7 @@ data class CallbreakState(
     val roundScores: List<Map<PlayerId, Double>> = emptyList(),
     val turnEndTime: Long? = null,
     val isPublic: Boolean = false,
+    val sessionTokens: Map<PlayerId, String> = emptyMap(),
 ) {
     companion object {
         const val PLAYERS_REQUIRED = 4
