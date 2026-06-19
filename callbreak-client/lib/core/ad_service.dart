@@ -10,10 +10,15 @@ class AdService {
   InterstitialAd? _interstitialAd;
   bool _isAdReady = false;
 
+  RewardedAd? _rewardedAd;
+  bool _isRewardedAdReady = false;
+
   /// Call this inside main() after WidgetsFlutterBinding.ensureInitialized()
   Future<void> initialize() async {
+    if (kIsWeb) return;
     await MobileAds.instance.initialize();
     loadInterstitialAd();
+    loadRewardedAd();
   }
 
   /// Use Google's test ad unit ID for development, replace with real ID in production.
@@ -31,7 +36,7 @@ class AdService {
 
   /// Preloads the next interstitial ad.
   void loadInterstitialAd() {
-    if (_interstitialAdUnitId.isEmpty) return;
+    if (kIsWeb || _interstitialAdUnitId.isEmpty) return;
 
     InterstitialAd.load(
       adUnitId: _interstitialAdUnitId,
@@ -91,6 +96,77 @@ class AdService {
       
       // Try to load one for next time
       loadInterstitialAd();
+    }
+  }
+
+  /// Use Google's test ad unit ID for development, replace with real ID in production.
+  String get _rewardedAdUnitId {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final envId = dotenv.env['ADMOB_REWARDED_UNIT_ID_ANDROID'];
+      return (envId != null && envId.trim().isNotEmpty) ? envId.trim() : 'ca-app-pub-3940256099942544/5224354917';
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final envId = dotenv.env['ADMOB_REWARDED_UNIT_ID_IOS'];
+      return (envId != null && envId.trim().isNotEmpty) ? envId.trim() : 'ca-app-pub-3940256099942544/1712485313';
+    }
+    return '';
+  }
+
+  void loadRewardedAd() {
+    if (kIsWeb || _rewardedAdUnitId.isEmpty) return;
+
+    RewardedAd.load(
+      adUnitId: _rewardedAdUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedAd = ad;
+          _isRewardedAdReady = true;
+
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _rewardedAd = null;
+              _isRewardedAdReady = false;
+              loadRewardedAd();
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _rewardedAd = null;
+              _isRewardedAdReady = false;
+              loadRewardedAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (err) {
+          _isRewardedAdReady = false;
+          _rewardedAd = null;
+        },
+      ),
+    );
+  }
+
+  bool get isRewardedAdReady => _isRewardedAdReady;
+
+  void showRewardedAd({required Function(RewardItem) onReward, required VoidCallback onDismissed}) {
+    if (_isRewardedAdReady && _rewardedAd != null) {
+      final originalCallback = _rewardedAd!.fullScreenContentCallback;
+      _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          originalCallback?.onAdDismissedFullScreenContent?.call(ad);
+          onDismissed();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          originalCallback?.onAdFailedToShowFullScreenContent?.call(ad, error);
+          onDismissed();
+        },
+      );
+
+      _rewardedAd!.show(onUserEarnedReward: (AdWithoutView ad, RewardItem rewardItem) {
+        onReward(rewardItem);
+      });
+    } else {
+      onDismissed();
+      loadRewardedAd();
     }
   }
 }

@@ -49,6 +49,19 @@ fun Route.userRoutes() {
                 RedisService.setOnline(userId, request.status, 35)
                 call.respond(HttpStatusCode.OK)
             }
+
+            get("/wallet") {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.subject
+                    ?: return@get call.respond(HttpStatusCode.Unauthorized)
+
+                val wallet = com.akm.callbreak.services.SupabaseService.getWallet(userId)
+                if (wallet != null) {
+                    call.respond(HttpStatusCode.OK, wallet)
+                } else {
+                    call.respond(HttpStatusCode.InternalServerError, "Could not fetch wallet")
+                }
+            }
         }
 
         /**

@@ -27,6 +27,9 @@ import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
 import 'profile_screen.dart';
 import 'rank_screen.dart';
+import 'store_screen.dart';
+import '../../bloc/store_bloc.dart';
+import '../../bloc/store_state.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
@@ -666,11 +669,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             fit: BoxFit.scaleDown,
             child: Row(
               children: [
-                _CurrencyBadge(
-                  icon: Icons.monetization_on_rounded,
-                  iconColor: const Color(0xFFFFD700),
-                  value: '0',
-                  onTap: () => _showComingSoon(context, 'Coins'),
+                BlocBuilder<StoreBloc, StoreState>(
+                  builder: (context, state) {
+                    return _CurrencyBadge(
+                      icon: Icons.monetization_on_rounded,
+                      iconColor: const Color(0xFFFFD700),
+                      value: '${state.coinBalance}',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const StoreScreen()),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 10),
                 _TopBarIcon(
@@ -1266,7 +1275,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       (icon: Icons.emoji_events_outlined, label: 'RANK'),
       (icon: Icons.home_rounded, label: 'HOME'),
       (icon: Icons.history, label: 'HISTORY'),
-      (icon: Icons.shield_outlined, label: 'CLUB'),
+      (icon: Icons.storefront_rounded, label: 'STORE'),
     ];
 
     return Container(
@@ -1303,6 +1312,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 } else if (item.label == 'HISTORY') {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const GameHistoryScreen()),
+                  );
+                  if (mounted) setState(() => _selectedNavIndex = 2);
+                } else if (item.label == 'STORE') {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StoreScreen()),
                   );
                   if (mounted) setState(() => _selectedNavIndex = 2);
                 } else {
@@ -1343,7 +1357,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             : Colors.white38,
                         size: 20,
                       ),
-                      if (i == 2 && onlineFriendsCount > 0)
+                      if (item.label == 'FRIENDS' && onlineFriendsCount > 0)
                         Positioned(
                           top: -4,
                           right: -6,

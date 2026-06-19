@@ -49,6 +49,193 @@ object SupabaseService {
         }
     }
 
+    // ── Wallet and Store ─────────────────────────────────────────────────────
+
+    @Serializable
+    data class WalletState(
+        val coinBalance: Int,
+        val isPremiumSubscriber: Boolean,
+        val unlockedSkins: List<String>
+    )
+
+    suspend fun getWallet(userId: String): WalletState? {
+        try {
+            val response = client.get("$supabaseUrl/rest/v1/profiles?id=eq.$userId&select=coin_balance,premium_until,unlocked_skins") {
+                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                header("apikey", serviceRoleKey)
+            }
+            if (response.status.value in 200..299) {
+                val array = kotlinx.serialization.json.Json.parseToJsonElement(response.bodyAsText()).jsonArray
+                if (array.isNotEmpty()) {
+                    val obj = array[0].jsonObject
+                    val coins = obj["coin_balance"]?.jsonPrimitive?.intOrNull ?: 0
+                    
+                    val p = obj["premium_until"]
+                    val premiumUntilStr = if (p == null || p is kotlinx.serialization.json.JsonNull) null else p.jsonPrimitive.content
+                    
+                    var isPremium = false
+                    if (premiumUntilStr != null) {
+                        try {
+                            isPremium = java.time.OffsetDateTime.parse(premiumUntilStr).toInstant().isAfter(java.time.Instant.now())
+                        } catch (e: Exception) {
+                            // ignore or fallback
+                        }
+                    }
+
+                    val skinsArray = obj["unlocked_skins"]?.jsonArray
+                    val skins = skinsArray?.mapNotNull { it.jsonPrimitive.content } ?: emptyList()
+                    return WalletState(coins, isPremium, skins)
+                }
+            }
+            logger.error("Failed to get wallet for $userId: ${response.status} ${response.bodyAsText()}")
+        } catch (e: Exception) {
+            logger.error("Exception in getWallet", e)
+        }
+        return null
+    }
+
+    @Serializable
+    data class StoreItem(
+        val id: String,
+        val category: String,
+        val name: String,
+        val price: Int,
+        val previewUrl: String? = null
+    )
+
+    suspend fun getStoreItems(): List<StoreItem> {
+        try {
+            val response = client.get("$supabaseUrl/rest/v1/store_items?select=*") {
+                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                header("apikey", serviceRoleKey)
+            }
+            if (response.status.value in 200..299) {
+                val array = kotlinx.serialization.json.Json.parseToJsonElement(response.bodyAsText()).jsonArray
+                return array.map { 
+                    val obj = it.jsonObject
+                    StoreItem(
+                        id = obj["id"]?.jsonPrimitive?.content ?: "",
+                        category = obj["category"]?.jsonPrimitive?.content ?: "",
+                        name = obj["name"]?.jsonPrimitive?.content ?: "",
+                        price = obj["price"]?.jsonPrimitive?.intOrNull ?: 0,
+                        previewUrl = obj["preview_url"]?.jsonPrimitive?.content
+                    )
+                }
+            }
+            logger.error("Failed to get store items: ${response.status} ${response.bodyAsText()}")
+        } catch (e: Exception) {
+            logger.error("Exception in getStoreItems", e)
+        }
+        return emptyList()
+    }
+
+    suspend fun purchaseItem(userId: String, itemId: String): WalletState? {
+        try {
+            // 1. Get Wallet
+            val wallet = getWallet(userId) ?: return null
+            
+            // 2. Get Item
+            val items = getStoreItems()
+            val item = items.find { it.id == itemId } ?: return null
+            
+            // 3. Check Balance
+            if (wallet.coinBalance < item.price) return null
+            
+            // 4. Check if already owned
+            if (item.category != "subscription" && item.id in wallet.unlockedSkins) return wallet
+            
+            // 5. Deduct and update
+            val newCoins = wallet.coinBalance - item.price
+            val patchObj = if (item.category == "subscription") {
+                var currentPremiumUntilStr: String? = null
+                val profileResponse = client.get("$supabaseUrl/rest/v1/profiles?id=eq.$userId&select=premium_until") {
+                    header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                    header("apikey", serviceRoleKey)
+                }
+                if (profileResponse.status.value in 200..299) {
+                    val array = kotlinx.serialization.json.Json.parseToJsonElement(profileResponse.bodyAsText()).jsonArray
+                    if (array.isNotEmpty()) {
+                        val p = array[0].jsonObject["premium_until"]
+                        currentPremiumUntilStr = if (p == null || p is kotlinx.serialization.json.JsonNull) null else p.jsonPrimitive.content
+                    }
+                }
+                
+                var baseDate = java.time.Instant.now()
+                if (currentPremiumUntilStr != null) {
+                    try {
+                        val parsed = java.time.OffsetDateTime.parse(currentPremiumUntilStr).toInstant()
+                        if (parsed.isAfter(baseDate)) {
+                            baseDate = parsed
+                        }
+                    } catch (e: Exception) {}
+                }
+                
+                val newPremiumUntil = when (itemId) {
+                    "premium_1_week" -> baseDate.plus(7, java.time.temporal.ChronoUnit.DAYS)
+                    "premium_1_month" -> baseDate.plus(30, java.time.temporal.ChronoUnit.DAYS)
+                    "premium_1_year" -> baseDate.plus(365, java.time.temporal.ChronoUnit.DAYS)
+                    else -> baseDate.plus(7, java.time.temporal.ChronoUnit.DAYS)
+                }
+                val newStr = java.time.OffsetDateTime.ofInstant(newPremiumUntil, java.time.ZoneOffset.UTC).toString()
+                
+                buildJsonObject {
+                    put("coin_balance", newCoins)
+                    put("premium_until", newStr)
+                }
+            } else {
+                val newSkins = wallet.unlockedSkins + item.id
+                buildJsonObject {
+                    put("coin_balance", newCoins)
+                    put("unlocked_skins", kotlinx.serialization.json.buildJsonArray {
+                        newSkins.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+                    })
+                }
+            }
+            
+            val patchResponse = client.patch("$supabaseUrl/rest/v1/profiles?id=eq.$userId") {
+                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                header("apikey", serviceRoleKey)
+                header("Prefer", "return=minimal")
+                contentType(ContentType.Application.Json)
+                setBody(patchObj.toString())
+            }
+            
+            if (patchResponse.status.value in 200..299) {
+                return getWallet(userId) // Return updated wallet
+            }
+            logger.error("Failed to patch profile for purchase: ${patchResponse.status} ${patchResponse.bodyAsText()}")
+        } catch (e: Exception) {
+            logger.error("Exception in purchaseItem", e)
+        }
+        return null
+    }
+
+    suspend fun rewardAd(userId: String, amount: Int = 10): WalletState? {
+        try {
+            val wallet = getWallet(userId) ?: return null
+            val newCoins = wallet.coinBalance + amount
+            
+            val patchObj = buildJsonObject {
+                put("coin_balance", newCoins)
+            }
+            
+            val patchResponse = client.patch("$supabaseUrl/rest/v1/profiles?id=eq.$userId") {
+                header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
+                header("apikey", serviceRoleKey)
+                header("Prefer", "return=minimal")
+                contentType(ContentType.Application.Json)
+                setBody(patchObj.toString())
+            }
+            
+            if (patchResponse.status.value in 200..299) {
+                return getWallet(userId)
+            }
+        } catch (e: Exception) {
+            logger.error("Exception in rewardAd", e)
+        }
+        return null
+    }
+
     // ── Match Result ─────────────────────────────────────────────────────────
 
     /**
@@ -158,7 +345,7 @@ object SupabaseService {
         try {
             // 1. Fetch current profiles for real players to check existence
             val idsQuery = originalRealPlayerIds.joinToString(",") { "\"$it\"" }
-            val getResponse = client.get("$supabaseUrl/rest/v1/profiles?id=in.($idsQuery)&select=id,username,total_games,total_wins,total_score,rank_points") {
+            val getResponse = client.get("$supabaseUrl/rest/v1/profiles?id=in.($idsQuery)&select=id,username,total_games,total_wins,total_score,rank_points,coin_balance") {
                 header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
                 header("apikey", serviceRoleKey)
             }
@@ -191,6 +378,10 @@ object SupabaseService {
                     if (isValidUsername) {
                         logger.info("ℹ️ Creating new profile for ${player.id} with username ${player.name}")
                         var finalUsername = player.name
+                        val coinsEarned = if (!player.hasAbandoned) {
+                            if (originalRealPlayerIds.size < 2) 2 else 10
+                        } else 0
+
                         var newProfile = buildJsonObject {
                             put("id", player.id)
                             put("username", finalUsername)
@@ -198,6 +389,7 @@ object SupabaseService {
                             put("total_wins", won)
                             put("total_score", score)
                             put("rank_points", 1000 + rpChange)
+                            put("coin_balance", coinsEarned)
                         }
                         var postProfileResponse = client.post("$supabaseUrl/rest/v1/profiles") {
                             header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
@@ -217,6 +409,7 @@ object SupabaseService {
                                 put("total_wins", won)
                                 put("total_score", score)
                                 put("rank_points", 1000 + rpChange)
+                                put("coin_balance", coinsEarned)
                             }
                             postProfileResponse = client.post("$supabaseUrl/rest/v1/profiles") {
                                 header(HttpHeaders.Authorization, "Bearer $serviceRoleKey")
@@ -240,14 +433,21 @@ object SupabaseService {
                     val currentWins = existingProfile["total_wins"]?.jsonPrimitive?.intOrNull ?: 0
                     val currentScore = existingProfile["total_score"]?.jsonPrimitive?.doubleOrNull ?: 0.0
                     val currentRp = existingProfile["rank_points"]?.jsonPrimitive?.intOrNull ?: 1000
+                    val currentCoins = existingProfile["coin_balance"]?.jsonPrimitive?.intOrNull ?: 0
                     
                     val newRp = (currentRp + rpChange).coerceAtLeast(0) // don't let RP go below 0
+                    
+                    val coinsEarned = if (!player.hasAbandoned) {
+                        if (originalRealPlayerIds.size < 2) 2 else 10
+                    } else 0
+                    val newCoins = currentCoins + coinsEarned
                     
                     val profilePatch = buildJsonObject {
                         put("total_games", currentGames + 1)
                         put("total_wins", currentWins + won)
                         put("total_score", currentScore + score)
                         put("rank_points", newRp)
+                        put("coin_balance", newCoins)
                     }
                     
                     val patchResponse = client.patch("$supabaseUrl/rest/v1/profiles?id=eq.${player.id}") {
