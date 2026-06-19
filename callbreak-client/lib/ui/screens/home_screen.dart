@@ -26,6 +26,7 @@ import 'leaderboard_screen.dart';
 import 'lobby_screen.dart';
 import 'profile_screen.dart';
 import 'rank_screen.dart';
+import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 
@@ -70,6 +71,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   int _simulatedOnlineCount = getSimulatedOnlineCount();
   Timer? _counterTimer;
+  
+  bool _hasInternet = true;
+  StreamSubscription<InternetStatus>? _internetSubscription;
 
   @override
   void initState() {
@@ -103,6 +107,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _checkDeepLink();
       _listenForInvites();
       _loadData();
+    });
+
+    InternetConnection().hasInternetAccess.then((hasInternet) {
+      if (mounted && _hasInternet != hasInternet) {
+        setState(() => _hasInternet = hasInternet);
+      }
+    });
+
+    _internetSubscription = InternetConnection().onStatusChange.listen((status) {
+      final hasInternet = status == InternetStatus.connected;
+      if (mounted && _hasInternet != hasInternet) {
+        setState(() => _hasInternet = hasInternet);
+      }
     });
   }
 
@@ -209,6 +226,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         },
         onAccept: () async {
           Navigator.of(ctx).pop();
+          if (!await _checkInternetConnection(context)) return;
           final profile = await SupabaseRepository().getMyProfile();
           final playerName = profile?.username ?? 'Player';
           if (mounted) {
@@ -241,6 +259,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _internetSubscription?.cancel();
     _onlineTimer?.cancel();
     _invitesChannel?.unsubscribe();
     _fadeController.dispose();
@@ -250,21 +269,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Quick Play: 3-round bot game, no sheet ────────────────────────────────
-  void _startPlayOnline(BuildContext context) {
+  Future<bool> _checkInternetConnection(BuildContext context) async {
+    final hasInternet = await InternetConnection().hasInternetAccess;
+    if (!hasInternet) {
+      if (!context.mounted) return false;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E3A5F),
+          title: const Text('No Internet Connection', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text(
+            'You need an internet connection to play the game. Please check your network and try again.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _startPlayOnline(BuildContext context) async {
+    if (!await _checkInternetConnection(context)) return;
+    if (!context.mounted) return;
     AudioService.preload();
     setState(() => _isBotGame = false);
     final username = _profile?.username ?? 'Player';
     context.read<GameBloc>().add(FindMatchRequested(username));
   }
 
-  void _startQuickPlay(BuildContext context) {
+  Future<void> _startQuickPlay(BuildContext context) async {
+    if (!await _checkInternetConnection(context)) return;
+    if (!context.mounted) return;
     AudioService.preload();
     setState(() => _isBotGame = true);
     final username = _profile?.username ?? 'Player';
     context.read<GameBloc>().add(CreateRoomRequested(username, totalRounds: 3));
   }
 
-  void _openPracticeSheet(BuildContext context) {
+  Future<void> _openPracticeSheet(BuildContext context) async {
+    if (!await _checkInternetConnection(context)) return;
+    if (!context.mounted) return;
     AudioService.preload();
     setState(() => _isBotGame = true);
     showModalBottomSheet(
@@ -278,7 +329,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _openMultiplayerSheet(BuildContext context, {String? initialRoomCode}) {
+  Future<void> _openMultiplayerSheet(BuildContext context, {String? initialRoomCode}) async {
+    if (!await _checkInternetConnection(context)) return;
+    if (!context.mounted) return;
     AudioService.preload();
     setState(() => _isBotGame = false);
     showDialog(
@@ -388,6 +441,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: SafeArea(
                   child: Column(
                     children: [
+                      if (!_hasInternet)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          color: AppColors.errorRed,
+                          child: const Text(
+                            '⚠️ No Internet Connection',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       Expanded(
                         child: _buildDashboard(context, isLoading),
                       ),

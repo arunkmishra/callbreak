@@ -31,6 +31,7 @@ import '../widgets/trick_zone_widget.dart';
 import '../widgets/turn_timer_widget.dart';
 import 'home_screen.dart';
 import 'lobby_screen.dart';
+import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 
 /// Screen 4: The Virtual Game Table.
 ///
@@ -50,6 +51,32 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   bool _isDialogOpen = false;
   String? _lastTrumpBidderId;
+
+  Future<bool> _checkInternetConnection(BuildContext context) async {
+    final hasInternet = await InternetConnection().hasInternetAccess;
+    if (!hasInternet) {
+      if (!context.mounted) return false;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E3A5F),
+          title: const Text('No Internet Connection', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text(
+            'You need an internet connection to play the game. Please check your network and try again.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
 
   // ── Emoticon overlay keys — one per seat (left, top, right, me) ──────────
   final _leftOverlayKey  = GlobalKey<EmoticonOverlayController>();
@@ -548,8 +575,10 @@ class _GameScreenState extends State<GameScreen> {
                                 elevation: 0,
                               ),
                               icon: const Icon(Icons.refresh_rounded, size: 16),
-                              onPressed: () {
+                              onPressed: () async {
+                                if (!await _checkInternetConnection(context)) return;
                                 _dismissDialog();
+                                if (!context.mounted) return;
                                 context.read<GameBloc>().add(RematchRequested(gameState));
                               },
                               label: const Text(
