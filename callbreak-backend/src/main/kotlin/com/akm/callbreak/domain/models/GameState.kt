@@ -97,6 +97,7 @@ data class CallbreakState(
     val turnEndTime: Long? = null,
     val isPublic: Boolean = false,
     val sessionTokens: Map<PlayerId, String> = emptyMap(),
+    val originalRealPlayerIds: Set<PlayerId> = emptySet(),
 ) {
     companion object {
         const val PLAYERS_REQUIRED = 4

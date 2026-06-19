@@ -208,7 +208,7 @@ class _RoundScoreTable extends StatelessWidget {
               ...players.map((p) {
                 final isMe = p.id == myPlayerId;
                 final rank = p.rank ?? (players.indexOf(p) + 1);
-                final displayName = isMe ? 'You' : p.name.split(' ').first;
+                final displayName = isMe ? 'You' : (p.isBot ? p.name : p.name.split(' ').first);
                 return _TableCell(
                   isHeader: true,
                   child: Column(

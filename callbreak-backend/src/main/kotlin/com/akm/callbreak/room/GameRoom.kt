@@ -67,11 +67,9 @@ class GameRoom(initialState: CallbreakState) {
     private val emoticonTimestamps = ConcurrentHashMap<PlayerId, Long>()
 
     /**
-     * IDs of players that were real humans at game-start.
-     * Populated in [startGame] and never modified afterwards.
+     * IDs of players that were real humans at game-start are stored in [CallbreakState.originalRealPlayerIds].
      * Used to decide whether a completed match should count for the leaderboard.
      */
-    private val originalRealPlayerIds = mutableSetOf<PlayerId>()
 
     private var emptyRoomTeardownJob: Job? = null
 
@@ -194,7 +192,7 @@ class GameRoom(initialState: CallbreakState) {
                             player.copy(
                                 isOnline = false,
                                 isBot = true,
-                                hasAbandoned = state.isPublic,
+                                hasAbandoned = true,
                                 name = botName
                             )
                         } else player
@@ -306,8 +304,7 @@ class GameRoom(initialState: CallbreakState) {
             }
 
             // Record original real players before any bots are added
-            originalRealPlayerIds.clear()
-            state.players.filterNot { it.isBot }.forEach { originalRealPlayerIds.add(it.id) }
+            val initialRealPlayerIds = state.players.filterNot { it.isBot }.map { it.id }.toSet()
             logger.info(
                 "🎮 [Room ${state.roomId}] Game starting — real players: " +
                 "${state.players.filterNot { it.isBot }.map { it.name }}, " +
@@ -335,7 +332,8 @@ class GameRoom(initialState: CallbreakState) {
             val shuffled = createDeck().shuffled()
             val stateWithBots = state.copy(
                 players = updatedPlayers.map { it.copy(cumulativeScore = 0.0) },
-                sessionTokens = newTokens
+                sessionTokens = newTokens,
+                originalRealPlayerIds = initialRealPlayerIds
             )
 
             state = startDealPhase1(stateWithBots, shuffled)
@@ -537,7 +535,7 @@ class GameRoom(initialState: CallbreakState) {
                         mutex.withLock {
                             var tempState = resolveRound(roundFinishedState)
                             if (tempState.phase == GamePhase.GAME_OVER) {
-                                tempState = SupabaseService.calculateEloChangesForState(tempState, originalRealPlayerIds)
+                                tempState = SupabaseService.calculateEloChangesForState(tempState, state.originalRealPlayerIds)
                             }
                             state = tempState
                             broadcastState()
@@ -673,6 +671,7 @@ class GameRoom(initialState: CallbreakState) {
                         if (player.id == playerId) {
                             player.copy(
                                 isBot = true,
+                                hasAbandoned = true,
                                 name = botName
                             )
                         } else player
@@ -911,28 +910,28 @@ class GameRoom(initialState: CallbreakState) {
      * - We save results only for players who are still real (non-bot) at game end.
      */
     private fun saveResultsToSupabase(finalState: CallbreakState) {
-        val realPlayerCount = originalRealPlayerIds.size
+        val realPlayerCount = finalState.originalRealPlayerIds.size
         if (realPlayerCount == 0) return
 
         CoroutineScope(Dispatchers.IO).launch {
             // Save the full match scorecard for history view (includes practice matches)
             logger.info("💾 [Room ${finalState.roomId}] Saving full match scorecard")
-            SupabaseService.saveMatchScorecard(finalState, originalRealPlayerIds)
+            SupabaseService.saveMatchScorecard(finalState, finalState.originalRealPlayerIds)
 
             if (realPlayerCount < 2) {
                 logger.info(
                     "⏭️  [Room ${finalState.roomId}] Saving offline match results — only $realPlayerCount real player(s) " +
-                    "participated. originalRealPlayerIds=$originalRealPlayerIds"
+                    "participated. originalRealPlayerIds=${finalState.originalRealPlayerIds}"
                 )
-                SupabaseService.saveOfflineMatchResults(finalState, originalRealPlayerIds)
+                SupabaseService.saveOfflineMatchResults(finalState, finalState.originalRealPlayerIds)
                 return@launch
             }
 
             logger.info("📈 [Room ${finalState.roomId}] Saving leaderboard results with Elo calculation")
             val stateToSave = if (finalState.players.any { it.rpChange == null }) {
-                SupabaseService.calculateEloChangesForState(finalState, originalRealPlayerIds.map { it }.toSet())
+                SupabaseService.calculateEloChangesForState(finalState, finalState.originalRealPlayerIds)
             } else finalState
-            SupabaseService.saveMatchResultsWithElo(stateToSave, originalRealPlayerIds)
+            SupabaseService.saveMatchResultsWithElo(stateToSave, finalState.originalRealPlayerIds)
         }
     }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -1804,17 +1805,45 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
   int _sliderBid = 1; 
   late int _trumpBid;
   String _trumpSuit = 'Spade';
+  Timer? _autoSubmitTimer;
+  bool _hasSubmitted = false;
+  bool _initializedSuggestedBid = false;
 
   @override
   void initState() {
     super.initState();
     _initBidValues();
+    _autoSubmitTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      _checkTimer();
+    });
   }
 
   @override
   void didUpdateWidget(covariant _BiddingOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     _initBidValues();
+    if (!widget.gameState.isMyTurn(widget.myPlayerId)) {
+      _hasSubmitted = false;
+    }
+  }
+
+  void _checkTimer() {
+    if (_hasSubmitted || !widget.gameState.isMyTurn(widget.myPlayerId) || widget.gameState.turnEndTime == null) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (widget.gameState.turnEndTime! - now <= 2500) {
+      _hasSubmitted = true;
+      if (widget.gameState.phase == GamePhase.trumpBidding) {
+        context.read<GameBloc>().add(PlaceTrumpBidAttempt(_trumpBid, _trumpSuit));
+      } else {
+        context.read<GameBloc>().add(PlaceBidAttempt(_sliderBid));
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSubmitTimer?.cancel();
+    super.dispose();
   }
 
   void _initBidValues() {
@@ -1831,6 +1860,25 @@ class _BiddingOverlayState extends State<_BiddingOverlay> {
           minBid = trumpState.highestBid;
         }
       }
+
+      if (!_initializedSuggestedBid) {
+        int suggestedBid = 1;
+        final trumpSuit = gameState.currentTrumpSuit ?? 'Spade';
+        for (final card in gameState.myHand) {
+          if (card.suit == trumpSuit) {
+            if (card.rank == 'A' || card.rank == 'K' || card.rank == 'Q') {
+              suggestedBid++;
+            }
+          } else {
+            if (card.rank == 'A') {
+              suggestedBid++;
+            }
+          }
+        }
+        _sliderBid = suggestedBid;
+        _initializedSuggestedBid = true;
+      }
+
       if (_sliderBid < minBid) {
         _sliderBid = minBid;
       }

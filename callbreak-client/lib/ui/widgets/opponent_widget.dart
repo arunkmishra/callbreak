@@ -235,7 +235,7 @@ class _Name extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                player.name.split(' ').first,
+                player.isBot ? player.name : player.name.split(' ').first,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,

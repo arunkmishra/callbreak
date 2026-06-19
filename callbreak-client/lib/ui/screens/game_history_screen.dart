@@ -438,6 +438,7 @@ class _HistoryCard extends StatelessWidget {
                             final pMap = p as Map<String, dynamic>;
                             final isMe = pMap['id'] == userId;
                             final name = pMap['name'] as String? ?? '?';
+                            final isBot = pMap['is_bot'] as bool? ?? false;
                             final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
                             
                             // Deterministic color based on name length/hash
@@ -469,7 +470,7 @@ class _HistoryCard extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    isMe ? 'You' : (name.split(' ').first),
+                                    isMe ? 'You' : (isBot ? name : name.split(' ').first),
                                     style: TextStyle(
                                       color: isMe ? AppColors.gold : Colors.white70,
                                       fontSize: 8,

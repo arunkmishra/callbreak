@@ -18,6 +18,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import com.akm.callbreak.domain.models.GamePhase
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -111,6 +112,9 @@ object SupabaseService {
                         if (p.rank == 1 || p.rank == 2) {
                             finalChange = maxOf(0, finalChange)
                         }
+
+                        // Completed online game gets +4 RP flat addition
+                        finalChange += 4
                     }
                 }
 
@@ -133,10 +137,11 @@ object SupabaseService {
         val updatedState = state.copy(players = state.players.map { p ->
             if (p.id in originalRealPlayerIds) {
                 if (p.hasAbandoned) {
-                    p.copy(rpChange = -5)
+                    p.copy(rpChange = -2)
+                } else if (state.phase != GamePhase.GAME_OVER) {
+                    p.copy(rpChange = 0)
                 } else {
-                    val earnedRp = if (!state.isPublic && state.totalRounds < 3) 0 else 2
-                    p.copy(rpChange = earnedRp)
+                    p.copy(rpChange = 2)
                 }
             } else {
                 p.copy(rpChange = 0)
