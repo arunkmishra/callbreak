@@ -29,6 +29,7 @@ import 'profile_screen.dart';
 import 'rank_screen.dart';
 import 'store_screen.dart';
 import '../../bloc/store_bloc.dart';
+import '../../bloc/store_event.dart';
 import '../../bloc/store_state.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 
@@ -165,6 +166,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     try {
       final profile = await SupabaseRepository().getMyProfile();
       if (mounted) setState(() => _profile = profile);
+      if (mounted) context.read<StoreBloc>().add(LoadStore());
     } catch (_) {}
 
     try {
