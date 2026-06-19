@@ -4,6 +4,10 @@
 -- ============================================================
 
 -- 1. User profiles
+-- Fallback migration for existing profiles
+ALTER TABLE IF EXISTS profiles DROP COLUMN IF EXISTS is_premium_subscriber;
+ALTER TABLE IF EXISTS profiles ADD COLUMN IF NOT EXISTS premium_until TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT UNIQUE,
@@ -11,6 +15,9 @@ CREATE TABLE IF NOT EXISTS profiles (
   total_wins INT DEFAULT 0,
   total_games INT DEFAULT 0,
   total_score DOUBLE PRECISION DEFAULT 0,
+  coin_balance INT DEFAULT 0,
+  premium_until TIMESTAMPTZ,
+  unlocked_skins TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -119,3 +126,27 @@ CREATE POLICY "User match records are viewable by everyone" ON user_match_record
 
 -- ── Indexes for performance ────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_user_match_records_user_id ON user_match_records(user_id);
+
+-- 6. Store Items
+CREATE TABLE IF NOT EXISTS store_items (
+  id TEXT PRIMARY KEY,
+  category TEXT NOT NULL,
+  name TEXT NOT NULL,
+  price INT NOT NULL,
+  preview_url TEXT
+);
+
+-- Seed initial store items
+INSERT INTO store_items (id, category, name, price, preview_url) VALUES
+('premium_1_week', 'subscription', 'Premium (1 Week)', 200, null),
+('premium_1_month', 'subscription', 'Premium (1 Month)', 450, null),
+('premium_1_year', 'subscription', 'Premium (1 Year)', 1000, null),
+('red_felt', 'felt', 'Red Felt', 500, 'assets/felts/red.png'),
+('blue_felt', 'felt', 'Blue Felt', 500, 'assets/felts/blue.png'),
+('neon_cards', 'cards', 'Neon Cards', 800, 'assets/cards/neon.png'),
+('gold_cards', 'cards', 'Gold Cards', 1000, 'assets/cards/gold.png')
+ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE store_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Store items are viewable by everyone" ON store_items;
+CREATE POLICY "Store items are viewable by everyone" ON store_items FOR SELECT USING (true);

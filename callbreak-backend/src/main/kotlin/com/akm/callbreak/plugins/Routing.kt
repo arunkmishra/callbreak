@@ -1,6 +1,7 @@
 package com.akm.callbreak.plugins
 
 import com.akm.callbreak.api.rest.roomRoutes
+import com.akm.callbreak.api.rest.storeRoutes
 import com.akm.callbreak.api.rest.userRoutes
 import com.akm.callbreak.api.ws.ClientMessage
 import com.akm.callbreak.api.ws.ServerMessage
@@ -30,6 +31,7 @@ fun Application.configureRouting() {
         // ─── REST Routes ─────────────────────────────────────────────────────
         roomRoutes()
         userRoutes()
+        storeRoutes()
 
         // ─── WebSocket Route ─────────────────────────────────────────────────
         /**

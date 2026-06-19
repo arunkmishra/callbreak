@@ -14,7 +14,11 @@ import 'core/theme.dart';
 import 'data/repositories/api_repository.dart';
 import 'data/repositories/socket_repository.dart';
 import 'data/repositories/supabase_repository.dart';
+import 'data/repositories/store_repository.dart';
 import 'data/services/heartbeat_service.dart';
+import 'bloc/store_bloc.dart';
+import 'bloc/store_event.dart';
+import 'core/ad_service.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/login_screen.dart';
 import 'ui/screens/splash_screen.dart';
@@ -34,6 +38,9 @@ Future<void> main() async {
 
   // Load .env file before anything else
   await dotenv.load(fileName: '.env');
+
+  // Initialize AdMob after dotenv
+  await AdService.instance.initialize();
 
   // Initialize Supabase
   try {
@@ -70,6 +77,9 @@ class CallbreakApp extends StatelessWidget {
         RepositoryProvider<SocketRepository>(
           create: (_) => SocketRepository(wsBaseUrl: kWsBaseUrl),
         ),
+        RepositoryProvider<StoreRepository>(
+          create: (_) => StoreRepository(),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -82,6 +92,11 @@ class CallbreakApp extends StatelessWidget {
               socketRepository: context.read<SocketRepository>(),
               sessionStorage: SessionStorage(),
             ),
+          ),
+          BlocProvider<StoreBloc>(
+            create: (context) => StoreBloc(
+              repository: context.read<StoreRepository>(),
+            )..add(LoadStore()),
           ),
         ],
         child: MaterialApp(

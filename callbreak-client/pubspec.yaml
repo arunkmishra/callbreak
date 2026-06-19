@@ -1,6 +1,6 @@
 name: callbreak_client
 description: A real-time multiplayer Callbreak card game client.
-version: 1.0.1+2
+version: 1.0.2+3
 publish_to: none
 
 environment:
@@ -31,6 +31,7 @@ dependencies:
   cached_network_image: ^3.4.1
   package_info_plus: ^10.1.0
   internet_connection_checker_plus: ^2.5.2
+  google_mobile_ads: ^8.0.0
 
 dev_dependencies:
   flutter_test:

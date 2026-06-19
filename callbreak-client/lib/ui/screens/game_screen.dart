@@ -14,9 +14,11 @@ import '../../bloc/game_bloc.dart';
 import '../../bloc/game_event.dart';
 import '../../bloc/game_state.dart';
 import '../../bloc/settings_cubit.dart';
+import '../../bloc/store_bloc.dart';
 import '../../core/audio_service.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
+import '../../core/ad_service.dart';
 import '../../core/tier_system.dart';
 import '../../data/models/emoticon_event.dart';
 import '../../data/models/game_state.dart';
@@ -309,8 +311,9 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                       icon: const Icon(Icons.exit_to_app, color: Colors.white, size: 18),
                       onPressed: () {
+                        final gameBloc = context.read<GameBloc>();
                         _dismissDialog();
-                        context.read<GameBloc>().add(const DisconnectRequested());
+                        gameBloc.add(const DisconnectRequested());
                       },
                       label: const Text(
                         'Leave',
@@ -521,6 +524,17 @@ class _GameScreenState extends State<GameScreen> {
                                       fontSize: 12,
                                     ),
                                   ),
+                                  if (state.isGameOver) ...[
+                                    const SizedBox(width: 12),
+                                    const Text(
+                                      '+5 Coins',
+                                      style: TextStyle(
+                                        color: AppColors.gold,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ],
@@ -577,9 +591,19 @@ class _GameScreenState extends State<GameScreen> {
                               icon: const Icon(Icons.refresh_rounded, size: 16),
                               onPressed: () async {
                                 if (!await _checkInternetConnection(context)) return;
+                                final gameBloc = context.read<GameBloc>();
+                                final isPremium = context.read<StoreBloc>().state.isPremium;
                                 _dismissDialog();
-                                if (!context.mounted) return;
-                                context.read<GameBloc>().add(RematchRequested(gameState));
+                                
+                                if (isPremium) {
+                                  gameBloc.add(RematchRequested(gameState));
+                                } else {
+                                  AdService.instance.showInterstitialAd(
+                                    onDismissed: () {
+                                      gameBloc.add(RematchRequested(gameState));
+                                    },
+                                  );
+                                }
                               },
                               label: const Text(
                                 'Rematch',
@@ -599,8 +623,18 @@ class _GameScreenState extends State<GameScreen> {
                               ),
                               icon: const Icon(Icons.home_rounded, size: 16),
                               onPressed: () {
+                                final gameBloc = context.read<GameBloc>();
+                                final isPremium = context.read<StoreBloc>().state.isPremium;
                                 _dismissDialog();
-                                context.read<GameBloc>().add(const DisconnectRequested());
+                                if (isPremium) {
+                                  gameBloc.add(const DisconnectRequested());
+                                } else {
+                                  AdService.instance.showInterstitialAd(
+                                    onDismissed: () {
+                                      gameBloc.add(const DisconnectRequested());
+                                    },
+                                  );
+                                }
                               },
                               label: const Text(
                                 'Back to Lobby',
@@ -625,8 +659,18 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                         icon: const Icon(Icons.home_rounded, size: 20),
                         onPressed: () {
+                          final gameBloc = context.read<GameBloc>();
+                          final isPremium = context.read<StoreBloc>().state.isPremium;
                           _dismissDialog();
-                          context.read<GameBloc>().add(const DisconnectRequested());
+                          if (isPremium) {
+                            gameBloc.add(const DisconnectRequested());
+                          } else {
+                            AdService.instance.showInterstitialAd(
+                              onDismissed: () {
+                                gameBloc.add(const DisconnectRequested());
+                              },
+                            );
+                          }
                         },
                         label: const Text(
                           'Back to Lobby',
@@ -918,9 +962,13 @@ class _GameScreenState extends State<GameScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                       ),
                       onPressed: () {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const HomeScreen()),
-                          (route) => false,
+                        AdService.instance.showInterstitialAd(
+                          onDismissed: () {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (_) => const HomeScreen()),
+                              (route) => false,
+                            );
+                          },
                         );
                       },
                       child: Text(isUpdate ? 'OK' : 'Return to Home', style: const TextStyle(fontWeight: FontWeight.bold)),
