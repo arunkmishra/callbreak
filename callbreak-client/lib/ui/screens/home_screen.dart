@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Map<String, String> _onlineUserStatuses = {};
   Timer? _onlineTimer;
 
-  int _selectedNavIndex = 0;
+  int _selectedNavIndex = 2;
 
   int _simulatedOnlineCount = getSimulatedOnlineCount();
   Timer? _counterTimer;
@@ -1260,9 +1260,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final onlineFriendsCount = _friends.where((f) => f.profile != null && _onlineUserStatuses.containsKey(f.profile!.id)).length;
 
     const items = [
-      (icon: Icons.home_rounded, label: 'HOME'),
-      (icon: Icons.emoji_events_outlined, label: 'RANK'),
       (icon: Icons.people_outline, label: 'FRIENDS'),
+      (icon: Icons.emoji_events_outlined, label: 'RANK'),
+      (icon: Icons.home_rounded, label: 'HOME'),
       (icon: Icons.history, label: 'HISTORY'),
       (icon: Icons.shield_outlined, label: 'CLUB'),
     ];
@@ -1285,34 +1285,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           return Expanded(
             child: GestureDetector(
               onTap: () async {
-                if (i == 0) {
-                  setState(() => _selectedNavIndex = i);
-                } else if (i == 1) {
-                  setState(() => _selectedNavIndex = i);
+                setState(() => _selectedNavIndex = i);
+                if (item.label == 'HOME') {
+                  // Do nothing, stay on home
+                } else if (item.label == 'RANK') {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const RankScreen()),
                   );
-                  if (mounted) {
-                    setState(() => _selectedNavIndex = 0);
-                  }
-                } else if (i == 2) {
-                  setState(() => _selectedNavIndex = i);
+                  if (mounted) setState(() => _selectedNavIndex = 2);
+                } else if (item.label == 'FRIENDS') {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const FriendsScreen()),
                   );
-                  if (mounted) {
-                    setState(() => _selectedNavIndex = 0);
-                  }
-                } else if (i == 3) {
-                  setState(() => _selectedNavIndex = i);
+                  if (mounted) setState(() => _selectedNavIndex = 2);
+                } else if (item.label == 'HISTORY') {
                   await Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const GameHistoryScreen()),
                   );
-                  if (mounted) {
-                    setState(() => _selectedNavIndex = 0);
-                  }
+                  if (mounted) setState(() => _selectedNavIndex = 2);
                 } else {
                   _showComingSoon(context, item.label);
+                  if (mounted) setState(() => _selectedNavIndex = 2);
                 }
               },
               behavior: HitTestBehavior.opaque,
