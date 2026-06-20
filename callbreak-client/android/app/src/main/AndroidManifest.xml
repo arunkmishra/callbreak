@@ -3,9 +3,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application
         android:label="callbreak_client"
-        android:name="${applicationName}"
+        android:name=".MainApplication"
         android:icon="@mipmap/launcher_icon"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false">
         <!-- AdMob App ID (loaded from .env) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
