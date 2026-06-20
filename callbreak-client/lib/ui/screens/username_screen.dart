@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme.dart';
+import '../../core/remote_logger.dart';
 import '../../data/repositories/supabase_repository.dart';
 import 'home_screen.dart';
 
@@ -55,6 +56,7 @@ class _UsernameScreenState extends State<UsernameScreen> {
 
     try {
       await _repository.updateUsername(username);
+      RemoteLogger.currentUsername = username;
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomeScreen()),

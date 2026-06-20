@@ -29,9 +29,15 @@ android {
         if (envFile.exists()) {
             envFile.readLines().forEach { line ->
                 if (line.startsWith("ADMOB_APP_ID=")) {
-                    val envId = line.substringAfter("=").trim()
+                    val envId = line.substringAfter("=").trim().removeSurrounding("\"").removeSurrounding("'")
                     if (envId.isNotEmpty()) {
-                        admobAppId = envId
+                        // Validate format: must start with ca-app-pub- and contain a tilde (~)
+                        // If it contains a slash (/) it's an Ad Unit ID, not an App ID!
+                        if (envId.startsWith("ca-app-pub-") && envId.contains("~")) {
+                            admobAppId = envId
+                        } else {
+                            println("WARNING: Invalid ADMOB_APP_ID '$envId'. It must start with 'ca-app-pub-' and contain a '~'. Falling back to test ID.")
+                        }
                     }
                 }
             }

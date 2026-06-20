@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/remote_logger.dart';
 
 import 'bloc/game_bloc.dart';
 import 'bloc/settings_cubit.dart';
@@ -28,33 +29,57 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Globally catch and ignore the Supabase PKCE async crash
+  // and log all other errors remotely.
   PlatformDispatcher.instance.onError = (error, stack) {
     if (error.toString().contains('Code verifier could not be found')) {
       debugPrint('Ignored Supabase code verifier error.');
       return true; // Prevent the app from crashing
     }
-    return false;
+    RemoteLogger.logError(error, stack);
+    return true; // Handle the error
+  };
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    RemoteLogger.logError(details.exception, details.stack);
   };
 
   // Load .env file before anything else
-  await dotenv.load(fileName: '.env');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    debugPrint('Could not load .env file (missing or invalid): $e');
+    // We continue without .env. Services that depend on it must have fallbacks.
+  }
 
   // Initialize AdMob after dotenv
-  await AdService.instance.initialize();
+  try {
+    await AdService.instance.initialize();
+  } catch (e) {
+    debugPrint('AdService initialization failed: $e');
+  }
 
   // Initialize Supabase
+  bool isSupabaseInitialized = false;
   try {
     await Supabase.initialize(
       url: SupabaseConfig.url,
       anonKey: SupabaseConfig.anonKey,
     );
+    isSupabaseInitialized = true;
   } catch (e) {
     // Ignore PKCE code verifier errors caused by refreshing the page with an auth code in the URL.
     debugPrint('Supabase init caught error: $e');
   }
 
   // Initialize Heartbeat
-  HeartbeatService.initialize();
+  if (isSupabaseInitialized) {
+    try {
+      HeartbeatService.initialize();
+    } catch (e) {
+      debugPrint('HeartbeatService initialization failed: $e');
+    }
+  }
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
@@ -181,6 +206,9 @@ class _ProfileGateState extends State<_ProfileGate> {
           _needsUsername = profile == null || profile.username.startsWith('pending_');
           _isLoading = false;
         });
+        if (profile != null && !profile.username.startsWith('pending_')) {
+          RemoteLogger.currentUsername = profile.username;
+        }
       }
     } catch (e) {
       if (mounted) {
