@@ -1133,16 +1133,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       children: [
                         const Icon(Icons.people_alt_outlined, color: Color(0xFF60A5FA), size: 14),
                         const SizedBox(width: 6),
-                        const Text(
-                          'FRIENDS',
-                          style: TextStyle(
-                            color: Color(0xFF60A5FA),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
+                        Expanded(
+                          child: const Text(
+                            'FRIENDS',
+                            style: TextStyle(
+                              color: Color(0xFF60A5FA),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const Spacer(),
                         GestureDetector(
                           onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(builder: (_) => const FriendsScreen())),
@@ -1199,16 +1201,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   children: [
                     Row(
                       children: [
-                        const Text(
-                          'LEADERBOARD',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
+                        Expanded(
+                          child: const Text(
+                            'LEADERBOARD',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const Spacer(),
                         GestureDetector(
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(

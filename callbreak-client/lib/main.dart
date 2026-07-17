@@ -130,6 +130,13 @@ class CallbreakApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(),
           home: const SplashScreen(nextScreen: AuthGate()),
+          onUnknownRoute: (settings) {
+            // Provide a fallback route so the app doesn't crash when it 
+            // receives an unhandled deep link (e.g. from Supabase auth)
+            return MaterialPageRoute(
+              builder: (context) => const SplashScreen(nextScreen: AuthGate()),
+            );
+          },
         ),
       ),
     );
